@@ -1,0 +1,76 @@
+name: Publicar versão
+
+# Toda vez que a versão em desktop/package.json muda no main, o GitHub monta o instalador do Windows
+# e publica a release com o instalador, o .blockmap e o latest.yml, usando o texto de notas/vX.Y.Z.md.
+# Os painéis instalados encontram a versão nova sozinhos. Se a versão já tem release, não faz nada.
+on:
+  push:
+    branches: [main]
+    paths: ["desktop/package.json"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir a versão
+        id: v
+        run: |
+          versao=$(jq -r .version desktop/package.json)
+          echo "versao=$versao" >> "$GITHUB_OUTPUT"
+          if gh release view "v$versao" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "A versão $versao já está publicada. Nada a fazer."
+            echo "publicar=nao" >> "$GITHUB_OUTPUT"
+          elif [ ! -f "notas/v$versao.md" ]; then
+            echo "::error::Falta o arquivo notas/v$versao.md com as novidades da versão $versao."
+            exit 1
+          else
+            echo "publicar=sim" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.v.outputs.publicar == 'sim'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Instalar as dependências
+        if: steps.v.outputs.publicar == 'sim'
+        working-directory: desktop
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+        run: npm ci
+
+      - name: Montar a página do aplicativo (sem dados pessoais)
+        if: steps.v.outputs.publicar == 'sim'
+        working-directory: desktop
+        run: python3 scripts/gerar-index.py ../mineracao.html
+
+      - name: Gerar o instalador do Windows
+        if: steps.v.outputs.publicar == 'sim'
+        working-directory: desktop
+        run: node scripts/build-win.js
+
+      - name: Publicar a release
+        if: steps.v.outputs.publicar == 'sim'
+        env:
+          V: ${{ steps.v.outputs.versao }}
+        run: |
+          gh release create "v$V" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Versão $V" --notes-file "notas/v$V.md" \
+            "desktop/dist/Painel-de-Mineracao-Setup-$V.exe" \
+            "desktop/dist/Painel-de-Mineracao-Setup-$V.exe.blockmap" \
+            "desktop/dist/latest.yml"

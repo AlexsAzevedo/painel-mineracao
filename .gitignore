@@ -1,0 +1,5 @@
+# gerados no build (o GitHub Actions monta tudo de novo a cada versão)
+desktop/node_modules/
+desktop/dist/
+desktop/app/index.html
+desktop/app/fonts/
