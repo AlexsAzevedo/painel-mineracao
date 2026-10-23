@@ -914,6 +914,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
             <label class="check"><input type="checkbox" id="cel-resumo"><span>Resumo todo dia às <input type="time" id="cel-hora" value="08:00" aria-label="Hora do resumo"><br><small>Lucro, ganho anotado, quanto já recuperou e as melhores ofertas. O botão Atualizar, no aviso, pede um resumo novo na hora.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-ofertas"><span>Ofertas boas que a busca automática encontrar<br><small id="cel-ofertas-h">Os mesmos avisos que aparecem no Windows, com o link do anúncio.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-sinal"><span>Avisar se este computador ficar mais de 45 minutos sem dar sinal<br><small>Desligado, travado ou sem internet: a mineração parou. Sair pelo painel não avisa.</small></span></label>
+            <label class="check"><input type="checkbox" id="cel-iniciar"><span>Abrir o painel junto com o Windows<br><small>Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos. Para fechar de vez: botão direito no ícone › Sair.</small></span></label>
           </div>
           <div class="acoes"><button type="button" id="cel-resumo-agora">Mandar o resumo agora</button><button type="button" class="link" id="cel-trocar">Gerar outro nome</button><button type="button" class="link" id="cel-desligar">Desligar os avisos</button></div>
         </div>
@@ -3643,10 +3644,14 @@ function renderAlerta(){
   $("al-prox").textContent = !alerta.horas ? "" : !temCidade() ? "Informe a sua cidade para o alerta funcionar." : `Próxima busca: ${p <= Date.now() + 60e3 ? "em instantes" : quando(p)}`;
   if(typeof renderCelular==="function" && celCfg) renderCelular();
 }
+/* o painel continua rodando no ícone perto do relógio (fechar a janela só esconde) por causa do alerta de ofertas
+   ou dos avisos no celular; abrir junto com o Windows vale se um dos dois pedir */
 function sincronizarSegundoPlano(){
   if(!DESKTOP || !window.desktop.segundoPlano) return;
-  const bandeja = !!(alerta.horas && alerta.bandeja);
-  window.desktop.segundoPlano({bandeja, iniciar: bandeja && !!alerta.iniciar}).catch(()=>{});
+  if(window.desktop.celular && !celCfg) return;   /* espera a configuração dos avisos no celular chegar */
+  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo();
+  const bandeja = ofertasBg || cel, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false));
+  window.desktop.segundoPlano({bandeja, iniciar}).catch(()=>{});
 }
 $("al-horas").addEventListener("change", e=>{ alerta.horas = +e.target.value || 0; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
 $("al-bandeja").addEventListener("change", e=>{ alerta.bandeja = e.target.checked; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
@@ -3722,7 +3727,7 @@ if(DESKTOP && window.desktop.aoAbrir) window.desktop.aoAbrir(({tela, chave})=>{
 
 /* ---------- avisos no celular, pelo app ntfy (app do computador) ----------
    Quem fala com o ntfy é o aplicativo; aqui ficam a tela, o texto do resumo e a hora de mandar. */
-const CEL = DESKTOP && !!(window.desktop && window.desktop.celular);
+var CEL = DESKTOP && !!(window.desktop && window.desktop.celular);   /* var: o alerta de ofertas, que vem antes, já pergunta por ele */
 var celCfg = null, celFalhouAte = 0;   /* var: renderAlerta, que roda antes, já pode perguntar por ele */
 function celAtivo(k){ return !!(CEL && celCfg && celCfg.ligado && celCfg.topico && (!k || celCfg[k])); }
 const mesAno = d => d.toLocaleDateString("pt-BR",{month:"short", year:"numeric"}).replace(". de ", "/").replace(" de ", "/").replace(".", "");
@@ -3769,7 +3774,7 @@ function renderCelular(){
   const c = celCfg, lig = !!(c.ligado && c.topico);
   $("cel-desligado").hidden = lig; $("cel-ligado").hidden = !lig;
   $("cel-topico").textContent = c.topico || "";
-  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).checked = !!c[k];
+  for(const k of ["resumo","ofertas","sinal","iniciar"]) $("cel-"+k).checked = !!c[k];
   if(document.activeElement!==$("cel-hora")) $("cel-hora").value = c.hora || "08:00";
   $("cel-ofertas-h").textContent = c.ofertas && !alerta.horas ? "Ligue Procurar sozinho, em Ofertas, para a busca rodar sem você." : "Os mesmos avisos que aparecem no Windows, com o link do anúncio.";
   const st = $("cel-status");
@@ -3779,11 +3784,11 @@ function renderCelular(){
   else status2("cel-status", [c.ultimoEnvio ? `Último aviso enviado em ${quando(c.ultimoEnvio)}.` : "Nenhum aviso enviado ainda.", c.sinal && c.ultimoSinal ? `Sinal de vida às ${new Date(c.ultimoSinal).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}.` : ""].filter(Boolean).join(" "));
 }
 function avisoCel(txt, tipo){ status2("cel-status", txt, tipo); $("cel-status").dataset.fixo = String(Date.now() + 8000); }
-async function mudarCelular(op){ try{ celCfg = await window.desktop.celular.config(op); }catch(e){ avisoCel("Não deu certo: " + (e && e.message || e), "erro"); } renderCelular(); }
+async function mudarCelular(op){ try{ celCfg = await window.desktop.celular.config(op); }catch(e){ avisoCel("Não deu certo: " + (e && e.message || e), "erro"); } renderCelular(); sincronizarSegundoPlano(); }
 if(CEL){
   window.desktop.celular.aoMudar(s=>{ celCfg = s; renderCelular(); });
   window.desktop.celular.aoPedir(()=>{ mandarResumoCelular().catch(()=>{}); });
-  window.desktop.celular.config().then(c=>{ celCfg = c; renderCelular(); verificarResumoCelular(); }).catch(()=>{});
+  window.desktop.celular.config().then(c=>{ celCfg = c; renderCelular(); sincronizarSegundoPlano(); verificarResumoCelular(); }).catch(()=>{});
   setInterval(()=>{ verificarResumoCelular().catch(()=>{}); }, 60e3);
   $("cel-ligar").addEventListener("click", async ()=>{
     await mudarCelular({ligado:true, resumoDia:hojeISO()});   /* o primeiro resumo automático chega amanhã; o botão manda um agora */
@@ -3798,7 +3803,7 @@ if(CEL){
     catch(err){ avisoCel("Não deu certo: " + (err && err.message || err) + ".", "erro"); }
     b.disabled = false; renderCelular();
   });
-  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
+  for(const k of ["resumo","ofertas","sinal","iniciar"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
   $("cel-hora").addEventListener("change", e=>{ if(/^\d{2}:\d{2}$/.test(e.target.value)) mudarCelular({hora:e.target.value}); });
   $("cel-resumo-agora").addEventListener("click", async e=>{
     const b = e.currentTarget; b.disabled = true;
@@ -3850,6 +3855,8 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.2.5", itens:[
+    "Com os avisos no celular ligados, fechar a janela deixa o painel rodando no ícone perto do relógio, e ele abre junto com o Windows, para os avisos não pararem. Dá para desligar o abrir com o Windows em Premissas › Avisos no celular."]},
   {v:"1.2.4", itens:[
     "Avisos no celular (Premissas › Avisos no celular): o painel manda para o celular, pelo app ntfy, o resumo do dia, as ofertas boas e um aviso se este computador ficar mais de 45 minutos sem dar sinal. No aviso do resumo, o botão Atualizar pede um resumo novo na hora."]},
   {v:"1.2.3", itens:[

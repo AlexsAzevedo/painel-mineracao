@@ -321,6 +321,13 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.celular.ligado = await js(`({topico:document.getElementById("cel-topico").textContent, passos:!document.getElementById("cel-ligado").hidden, botaoLigar:!document.getElementById("cel-desligado").hidden,
           status:document.getElementById("cel-status").textContent, resumo:celCfg.resumo, ofertas:celCfg.ofertas, sinal:celCfg.sinal, hora:celCfg.hora, resumoDia:celCfg.resumoDia})`);
         const topico = r.celular.ligado.topico;
+        /* com os avisos ligados, o painel fica no ícone perto do relógio e abre com o Windows; dá para desligar o abrir com o Windows */
+        await esperar(300);
+        r.celular.segundoPlano = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
+        await js(`(()=>{ const c = document.getElementById("cel-iniciar"); c.checked = false; c.dispatchEvent(new Event("change", {bubbles:true})); })()`); await esperar(500);
+        r.celular.semIniciar = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
+        await js(`(()=>{ const c = document.getElementById("cel-iniciar"); c.checked = true; c.dispatchEvent(new Event("change", {bubbles:true})); })()`); await esperar(500);
+        r.celular.iniciarDeNovo = testeSegundoPlano.inicioComWindows;
         r.celular.formatoTopico = /^painel-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}$/.test(topico);
         r.celular.arquivo = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "celular.json"), "utf8")); return { topicoIgual: c.topico === topico, ligado: c.ligado }; } catch (e) { return String(e.message); } })();
         await esperar(Number(process.env.PAINEL_SINAL_MS || 2000) * 2 + 600);

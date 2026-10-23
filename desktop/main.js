@@ -107,7 +107,7 @@ function criarBandeja() {
   try {
     bandeja = new Tray(nativeImage.createFromPath(path.join(__dirname, "app", "icone.png")).resize({ width: 32, height: 32 }));
   } catch (e) { bandeja = null; return; }
-  bandeja.setToolTip("Painel de Mineração: procurando ofertas");
+  bandeja.setToolTip("Painel de Mineração (continua rodando)");
   bandeja.setContextMenu(Menu.buildFromTemplate([
     { label: "Abrir o painel", click: () => mostrarPrincipal() },
     { label: "Ver ofertas", click: () => mostrarPrincipal("ofertas") },
@@ -127,7 +127,7 @@ function escondeuNaBandeja() {
   testeSegundoPlano.escondeu++;
   if (segundoPlano.avisouBandeja) return;
   segundoPlano.avisouBandeja = true; gravarSegundoPlano();
-  notificar({ titulo: "O painel continua aberto", corpo: "Ele fica no ícone perto do relógio, procurando ofertas. Para fechar de vez, clique com o botão direito no ícone e escolha Sair." });
+  notificar({ titulo: "O painel continua aberto", corpo: "Ele fica no ícone perto do relógio, procurando ofertas e mandando os avisos. Para fechar de vez, clique com o botão direito no ícone e escolha Sair." });
 }
 /* avisos do Windows; o clique abre o painel na tela do aviso */
 function notificar({ titulo, corpo, tela, chave }) {
@@ -163,7 +163,7 @@ const ntfy = () => ((TESTE && process.env.PAINEL_NTFY) || "https://ntfy.sh").rep
 const SINAL_CADA = TESTE ? Math.max(500, Number(process.env.PAINEL_SINAL_MS) || 60000) : 15 * 60e3;
 const SINAL_ESPERA_MIN = 45;
 const arquivoCelular = () => path.join(app.getPath("userData"), "celular.json");
-let celular = { topico: "", ligado: false, resumo: true, hora: "08:00", ofertas: true, sinal: true, resumoDia: "", ultimoSinal: 0, saiuAMao: false, ultimoEnvio: 0, erro: "" };
+let celular = { topico: "", ligado: false, resumo: true, hora: "08:00", ofertas: true, sinal: true, iniciar: true, resumoDia: "", ultimoSinal: 0, saiuAMao: false, ultimoEnvio: 0, erro: "" };
 let encerrandoWindows = false, atualizandoAgora = false, sinalCancelado = false;
 const testeCelular = { publicados: [], cancelados: [], pedidos: 0 };
 function lerCelular() { try { celular = { ...celular, ...JSON.parse(fs.readFileSync(arquivoCelular(), "utf8")) }; } catch (e) {} }
@@ -173,7 +173,7 @@ function novoTopico() {
   const A = "abcdefghjkmnpqrstuvwxyz23456789", s = [...require("crypto").randomBytes(16)].map((x) => A[x % A.length]).join("");
   return `painel-${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}`;
 }
-const celularPublico = () => ({ topico: celular.topico, ligado: celular.ligado, resumo: celular.resumo, hora: celular.hora, ofertas: celular.ofertas, sinal: celular.sinal,
+const celularPublico = () => ({ topico: celular.topico, ligado: celular.ligado, resumo: celular.resumo, hora: celular.hora, ofertas: celular.ofertas, sinal: celular.sinal, iniciar: celular.iniciar !== false,
   resumoDia: celular.resumoDia, ultimoEnvio: celular.ultimoEnvio, ultimoSinal: celular.ultimoSinal, erro: celular.erro, esperaMin: SINAL_ESPERA_MIN });
 function avisarCelular() { if (principal && !principal.isDestroyed()) principal.webContents.send("celular", celularPublico()); }
 const dataHora = (t) => new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "");
@@ -279,7 +279,7 @@ ipcMain.handle("celular-config", async (e, op) => {
     const antes = { ...celular };
     if ("ligado" in op) celular.ligado = !!op.ligado;
     if (op.novoTopico || (celular.ligado && !celular.topico)) { celular.topico = novoTopico(); celular.ultimoSinal = 0; }
-    for (const k of ["resumo", "ofertas", "sinal"]) if (k in op) celular[k] = !!op[k];
+    for (const k of ["resumo", "ofertas", "sinal", "iniciar"]) if (k in op) celular[k] = !!op[k];
     if (typeof op.hora === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(op.hora)) celular.hora = op.hora;
     if (typeof op.resumoDia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(op.resumoDia)) celular.resumoDia = op.resumoDia;
     if (celular.ligado && !antes.ligado) celular.erro = "";
