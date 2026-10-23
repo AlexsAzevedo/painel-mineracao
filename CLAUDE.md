@@ -6,7 +6,8 @@
   - `python3 desktop/scripts/gerar-index.py` monta `desktop/app/index.html` a partir de `mineracao.html`: fontes locais, política de segurança e a ponte `window.claude` → `window.desktop`.
   - Nunca use `--com-dados` num build que vai ser publicado. O instalador público não pode levar dados de ninguém: na primeira vez, o painel pergunta nome, cidade, luz e computadores.
   - `node desktop/scripts/build-win.js` gera o instalador NSIS no Linux, sem wine.
-  - Teste do aplicativo: com `PAINEL_TESTE=1`, o Electron roda `desktop/scripts/teste.js` (no Linux, com `xvfb-run`). O teste começa pela configuração inicial e grava `teste-desktop.json` e as fotos em `PAINEL_SAIDA`. Ele precisa das páginas de exemplo em `PAINEL_FIXOS`, que não estão no repositório.
+  - Teste do aplicativo: com `PAINEL_TESTE=1`, o Electron roda `desktop/scripts/teste.js` (no Linux, com `xvfb-run`). O teste começa pela configuração inicial e grava `teste-desktop.json` e as fotos em `PAINEL_SAIDA`. Ele precisa das páginas de exemplo em `PAINEL_FIXOS`, que não estão no repositório. Exemplo, dentro de `desktop/`: `PAINEL_TESTE=1 PAINEL_DADOS=<pasta vazia> PAINEL_SAIDA=<pasta> PAINEL_FIXOS=<páginas> PAINEL_DESCANSO=20000 PAINEL_SINAL_MS=2000 XDG_CACHE_HOME=<pasta> xvfb-run -a ./node_modules/.bin/electron . --no-sandbox`.
+  - Avisos no celular: o aplicativo publica no ntfy.sh, num tópico aleatório guardado em `celular.json` (pasta de dados). O "sinal de vida" é uma mensagem agendada para 45 minutos com `sequence_id` `pc-sinal`, reagendada a cada 15 minutos; o botão Atualizar do resumo publica no tópico `<tópico>-p`, que o aplicativo escuta. No teste, o ntfy é um servidor de mentira dentro de `teste.js`.
 
 ## Publicar uma versão
 

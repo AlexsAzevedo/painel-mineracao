@@ -28,6 +28,20 @@ contextBridge.exposeInMainWorld("desktop", {
     if (typeof fn !== "function") return;
     ipcRenderer.on("abrir", (_e, p) => { try { fn({ tela: String(p && p.tela || ""), chave: String(p && p.chave || "") }); } catch (err) {} });
   },
+  copiar: (t) => ipcRenderer.invoke("copiar", String(t || "")),
+  /* avisos no celular (app ntfy): configuração, mandar um aviso, mudanças de estado e pedidos que chegam do celular */
+  celular: {
+    config: (op) => {
+      if (!op || typeof op !== "object") return ipcRenderer.invoke("celular-config", null);
+      const o = {};
+      for (const k of ["ligado", "resumo", "ofertas", "sinal", "novoTopico"]) if (k in op) o[k] = !!op[k];
+      for (const k of ["hora", "resumoDia"]) if (k in op) o[k] = String(op[k] || "");
+      return ipcRenderer.invoke("celular-config", o);
+    },
+    enviar: (m) => ipcRenderer.invoke("celular-enviar", { tipo: String(m && m.tipo || ""), titulo: String(m && m.titulo || ""), corpo: String(m && m.corpo || ""), url: String(m && m.url || "") }),
+    aoMudar: (fn) => { if (typeof fn === "function") ipcRenderer.on("celular", (_e, s) => { try { fn(s); } catch (err) {} }); },
+    aoPedir: (fn) => { if (typeof fn === "function") ipcRenderer.on("celular-pedido", (_e, p) => { try { fn({ tipo: String(p && p.tipo || "") }); } catch (err) {} }); }
+  },
   /* atualização automática: estado atual, procurar agora, instalar a que já baixou e aviso a cada mudança */
   atualizacao: {
     estado: () => ipcRenderer.invoke("atualizacao-estado"),

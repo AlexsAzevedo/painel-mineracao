@@ -277,6 +277,16 @@ td .ein{width:90px;text-align:right;font-family:var(--mono);padding:4px 6px}
 /* análise de anúncio */
 .anaform{display:flex;gap:10px;flex-wrap:wrap}
 .anaform input{flex:1 1 320px;width:auto}
+/* avisos no celular */
+.cel-passos{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:10px;font-size:.92rem;line-height:1.45}
+.cel-passos li::marker{color:var(--muted);font-weight:600}
+.cel-topico{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:6px}
+.cel-topico code{font-family:var(--mono);font-size:1.05rem;font-weight:600;letter-spacing:.02em;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:6px 12px;overflow-wrap:anywhere;user-select:all}
+.cel-opcoes{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.cel-opcoes .check{align-items:flex-start;line-height:1.4}
+.cel-opcoes .check input[type=checkbox]{margin-top:3px}
+.cel-opcoes input[type=time]{width:auto;padding:2px 6px;margin-left:4px;font-family:var(--mono)}
+.cel-opcoes small{color:var(--muted)}
 .status{font-size:.88rem;color:var(--muted);margin:0;min-height:1.3em}
 .status.erro{color:var(--bad)}
 .status.ok{color:var(--good)}
@@ -888,6 +898,26 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
           <button type="button" data-pc="importar">Importar backup</button>
         </div>
         <p class="status" id="pc-status" role="status" aria-live="polite"></p>
+      </article>
+      <article class="painel" id="celular-p" aria-labelledby="t-celular" hidden>
+        <div class="painel-h"><h2 id="t-celular">Avisos no celular</h2></div>
+        <p class="sub" style="margin:0">O painel manda para o seu celular o resumo do dia, as ofertas boas e um aviso se este computador parar de dar sinal. Os avisos chegam pelo app ntfy, de graça e sem criar conta.</p>
+        <div id="cel-desligado"><button type="button" class="pri" id="cel-ligar">Ligar os avisos no celular</button></div>
+        <div id="cel-ligado" hidden>
+          <ol class="cel-passos">
+            <li>Instale o app <b>ntfy</b> no celular (Google Play ou App Store).</li>
+            <li>No app, toque em <b>+</b> e digite o nome abaixo. Ele funciona como uma senha: quem souber o nome consegue ler os avisos.
+              <div class="cel-topico"><code id="cel-topico"></code><button type="button" id="cel-copiar">Copiar</button></div></li>
+            <li>Toque em <button type="button" id="cel-teste">Mandar um teste</button> e confira se o aviso chegou no celular.</li>
+          </ol>
+          <div class="cel-opcoes">
+            <label class="check"><input type="checkbox" id="cel-resumo"><span>Resumo todo dia às <input type="time" id="cel-hora" value="08:00" aria-label="Hora do resumo"><br><small>Lucro, ganho anotado, quanto já recuperou e as melhores ofertas. O botão Atualizar, no aviso, pede um resumo novo na hora.</small></span></label>
+            <label class="check"><input type="checkbox" id="cel-ofertas"><span>Ofertas boas que a busca automática encontrar<br><small id="cel-ofertas-h">Os mesmos avisos que aparecem no Windows, com o link do anúncio.</small></span></label>
+            <label class="check"><input type="checkbox" id="cel-sinal"><span>Avisar se este computador ficar mais de 45 minutos sem dar sinal<br><small>Desligado, travado ou sem internet: a mineração parou. Sair pelo painel não avisa.</small></span></label>
+          </div>
+          <div class="acoes"><button type="button" id="cel-resumo-agora">Mandar o resumo agora</button><button type="button" class="link" id="cel-trocar">Gerar outro nome</button><button type="button" class="link" id="cel-desligar">Desligar os avisos</button></div>
+        </div>
+        <p class="status" id="cel-status" role="status" aria-live="polite"></p>
       </article>
       <div class="grupos">
         <fieldset class="grupo"><legend>Receita</legend>
@@ -3611,6 +3641,7 @@ function renderAlerta(){
   $("al-bandeja").checked = !!alerta.bandeja; $("al-iniciar").checked = !!(alerta.bandeja && alerta.iniciar); $("al-iniciar").disabled = !alerta.bandeja;
   const p = proximaBuscaAuto();
   $("al-prox").textContent = !alerta.horas ? "" : !temCidade() ? "Informe a sua cidade para o alerta funcionar." : `Próxima busca: ${p <= Date.now() + 60e3 ? "em instantes" : quando(p)}`;
+  if(typeof renderCelular==="function" && celCfg) renderCelular();
 }
 function sincronizarSegundoPlano(){
   if(!DESKTOP || !window.desktop.segundoPlano) return;
@@ -3649,9 +3680,13 @@ function alertarOfertas(itens, vistosAntes, r){
     const titulo = novas.length===1 ? (baixou ? "Oferta baixou de preço" : "Oferta boa perto de você") : `${novas.length} ofertas boas perto de você`;
     const corpo = novas.length===1 ? linha(x) + "." : novas.slice(0,3).map(linha).join("\n") + (novas.length>3 ? `\ne mais ${novas.length-3}` : "");
     window.desktop.notificar({titulo, corpo, tela:"ofertas", chave:x.k}).catch(()=>{});
+    if(celAtivo("ofertas")) window.desktop.celular.enviar({tipo:"oferta", titulo, corpo, url:x.url}).catch(()=>{});
   }
-  if(avisarBloqueio) window.desktop.notificar({titulo: bloq==="login-fb" ? "O Facebook pediu login" : "Um site pediu verificação",
-    corpo: "A busca automática de ofertas ficou incompleta. Abra o painel, em Ofertas, para resolver.", tela:"ofertas"}).catch(()=>{});
+  if(avisarBloqueio){
+    const titulo = bloq==="login-fb" ? "O Facebook pediu login" : "Um site pediu verificação";
+    window.desktop.notificar({titulo, corpo: "A busca automática de ofertas ficou incompleta. Abra o painel, em Ofertas, para resolver.", tela:"ofertas"}).catch(()=>{});
+    if(celAtivo("ofertas")) window.desktop.celular.enviar({tipo:"aviso", titulo, corpo: "A busca automática de ofertas ficou incompleta. Abra o painel no computador, em Ofertas, para resolver."}).catch(()=>{});
+  }
   return novas.length;
 }
 /* confere a cada minuto se já é hora (o computador pode ter dormido no meio) */
@@ -3684,6 +3719,101 @@ if(DESKTOP && window.desktop.aoAbrir) window.desktop.aoAbrir(({tela, chave})=>{
   irPara(tela, !chave);
   if(tela==="ofertas" && chave) destacarOferta(chave);
 });
+
+/* ---------- avisos no celular, pelo app ntfy (app do computador) ----------
+   Quem fala com o ntfy é o aplicativo; aqui ficam a tela, o texto do resumo e a hora de mandar. */
+const CEL = DESKTOP && !!(window.desktop && window.desktop.celular);
+var celCfg = null, celFalhouAte = 0;   /* var: renderAlerta, que roda antes, já pode perguntar por ele */
+function celAtivo(k){ return !!(CEL && celCfg && celCfg.ligado && celCfg.topico && (!k || celCfg[k])); }
+const mesAno = d => d.toLocaleDateString("pt-BR",{month:"short", year:"numeric"}).replace(". de ", "/").replace(" de ", "/").replace(".", "");
+/* o resumo que vai para o celular: texto curto, uma informação por linha */
+function textoResumoCelular(){
+  const hoje = hojeISO(), ontem = isoLocal(new Date(Date.now()-864e5));
+  const agora = totaisSetup({ate:hoje}), cheio = totaisSetup({}), t = totaisRig(), L = [];
+  if(agora.ligadas>0) L.push(`Lucro estimado: ${brl0(agora.lucro)}/mês (${brl(agora.lucro/30)} por dia), já com a luz do PC inteiro.`);
+  else if(cheio.ligadas>0){ const prox = placas.map(p=>p.data).filter(d=>d && d>hoje).sort()[0]; L.push(`Ainda não está minerando${prox ? ` (começa em ${dataBR(prox).slice(0,5)})` : ""}. Quando começar: ${brl0(cheio.lucro)}/mês.`); }
+  else if(t.qtd) L.push(`Lucro estimado: ${brl0(t.lucro)}/mês com as placas cadastradas.`);
+  else L.push("Nenhuma placa cadastrada no painel ainda.");
+  const eOntem = diario.find(e=>e.data===ontem);
+  if(eOntem){ const l = linhaDia(eOntem); L.push(`Ontem: recebeu ${brl(l.rBrl)}${l.eBrl>0 ? ` (${Math.round(l.rBrl/l.eBrl*100)}% do estimado)` : ""}.`); }
+  const doMes = diario.filter(e=>e.data.slice(0,7)===hoje.slice(0,7)).map(linhaDia);
+  if(doMes.length){ const r = resumoDias(doMes); L.push(`No mês: ${brl0(r.rBrl)} recebidos em ${r.dias} ${plural(r.dias,"dia")} ${plural(r.dias,"anotado")}, lucro de ${brl0(r.rBrl-r.luz)} depois da luz.`); }
+  else if(agora.ligadas>0) L.push("Nenhum ganho anotado neste mês ainda (Diário de ganhos).");
+  const custo = Math.max(0, t.invest - t.rend);
+  if(custo>0){
+    const falta = custo - t.recup, pct = Math.min(100, t.recup/custo*100);
+    const prazo = falta<=0 ? "já se pagou" : t.lucro>0 ? `se paga em ${mesAno(new Date(Date.now() + falta/(t.lucro/30)*864e5))}` : "";
+    L.push(`Recuperado: ${brl0(t.recup)} de ${brl0(custo)} (${pct.toFixed(0)}%)${prazo ? `, ${prazo}` : ""}.`);
+  }
+  if(OF_PODE() && ofertas && Array.isArray(ofertas.itens)){
+    const boas = ofertas.itens.filter(x=>!ofMarcas.descartados[x.k] && !risco(x) && vereditoOferta(x).cls==="g").sort((a,b)=>(vereditoOferta(a).meses||99)-(vereditoOferta(b).meses||99));
+    if(boas.length){ const b = boas[0], c = byId[b.modelo]; L.push(`Ofertas: ${boas.length} ${boas.length===1 ? "se paga" : "se pagam"} no seu prazo. A melhor: ${c ? c.curto : "placa"} por ${brl0(b.preco)}${b.cidade ? ` em ${b.cidade}` : ""} (busca de ${quando(ofertas.quando)}).`); }
+  }
+  return {titulo:`Painel de Mineração · ${dataBR(hoje).slice(0,5)}`, corpo:L.join("\n")};
+}
+async function mandarResumoCelular(){ const r = textoResumoCelular(); celCfg = await window.desktop.celular.enviar({tipo:"resumo", titulo:r.titulo, corpo:r.corpo}); renderCelular(); }
+/* confere a cada minuto se já passou da hora do resumo de hoje (o computador pode ter dormido na hora certa) */
+async function verificarResumoCelular(){
+  if(!celAtivo("resumo") || !$("bv").hidden || Date.now() < celFalhouAte) return false;
+  const hoje = hojeISO(); if(celCfg.resumoDia===hoje) return false;
+  const [h, m] = String(celCfg.hora||"08:00").split(":").map(Number), agora = new Date();
+  if(agora.getHours()*60 + agora.getMinutes() < h*60 + m) return false;
+  try{ await mandarResumoCelular(); celCfg = await window.desktop.celular.config({resumoDia:hoje}); }
+  catch(e){ celFalhouAte = Date.now() + 15*60e3; }   /* sem internet: tenta de novo em 15 minutos */
+  renderCelular();
+  return true;
+}
+function renderCelular(){
+  const box = $("celular-p"); if(!box) return;
+  box.hidden = !CEL; if(!CEL || !celCfg) return;
+  const c = celCfg, lig = !!(c.ligado && c.topico);
+  $("cel-desligado").hidden = lig; $("cel-ligado").hidden = !lig;
+  $("cel-topico").textContent = c.topico || "";
+  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).checked = !!c[k];
+  if(document.activeElement!==$("cel-hora")) $("cel-hora").value = c.hora || "08:00";
+  $("cel-ofertas-h").textContent = c.ofertas && !alerta.horas ? "Ligue Procurar sozinho, em Ofertas, para a busca rodar sem você." : "Os mesmos avisos que aparecem no Windows, com o link do anúncio.";
+  const st = $("cel-status");
+  if(st.dataset.fixo && Date.now() < +st.dataset.fixo) return;   /* deixa à vista o resultado de um botão por alguns segundos */
+  if(!lig) status2("cel-status", "");
+  else if(c.erro) status2("cel-status", "Não deu certo: " + c.erro + ".", "erro");
+  else status2("cel-status", [c.ultimoEnvio ? `Último aviso enviado em ${quando(c.ultimoEnvio)}.` : "Nenhum aviso enviado ainda.", c.sinal && c.ultimoSinal ? `Sinal de vida às ${new Date(c.ultimoSinal).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}.` : ""].filter(Boolean).join(" "));
+}
+function avisoCel(txt, tipo){ status2("cel-status", txt, tipo); $("cel-status").dataset.fixo = String(Date.now() + 8000); }
+async function mudarCelular(op){ try{ celCfg = await window.desktop.celular.config(op); }catch(e){ avisoCel("Não deu certo: " + (e && e.message || e), "erro"); } renderCelular(); }
+if(CEL){
+  window.desktop.celular.aoMudar(s=>{ celCfg = s; renderCelular(); });
+  window.desktop.celular.aoPedir(()=>{ mandarResumoCelular().catch(()=>{}); });
+  window.desktop.celular.config().then(c=>{ celCfg = c; renderCelular(); verificarResumoCelular(); }).catch(()=>{});
+  setInterval(()=>{ verificarResumoCelular().catch(()=>{}); }, 60e3);
+  $("cel-ligar").addEventListener("click", async ()=>{
+    await mudarCelular({ligado:true, resumoDia:hojeISO()});   /* o primeiro resumo automático chega amanhã; o botão manda um agora */
+    if(celAtivo()){ avisoCel("Pronto. Agora siga os passos abaixo no celular.", "ok"); $("cel-copiar").focus(); }
+  });
+  $("cel-copiar").addEventListener("click", async ()=>{
+    try{ await window.desktop.copiar(celCfg.topico); avisoCel("Nome copiado. Mande para o celular ou digite no app.", "ok"); }catch(e){ avisoCel("Não consegui copiar. Selecione o nome e copie com Ctrl+C.", "erro"); }
+  });
+  $("cel-teste").addEventListener("click", async e=>{
+    const b = e.currentTarget; b.disabled = true;
+    try{ celCfg = await window.desktop.celular.enviar({tipo:"teste", titulo:"Painel de Mineração", corpo:"Funcionou! Os avisos do painel vão chegar aqui."}); avisoCel("Teste enviado. Se não chegar em 1 minuto, confira se o nome no app está igual ao daqui.", "ok"); }
+    catch(err){ avisoCel("Não deu certo: " + (err && err.message || err) + ".", "erro"); }
+    b.disabled = false; renderCelular();
+  });
+  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
+  $("cel-hora").addEventListener("change", e=>{ if(/^\d{2}:\d{2}$/.test(e.target.value)) mudarCelular({hora:e.target.value}); });
+  $("cel-resumo-agora").addEventListener("click", async e=>{
+    const b = e.currentTarget; b.disabled = true;
+    try{ await mandarResumoCelular(); avisoCel("Resumo enviado para o celular.", "ok"); }catch(err){ avisoCel("Não deu certo: " + (err && err.message || err) + ".", "erro"); }
+    b.disabled = false;
+  });
+  $("cel-trocar").addEventListener("click", async ()=>{
+    await mudarCelular({novoTopico:true});
+    avisoCel("Nome trocado. No app ntfy, assine o nome novo e apague o antigo.", "ok");
+  });
+  $("cel-desligar").addEventListener("click", async ()=>{
+    await mudarCelular({ligado:false});
+    avisoCel("Avisos desligados. Se ligar de novo, o nome continua o mesmo.", "ok");
+  });
+}
 
 /* ---------- backup automático: um arquivo por dia numa pasta do computador (app do computador) ---------- */
 let bkpInfo = null;
@@ -3720,6 +3850,8 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.2.4", itens:[
+    "Avisos no celular (Premissas › Avisos no celular): o painel manda para o celular, pelo app ntfy, o resumo do dia, as ofertas boas e um aviso se este computador ficar mais de 45 minutos sem dar sinal. No aviso do resumo, o botão Atualizar pede um resumo novo na hora."]},
   {v:"1.2.3", itens:[
     "Minhas placas: ao cadastrar uma placa, o painel pergunta como você pagou (à vista ou no cartão) e o valor pago. No cartão, informe em quantas vezes: ele mostra o valor de cada parcela. Dá para trocar depois na própria lista."]},
   {v:"1.2.2", itens:[

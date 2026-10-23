@@ -4,7 +4,7 @@
    Um navegador escondido (sessão própria e permanente) abre as páginas de fora — anúncio do Facebook,
    Kryptex, Promotech, cotação do dólar — e devolve o texto para o painel, no mesmo formato que o
    navegador do app Claude devolvia. */
-const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray, Notification, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray, Notification, nativeImage, net, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -79,8 +79,9 @@ function criarPrincipal() {
     /* com o alerta de ofertas rodando com a janela fechada, fechar só esconde (Sair fica no ícone perto do relógio) */
     if (segundoPlano.bandeja && bandeja && !saindo) { e.preventDefault(); principal.hide(); escondeuNaBandeja(); }
   });
-  /* Windows desligando ou saindo da conta: fecha de verdade, sem segurar o desligamento */
-  principal.on("session-end", () => { saindo = true; gravarPendentes(); });
+  /* Windows desligando ou saindo da conta: fecha de verdade, sem segurar o desligamento
+     (e o aviso "o PC parou de dar sinal" continua agendado no celular) */
+  principal.on("session-end", () => { saindo = true; encerrandoWindows = true; gravarPendentes(); });
   principal.on("closed", () => { principal = null; if (leitor && !leitor.isDestroyed()) leitor.destroy(); });
 }
 
@@ -148,6 +149,170 @@ ipcMain.handle("segundo-plano", (e, op) => {
 });
 ipcMain.handle("notificar", (e, n) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return notificar(n || {}); });
 ipcMain.handle("janela-visivel", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return !!(principal && principal.isVisible() && !principal.isMinimized()); });
+/* a área de transferência do Electron 44 é assíncrona */
+ipcMain.handle("copiar", async (e, t) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); await clipboard.writeText(String(t || "").slice(0, 2000)); return true; });
+
+/* ---------- avisos no celular, pelo app ntfy ----------
+   O painel publica num "tópico" do ntfy.sh com nome aleatório, que funciona como senha; o celular assina esse tópico no app ntfy.
+   - resumo do dia, ofertas boas e avisos: publicados na hora;
+   - sinal de vida: a cada 15 minutos o painel reagenda, para daqui a 45 minutos, o aviso "o PC parou de dar sinal". Se o
+     computador desliga, trava ou fica sem internet, ninguém reagenda e o próprio ntfy entrega o aviso. No Sair, o aviso é cancelado;
+   - o botão Atualizar do resumo, no celular, publica num segundo tópico (o mesmo nome + "-p"), que o painel fica escutando.
+   O ntfy.sh aceita 250 mensagens por dia de cada internet: o sinal de vida usa 96. */
+const ntfy = () => ((TESTE && process.env.PAINEL_NTFY) || "https://ntfy.sh").replace(/\/+$/, "");
+const SINAL_CADA = TESTE ? Math.max(500, Number(process.env.PAINEL_SINAL_MS) || 60000) : 15 * 60e3;
+const SINAL_ESPERA_MIN = 45;
+const arquivoCelular = () => path.join(app.getPath("userData"), "celular.json");
+let celular = { topico: "", ligado: false, resumo: true, hora: "08:00", ofertas: true, sinal: true, resumoDia: "", ultimoSinal: 0, saiuAMao: false, ultimoEnvio: 0, erro: "" };
+let encerrandoWindows = false, atualizandoAgora = false, sinalCancelado = false;
+const testeCelular = { publicados: [], cancelados: [], pedidos: 0 };
+function lerCelular() { try { celular = { ...celular, ...JSON.parse(fs.readFileSync(arquivoCelular(), "utf8")) }; } catch (e) {} }
+function gravarCelular() { try { fs.writeFileSync(arquivoCelular(), JSON.stringify(celular)); } catch (e) {} }
+/* 16 letras e números sem os que se confundem (0/o, 1/l/i): fácil de digitar no celular e impossível de adivinhar */
+function novoTopico() {
+  const A = "abcdefghjkmnpqrstuvwxyz23456789", s = [...require("crypto").randomBytes(16)].map((x) => A[x % A.length]).join("");
+  return `painel-${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}`;
+}
+const celularPublico = () => ({ topico: celular.topico, ligado: celular.ligado, resumo: celular.resumo, hora: celular.hora, ofertas: celular.ofertas, sinal: celular.sinal,
+  resumoDia: celular.resumoDia, ultimoEnvio: celular.ultimoEnvio, ultimoSinal: celular.ultimoSinal, erro: celular.erro, esperaMin: SINAL_ESPERA_MIN });
+function avisarCelular() { if (principal && !principal.isDestroyed()) principal.webContents.send("celular", celularPublico()); }
+const dataHora = (t) => new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "");
+const horaMin = (t) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+/* publica uma mensagem (formato JSON do ntfy); "sinal" não conta como aviso enviado */
+async function publicarNtfy(msg, sinal) {
+  if (!celular.topico) throw new Error("os avisos no celular estão desligados");
+  let r = null;
+  try { r = await net.fetch(ntfy() + "/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ topic: celular.topico, ...msg }) }); }
+  catch (e) { r = null; }
+  const erro = !r ? "sem conexão com o ntfy.sh agora (o computador está sem internet?)"
+    : r.status === 429 ? "o ntfy.sh chegou ao limite de mensagens de hoje desta internet; amanhã volta ao normal"
+    : !r.ok ? `o ntfy.sh recusou a mensagem (HTTP ${r.status})` : "";
+  if (TESTE && !erro) testeCelular.publicados.push(msg);
+  if (erro || celular.erro || !sinal) { celular.erro = erro; if (!erro && !sinal) celular.ultimoEnvio = Date.now(); gravarCelular(); avisarCelular(); }
+  if (erro) throw new Error(erro);
+  return true;
+}
+/* o que o painel pediu para mandar → mensagem do ntfy (os links e botões são montados aqui) */
+function mensagemCelular({ tipo, titulo, corpo, url }) {
+  const title = String(titulo || "").slice(0, 200), message = String(corpo || "").slice(0, 3500);
+  const link = /^https:\/\/\S{1,800}$/i.test(String(url || "")) ? String(url) : "";
+  if (tipo === "resumo") return { title, message, tags: ["bar_chart"], priority: 3, sequence_id: "resumo",
+    actions: [{ action: "http", label: "Atualizar", url: `${ntfy()}/${celular.topico}-p`, method: "POST", body: "resumo" }] };
+  if (tipo === "oferta") return { title, message, tags: ["moneybag"], priority: 4, ...(link ? { click: link, actions: [{ action: "view", label: "Abrir o anúncio", url: link }] } : {}) };
+  if (tipo === "teste") return { title: title || "Painel de Mineração", message: message || "Funcionou! Os avisos do painel vão chegar aqui.", tags: ["white_check_mark"], priority: 3 };
+  return { title, message, tags: ["warning"], priority: 4 };
+}
+
+/* sinal de vida: reagenda o aviso de "parou" para daqui a 45 minutos */
+let timerSinal = null, sinalEmCurso = false;
+async function darSinal() {
+  if (!celular.ligado || !celular.sinal || !celular.topico || sinalEmCurso || sinalCancelado) return;
+  sinalEmCurso = true;
+  try {
+    await publicarNtfy({ sequence_id: "pc-sinal", delay: `${SINAL_ESPERA_MIN}m`, title: "O PC parou de dar sinal", tags: ["warning"], priority: 4,
+      message: `O Painel de Mineração não dá sinal desde ${dataHora(Date.now())}. O computador pode ter desligado, travado ou ficado sem internet, e a mineração deve ter parado junto.` }, true);
+    celular.ultimoSinal = Date.now(); celular.saiuAMao = false; gravarCelular();
+  } catch (e) {} finally { sinalEmCurso = false; }
+}
+async function cancelarSinal(topico) {
+  topico = topico || celular.topico; if (!topico) return;
+  try { await net.fetch(`${ntfy()}/${topico}/pc-sinal`, { method: "DELETE" }); if (TESTE) testeCelular.cancelados.push(topico); } catch (e) {}
+}
+/* ao abrir: se ficou mais de 45 minutos sem sinal (sem ter saído pelo Sair), o celular recebeu o aviso; conta que voltou */
+async function verificarVolta() {
+  if (!celular.ligado || !celular.sinal || !celular.topico || !celular.ultimoSinal || celular.saiuAMao) return false;
+  if (Date.now() - celular.ultimoSinal < (SINAL_ESPERA_MIN + 1) * 60e3) return false;
+  await publicarNtfy({ title: "O PC voltou", tags: ["white_check_mark"], priority: 3,
+    message: `O Painel de Mineração voltou a dar sinal às ${horaMin(Date.now())}. Estava sem sinal desde ${dataHora(celular.ultimoSinal)}.` }).catch(() => {});
+  return true;
+}
+
+/* escuta o tópico de pedidos (botão Atualizar no celular) */
+let escuta = null, ultimoPedido = 0;
+const pedidosVistos = new Set();
+function pararEscuta() { if (escuta) { try { escuta.abort(); } catch (e) {} escuta = null; } }
+function pedidoRecebido(linha) {
+  let m = null; try { m = JSON.parse(linha); } catch (e) { return; }
+  if (!m || m.event !== "message" || !m.id || pedidosVistos.has(m.id)) return;
+  pedidosVistos.add(m.id); if (pedidosVistos.size > 200) pedidosVistos.delete(pedidosVistos.values().next().value);
+  if (Date.now() / 1000 - (Number(m.time) || 0) > 600 || !/resumo/i.test(String(m.message || ""))) return;   /* pedido velho ou de outra coisa */
+  if (Date.now() - ultimoPedido < 30e3) return;                                                                /* no máximo um a cada 30 segundos */
+  ultimoPedido = Date.now();
+  if (TESTE) testeCelular.pedidos++;
+  if (principal && !principal.isDestroyed()) principal.webContents.send("celular-pedido", { tipo: "resumo" });
+}
+async function escutarPedidos() {
+  pararEscuta();
+  const ctrl = new AbortController(); escuta = ctrl;
+  let espera = 5000;
+  while (escuta === ctrl) {
+    try {
+      /* since: pega também o que chegou nos últimos 2 minutos (enquanto a conexão caiu); os repetidos são ignorados */
+      const r = await net.fetch(`${ntfy()}/${celular.topico}-p/json?since=${Math.floor(Date.now() / 1000) - 120}`, { signal: ctrl.signal, cache: "no-store" });
+      if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+      espera = 5000;
+      const leitor = r.body.getReader(), dec = new TextDecoder(); let resto = "";
+      for (;;) {
+        const { value, done } = await leitor.read(); if (done) break;
+        resto += dec.decode(value, { stream: true });
+        for (let i; (i = resto.indexOf("\n")) >= 0;) { const linha = resto.slice(0, i).trim(); resto = resto.slice(i + 1); if (linha) pedidoRecebido(linha); }
+      }
+    } catch (e) {}
+    if (escuta !== ctrl) return;
+    await new Promise((ok) => setTimeout(ok, espera)); espera = Math.min(espera * 2, 10 * 60e3);
+  }
+}
+/* liga/desliga o sinal de vida e a escuta conforme a configuração */
+function aplicarSinal() {
+  clearInterval(timerSinal); timerSinal = null;
+  if (celular.ligado && celular.sinal && celular.topico) { darSinal(); timerSinal = setInterval(darSinal, SINAL_CADA); }
+}
+function aplicarEscuta() { if (celular.ligado && celular.topico) escutarPedidos(); else pararEscuta(); }
+function iniciarCelular() {
+  lerCelular();
+  verificarVolta().finally(() => { aplicarSinal(); aplicarEscuta(); });
+}
+ipcMain.handle("celular-config", async (e, op) => {
+  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+  if (op && typeof op === "object") {
+    const antes = { ...celular };
+    if ("ligado" in op) celular.ligado = !!op.ligado;
+    if (op.novoTopico || (celular.ligado && !celular.topico)) { celular.topico = novoTopico(); celular.ultimoSinal = 0; }
+    for (const k of ["resumo", "ofertas", "sinal"]) if (k in op) celular[k] = !!op[k];
+    if (typeof op.hora === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(op.hora)) celular.hora = op.hora;
+    if (typeof op.resumoDia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(op.resumoDia)) celular.resumoDia = op.resumoDia;
+    if (celular.ligado && !antes.ligado) celular.erro = "";
+    gravarCelular();
+    const sinalAntes = !!(antes.ligado && antes.sinal && antes.topico), sinalAgora = !!(celular.ligado && celular.sinal && celular.topico);
+    const mudouTopico = antes.topico !== celular.topico;
+    /* parou de dar sinal (ou trocou o nome): cancela o aviso que estava agendado, senão ele chegaria no celular */
+    if (sinalAntes && (!sinalAgora || mudouTopico)) { await cancelarSinal(antes.topico); celular.ultimoSinal = 0; celular.saiuAMao = false; gravarCelular(); }
+    if (sinalAntes !== sinalAgora || mudouTopico) aplicarSinal();
+    if (antes.ligado !== celular.ligado || mudouTopico) aplicarEscuta();
+  }
+  return celularPublico();
+});
+ipcMain.handle("celular-enviar", async (e, m) => {
+  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+  if (!celular.ligado || !celular.topico) throw new Error("os avisos no celular estão desligados");
+  await publicarNtfy(mensagemCelular(m || {}));
+  return celularPublico();
+});
+/* Sair pelo painel ou pelo ícone: cancela o aviso agendado (quem fechou sabe que fechou). Desligar o Windows ou
+   instalar uma versão nova não cancela: se o painel não voltar, o aviso chega no celular. */
+async function sairCancelandoSinal() {
+  sinalCancelado = true;
+  clearInterval(timerSinal); timerSinal = null; pararEscuta();
+  celular.saiuAMao = true; gravarCelular();
+  await Promise.race([cancelarSinal(), new Promise((ok) => setTimeout(ok, 3000))]);
+}
+app.on("before-quit", (e) => {
+  if (sinalCancelado || encerrandoWindows || atualizandoAgora) return;
+  if (!(celular.ligado && celular.sinal && celular.topico && celular.ultimoSinal)) return;
+  e.preventDefault();
+  sairCancelandoSinal().finally(() => app.quit());
+});
 
 /* ---------- navegador escondido ---------- */
 function criarLeitor() {
@@ -400,6 +565,7 @@ function procurarAtualizacao() {
 }
 function instalarAtualizacao() {
   registrarAtualizacao("info", "instalar agora (pedido no painel)");
+  atualizandoAgora = true;
   mudarAtualizacao({ ...estadoAtualizacao, instalando: true });
   if (TESTE) return;   /* no teste o "instalador" é de mentira */
   guardarJanela();
@@ -503,8 +669,10 @@ if (UNICO) app.whenReady().then(() => {
   lerSegundoPlano();
   criarPrincipal();
   aplicarSegundoPlano();
+  iniciarCelular();
   /* no teste, quem liga a atualização é o próprio teste, depois de subir o servidor de versões de mentira */
-  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }) });
+  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }),
+    celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular } });
   else iniciarAtualizacao();
 });
 app.on("window-all-closed", () => app.quit());

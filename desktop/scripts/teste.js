@@ -86,7 +86,7 @@ function paginaBuscaOlx(uf, q) {
 }
 const paginaTexto = (titulo, linhas, papel) => `<!doctype html><html><head><meta charset="utf-8"><title>${esc(titulo)}</title></head><body><div ${papel}>${linhas.map((s) => `<div>${esc(s)}</div>`).join("")}</div></body></html>`;
 
-module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano }) {
+module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, celular: celularMain }) {
   /* versões de mentira no formato das Releases do GitHub, para a atualização automática.
      modo "igual": a última versão publicada é a que está instalada; "defeito": versão nova com o arquivo corrompido; "ok": versão nova certa */
   const versaoApp = app.getVersion(), proxima = versaoApp.replace(/(\d+)$/, (n) => String(+n + 1));
@@ -118,8 +118,40 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
   const fx = (n) => fs.readFileSync(path.join(process.env.PAINEL_FIXOS, n), "utf8");
   const emDivs = (txt) => txt.split("\n").map((l) => `<div>${esc(l)}</div>`).join("");
   const pedidos = [], agentes = [];
+  /* ntfy de mentira (avisos no celular): guarda o que o painel publicou, agenda/substitui/cancela o "sinal de vida"
+     como o ntfy.sh faz (mesmo sequence_id substitui o agendado) e deixa abertas as escutas do tópico de pedidos */
+  const ntfy = { publicados: [], agendados: {}, apagados: [], escutas: [], n: 0 };
+  function tratarNtfy(req, res, u, caminho) {
+    const json = (o) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
+    if (req.method === "POST" && (caminho === "/" || caminho === "")) {
+      let corpo = ""; req.on("data", (d) => { corpo += d; });
+      req.on("end", () => {
+        let m = null; try { m = JSON.parse(corpo); } catch (e) {}
+        if (!m || !m.topic) { res.writeHead(400); res.end("{}"); return; }
+        ntfy.publicados.push({ ...m, recebido: Date.now() });
+        if (m.delay && m.sequence_id) ntfy.agendados[`${m.topic}/${m.sequence_id}`] = { ...m, recebido: Date.now() };
+        json({ id: "m" + (++ntfy.n), sequence_id: m.sequence_id || "m" + ntfy.n, time: Math.floor(Date.now() / 1000), event: "message", topic: m.topic });
+      });
+      return;
+    }
+    const apagar = /^\/([\w-]{1,64})\/([\w-]{1,64})$/.exec(caminho);
+    if (req.method === "DELETE" && apagar) { const k = `${apagar[1]}/${apagar[2]}`; ntfy.apagados.push(k); delete ntfy.agendados[k]; json({ event: "message_delete" }); return; }
+    const escuta = /^\/([\w-]{1,64})\/json$/.exec(caminho);
+    if (req.method === "GET" && escuta) {
+      res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" });
+      res.write(JSON.stringify({ id: "o" + (++ntfy.n), time: Math.floor(Date.now() / 1000), event: "open", topic: escuta[1] }) + "\n");
+      const e = { topico: escuta[1], res, since: u.searchParams.get("since") }; ntfy.escutas.push(e);
+      req.on("close", () => { ntfy.escutas = ntfy.escutas.filter((x) => x !== e); });
+      return;
+    }
+    res.writeHead(404); res.end("nada");
+  }
+  /* o botão Atualizar no celular: uma mensagem chega no tópico de pedidos */
+  const ntfyPedir = (texto) => { for (const e of ntfy.escutas) e.res.write(JSON.stringify({ id: "p" + (++ntfy.n), time: Math.floor(Date.now() / 1000), event: "message", topic: e.topico, message: texto }) + "\n"); };
+  const ntfyUltimo = (filtro) => ntfy.publicados.filter(filtro).slice(-1)[0] || null;
   const srv = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), p = u.pathname;
+    if (p === "/ntfy" || p.startsWith("/ntfy/")) { tratarNtfy(req, res, u, p.slice(5)); return; }
     pedidos.push(p + u.search);
     let corpo = null, tipo = "text/html; charset=utf-8";
     /* releases (a atualização usa o próprio identificador, "electron-builder"; o navegador escondido não passa por aqui) */
@@ -144,6 +176,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
   }).listen(0, "127.0.0.1", () => {
     const base = `http://127.0.0.1:${srv.address().port}`;
     process.env.PAINEL_REDIRECIONAR = base;
+    process.env.PAINEL_NTFY = base + "/ntfy";
     principal.webContents.once("did-finish-load", async () => {
       const r = { erros: [], passos: {} };
       principal.webContents.on("console-message", (e) => { if (e.level === "error") r.erros.push(e.message); });
@@ -279,6 +312,56 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.atualizacao.baixado = (() => { try { return fs.readdirSync(path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "painel-mineracao-updater-teste", "pending")); } catch (e) { return String(e.message); } })();
         r.atualizacao.logLinhas = (() => { try { return fs.readFileSync(path.join(app.getPath("userData"), "atualizacao.log"), "utf8").split("\n").filter(Boolean).map((l) => l.slice(25, 200)); } catch (e) { return String(e.message); } })();
 
+        /* avisos no celular: liga, nome do tópico, teste, resumo (na hora, automático e pedido pelo celular), sinal de vida e volta */
+        r.celular = {};
+        const naoSinal = (m) => m.sequence_id !== "pc-sinal";
+        await js(`irPara("premissas"); document.getElementById("celular-p").scrollIntoView()`);
+        r.celular.antes = await js(`({visivel:!document.getElementById("celular-p").hidden, botaoLigar:!document.getElementById("cel-desligado").hidden, passos:!document.getElementById("cel-ligado").hidden})`);
+        await js(`document.getElementById("cel-ligar").click()`); await esperar(800);
+        r.celular.ligado = await js(`({topico:document.getElementById("cel-topico").textContent, passos:!document.getElementById("cel-ligado").hidden, botaoLigar:!document.getElementById("cel-desligado").hidden,
+          status:document.getElementById("cel-status").textContent, resumo:celCfg.resumo, ofertas:celCfg.ofertas, sinal:celCfg.sinal, hora:celCfg.hora, resumoDia:celCfg.resumoDia})`);
+        const topico = r.celular.ligado.topico;
+        r.celular.formatoTopico = /^painel-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}$/.test(topico);
+        r.celular.arquivo = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "celular.json"), "utf8")); return { topicoIgual: c.topico === topico, ligado: c.ligado }; } catch (e) { return String(e.message); } })();
+        await esperar(Number(process.env.PAINEL_SINAL_MS || 2000) * 2 + 600);
+        const sinais = ntfy.publicados.filter((m) => m.sequence_id === "pc-sinal" && m.topic === topico);
+        const ag = ntfy.agendados[`${topico}/pc-sinal`];
+        r.celular.sinal = { quantos: sinais.length, agendadosNoTopico: Object.keys(ntfy.agendados).filter((k) => k.startsWith(topico + "/")).length,
+          delay: ag && ag.delay, titulo: ag && ag.title, prioridade: ag && ag.priority, texto: ag && ag.message, ultimoSinal: celularMain.estado().ultimoSinal > 0 };
+        r.celular.escuta = ntfy.escutas.map((e) => ({ topico: e.topico, since: e.since }));
+        await js(`document.getElementById("cel-copiar").click()`); await esperar(300);
+        r.celular.copiou = { igual: (await require("electron").clipboard.readText()) === topico, status: await js(`document.getElementById("cel-status").textContent`) };
+        await js(`document.getElementById("cel-teste").click()`); await esperar(800);
+        const teste = ntfyUltimo(naoSinal);
+        r.celular.teste = teste && { topic: teste.topic === topico, title: teste.title, message: teste.message, tags: teste.tags, status: await js(`document.getElementById("cel-status").textContent`) };
+        await js(`document.getElementById("cel-resumo-agora").click()`); await esperar(800);
+        const resumo = ntfyUltimo((m) => m.sequence_id === "resumo");
+        r.celular.resumo = resumo && { title: resumo.title, linhas: String(resumo.message).split("\n"), tags: resumo.tags, acoes: resumo.actions, status: await js(`document.getElementById("cel-status").textContent`) };
+        /* resumo automático: passou da hora e ainda não mandou hoje; depois de mandar, não manda de novo no mesmo dia */
+        const nResumos = () => ntfy.publicados.filter((m) => m.sequence_id === "resumo").length;
+        const n0 = nResumos();
+        r.celular.automatico = await js(`(async()=>{ await mudarCelular({hora:"00:00", resumoDia:"2020-01-01"}); const rodou = await verificarResumoCelular(); const deNovo = await verificarResumoCelular(); return {rodou, deNovo, resumoDia:celCfg.resumoDia, hoje:hojeISO()}; })()`);
+        r.celular.automatico.publicou = nResumos() - n0;
+        /* botão Atualizar no celular: chega um pedido, sai um resumo; outro pedido logo em seguida é ignorado */
+        const n1 = nResumos();
+        ntfyPedir("resumo"); await esperar(1200);
+        r.celular.pedido = { publicou: nResumos() - n1, pedidos: celularMain.registro.pedidos };
+        ntfyPedir("resumo"); await esperar(1000);
+        r.celular.pedidoRepetido = nResumos() - n1;
+        /* o PC ficou 2 horas sem sinal (sem sair pelo painel): ao voltar, avisa que voltou */
+        celularMain.mudar({ ultimoSinal: Date.now() - 2 * 3600e3, saiuAMao: false });
+        r.celular.volta = { avisou: await celularMain.verificarVolta() };
+        const volta = ntfyUltimo(naoSinal); r.celular.volta.titulo = volta && volta.title; r.celular.volta.texto = volta && volta.message;
+        celularMain.mudar({ ultimoSinal: Date.now() - 10 * 60e3 });
+        r.celular.volta.recente = await celularMain.verificarVolta();   /* 10 minutos: o aviso nem chegou, não manda nada */
+        await foto("celular");
+        /* desligar o "sinal de vida" cancela o aviso agendado; ligar de novo agenda outro */
+        const marcarCel = (id, v) => js(`(()=>{ const c = document.getElementById("${id}"); c.checked = ${v}; c.dispatchEvent(new Event("change", {bubbles:true})); })()`);
+        await marcarCel("cel-sinal", false); await esperar(600);
+        r.celular.semSinal = { apagou: ntfy.apagados.includes(`${topico}/pc-sinal`), agendado: !!ntfy.agendados[`${topico}/pc-sinal`] };
+        await marcarCel("cel-sinal", true); await esperar(600);
+        r.celular.sinalDeNovo = !!ntfy.agendados[`${topico}/pc-sinal`];
+
         /* alerta de ofertas: liga, força a hora da busca automática e confere os avisos do Windows */
         r.alerta = {};
         await js(`irPara("ofertas")`);
@@ -315,6 +398,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         fase.login = false;
         r.alerta.avisosLogin = testeSegundoPlano.notificacoes.slice(nAntesLogin);
         r.alerta.statusLogin = await js(`document.getElementById("of-status").textContent`);
+        r.celular.ofertas = ntfy.publicados.filter((m) => (m.tags || []).includes("moneybag")).map((m) => ({ title: m.title, message: m.message, click: m.click, acoes: m.actions }));
+        r.celular.avisos = ntfy.publicados.filter((m) => (m.tags || []).includes("warning") && m.sequence_id !== "pc-sinal").map((m) => m.title + " | " + m.message);
 
         /* backup automático: um arquivo por dia, guarda os últimos 30, e dá para mudar a pasta */
         const pastaBk = path.join(app.getPath("userData"), "backups"), hojeLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
@@ -381,8 +466,18 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await marcar("al-bandeja", false); await esperar(300);
         r.bandeja.desligada = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows, iniciarDesabilitado: await js(`document.getElementById("al-iniciar").disabled`) };
 
+        /* Sair pelo painel: cancela o aviso agendado e marca que saiu de propósito (ao abrir, não diz que "voltou") */
+        if (r.celular) {
+          const topico = celularMain.estado().topico, antes = ntfy.apagados.length;
+          await celularMain.sair();
+          r.celular.sair = { apagou: ntfy.apagados.slice(antes), agendado: !!ntfy.agendados[`${topico}/pc-sinal`] };
+          try { r.celular.sair.saiuAMao = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "celular.json"), "utf8")).saiuAMao; } catch (e) { r.celular.sair.saiuAMao = String(e.message); }
+          r.celular.sair.voltaDepoisDeSair = await celularMain.verificarVolta();
+          r.celular.totalSinais = ntfy.publicados.filter((m) => m.sequence_id === "pc-sinal").length;
+        }
       } catch (e) { r.falha = String((e && e.stack) || e); }
       fs.writeFileSync(path.join(SAIDA, "teste-desktop.json"), JSON.stringify(r, null, 1));
+      for (const e of ntfy.escutas) { try { e.res.end(); } catch (err) {} }
       srv.close(); app.quit();
     });
   });
