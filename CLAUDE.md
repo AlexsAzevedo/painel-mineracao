@@ -1,0 +1,17 @@
+# Painel de Mineração: como trabalhar neste repositório
+
+- O dono é o Alex (Alexsander Azevedo). Responda em português do Brasil.
+- `mineracao.html` é o painel. É a mesma página do painel online, o artifact https://claude.ai/artifact/Nu8cNXUvFJKtnFFPBWFY9A. Depois de mudar o painel, publique de novo nesse artifact passando a `url` dele: os dados do Alex ficam no banco desse artifact, e um artifact novo começaria vazio.
+- `desktop/` é o aplicativo do Windows (Electron 44 e electron-builder 26).
+  - `python3 desktop/scripts/gerar-index.py` monta `desktop/app/index.html` a partir de `mineracao.html`: fontes locais, política de segurança e a ponte `window.claude` → `window.desktop`.
+  - Nunca use `--com-dados` num build que vai ser publicado. O instalador público não pode levar dados de ninguém: na primeira vez, o painel pergunta nome, cidade, luz e computadores.
+  - `node desktop/scripts/build-win.js` gera o instalador NSIS no Linux, sem wine.
+  - Teste do aplicativo: com `PAINEL_TESTE=1`, o Electron roda `desktop/scripts/teste.js` (no Linux, com `xvfb-run`). O teste começa pela configuração inicial e grava `teste-desktop.json` e as fotos em `PAINEL_SAIDA`. Ele precisa das páginas de exemplo em `PAINEL_FIXOS`, que não estão no repositório.
+
+## Publicar uma versão
+
+1. Suba a versão em `desktop/package.json` e no topo de `desktop/package-lock.json`.
+2. Ponha as novidades no começo de `NOVIDADES`, em `mineracao.html`, e escreva `notas/vX.Y.Z.md` (o texto da release, no formato das anteriores).
+3. Teste e faça push no `main`. O workflow `.github/workflows/publicar.yml` monta o instalador e cria a release `vX.Y.Z` com o `.exe`, o `.blockmap` e o `latest.yml`. Os painéis instalados se atualizam sozinhos.
+
+Daqui não dá para criar releases pela API do GitHub: quem publica é o workflow. A API de Actions também é bloqueada; acompanhe o andamento por `repos/AlexsAzevedo/painel-mineracao/commits/<sha>/check-runs`.
