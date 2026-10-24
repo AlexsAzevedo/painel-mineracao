@@ -1,0 +1,64 @@
+apply plugin: 'com.android.application'
+
+// a versão vem de celular/package.json (a mesma do painel do PC): 1.4.0 → versionName "1.4.0", versionCode 10400
+def pacote = new groovy.json.JsonSlurper().parse(file('../../package.json'))
+def partes = pacote.version.tokenize('.').collect { it as int }
+
+// assinatura da versão publicada: a chave fica fora do repositório (segredos do GitHub, ver .github/workflows/publicar.yml).
+// PAINEL_KEYSTORE = caminho do arquivo .jks; PAINEL_KEYSTORE_SENHA = a senha (a mesma do arquivo e da chave "painel").
+def chave = System.getenv('PAINEL_KEYSTORE')
+
+android {
+    namespace = "br.alex.painelmineracao.celular"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "br.alex.painelmineracao.celular"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode partes[0] * 10000 + partes[1] * 100 + partes[2]
+        versionName pacote.version
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (chave) {
+                storeFile file(chave)
+                storePassword System.getenv('PAINEL_KEYSTORE_SENHA')
+                keyAlias System.getenv('PAINEL_KEYSTORE_ALIAS') ?: 'painel'
+                keyPassword System.getenv('PAINEL_KEYSTORE_SENHA')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (chave) signingConfig signingConfigs.release
+        }
+    }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'

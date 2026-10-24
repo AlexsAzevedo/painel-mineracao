@@ -1,0 +1,28 @@
+{
+  "name": "painel-mineracao-celular",
+  "version": "1.4.0",
+  "description": "App Android do Painel de Mineração: o mesmo painel do PC, com os dados sincronizados pelo ntfy.sh com criptografia de ponta a ponta.",
+  "author": {
+    "name": "Alexsander Azevedo",
+    "email": "alexs_azevedo@hotmail.com"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "montar": "python3 scripts/montar-www.py",
+    "sync": "python3 scripts/montar-www.py && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/device": "8.0.3",
+    "jsqr": "1.4.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "@fontsource/bricolage-grotesque": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/public-sans": "5.3.0"
+  }
+}

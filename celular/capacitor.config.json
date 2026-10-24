@@ -1,0 +1,15 @@
+{
+  "appId": "br.alex.painelmineracao.celular",
+  "appName": "Mineração",
+  "webDir": "www",
+  "loggingBehavior": "none",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DEFAULT"
+    }
+  }
+}

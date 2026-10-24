@@ -1,7 +1,7 @@
 {
   "name": "painel-mineracao",
   "productName": "Painel de Mineração",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Painel pessoal de mineração com placas de vídeo: placas, setup, diário de ganhos, anúncios e preços no Brasil.",
   "main": "main.js",
   "author": {
@@ -31,6 +31,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "sincronia.js",
       "app/**/*",
       "package.json"
     ],
@@ -84,6 +85,7 @@
     }
   },
   "dependencies": {
-    "electron-updater": "6.8.10"
+    "electron-updater": "6.8.10",
+    "qrcode-generator": "2.0.4"
   }
 }

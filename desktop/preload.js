@@ -41,6 +41,14 @@ contextBridge.exposeInMainWorld("desktop", {
     },
     aoMudar: (fn) => { if (typeof fn === "function") ipcRenderer.on("acesso", (_e, s) => { try { fn(s); } catch (err) {} }); }
   },
+  /* app do celular: vincular (QR code), vincular de novo com outro código, desvincular e o estado (celulares, último envio) */
+  appCelular: {
+    config: (op) => {
+      if (!op || typeof op !== "object") return ipcRenderer.invoke("app-celular", null);
+      return ipcRenderer.invoke("app-celular", { vincular: !!op.vincular, trocar: !!op.trocar, desvincular: !!op.desvincular, mostrarQr: !!op.mostrarQr });
+    },
+    aoMudar: (fn) => { if (typeof fn === "function") ipcRenderer.on("app-celular", (_e, s) => { try { fn(s); } catch (err) {} }); }
+  },
   /* avisos no celular (app ntfy): configuração, mandar um aviso, mudanças de estado e pedidos que chegam do celular */
   celular: {
     config: (op) => {

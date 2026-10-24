@@ -69,7 +69,7 @@ semente = ("""
 ponte = """<script>%s
 /* o painel conversa com "o navegador do app" pela interface window.claude; aqui ela vira o navegador escondido do aplicativo */
 (function(){
-  if(!window.desktop) return;
+  if(!window.desktop || !window.desktop.navegar) return;   /* no celular (pelo navegador), quem lê as páginas é o PC */
   var ABA = "painel";
   function resp(t){ return {content:[{type:"text", text:t}]}; }
   var mcp = Object.freeze({

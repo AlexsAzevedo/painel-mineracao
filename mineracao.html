@@ -297,6 +297,19 @@ td .ein{width:90px;text-align:right;font-family:var(--mono);padding:4px 6px}
 .ac-end li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
 .ac-end li > span{color:var(--muted);font-size:.85rem;min-width:190px}
 .ac-end code{font-family:var(--mono);font-size:.95rem;overflow-wrap:anywhere}
+.remoto-aviso.info{background:var(--accent);color:var(--bg);display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.remoto-aviso.info a{color:inherit;font-weight:700}
+.remoto-aviso.info button.link{color:inherit;margin-left:auto;font-size:1.2rem;line-height:1;padding:0 4px}
+.appcel-codigo{margin-top:10px;width:min(220px,100%);aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid var(--line)}
+.appcel-codigo svg{display:block;width:100%;height:100%}
+.appcel-passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:20px 32px;align-items:start}
+.appcel-passos a{color:var(--accent);font-weight:600}
+.appcel-passos small{display:block;margin-top:8px}
+.appcel-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.appcel-lista li{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+.appcel-lista li small{color:var(--muted)}
+.appcel-lista .on{color:var(--good);font-weight:600}
+a.botao-link{display:inline-flex;align-items:center;font-weight:600;font-size:.9rem;color:var(--bg);background:var(--accent);border-radius:8px;padding:7px 14px;text-decoration:none}
 .status{font-size:.88rem;color:var(--muted);margin:0;min-height:1.3em}
 .status.erro{color:var(--bad)}
 .status.ok{color:var(--good)}
@@ -529,6 +542,9 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .of-mods-pe{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .of-prog{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
 .of-prog span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.of-prog.indef span{width:35%;transition:none;animation:of-indef 1.4s ease-in-out infinite}
+@keyframes of-indef{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
+@media (prefers-reduced-motion: reduce){.of-prog.indef span{animation:none;width:100%;opacity:.45}}
 #of-status:empty{display:none}
 .of-filtros{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
 .of-filtros > label{display:flex;flex-direction:column;gap:4px}
@@ -861,6 +877,13 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
     <section class="view" id="v-premissas" aria-labelledby="t-premissas" hidden>
       <header class="vh"><div><h1 id="t-premissas" tabindex="-1">Premissas</h1><p class="sub">Os valores usados em todas as contas do painel. Mudou o dólar, a bandeira tarifária ou a Selic? Atualize aqui e tudo é recalculado na hora.</p></div></header>
+      <article class="painel" id="estecel-p" aria-labelledby="t-estecel" hidden>
+        <div class="painel-h"><h2 id="t-estecel">Este celular</h2><small class="hint" id="estecel-versao"></small></div>
+        <p class="sub" style="margin:0">Os dados ficam no PC e chegam aqui criptografados pelo ntfy.sh. O que você muda aqui vai para o PC; a busca de ofertas, a leitura de anúncios e a atualização dos dados de fora rodam no PC.</p>
+        <dl class="cen" id="estecel-info"></dl>
+        <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar a versão nova do app</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
+        <p class="status" id="estecel-status" role="status" aria-live="polite"></p>
+      </article>
       <article class="painel" id="perfil-p" aria-labelledby="t-perfil">
         <div class="painel-h"><h2 id="t-perfil">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
         <div class="pf-g">
@@ -909,6 +932,27 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         </div>
         <p class="status" id="pc-status" role="status" aria-live="polite"></p>
       </article>
+      <article class="painel" id="appcel-p" aria-labelledby="t-appcel" hidden>
+        <div class="painel-h"><h2 id="t-appcel">App do celular</h2></div>
+        <p class="sub" style="margin:0">O painel no celular Android, com os mesmos dados deste computador, em casa ou na rua. Os dados vão criptografados pelo ntfy.sh: nenhuma porta fica aberta neste PC, e só os celulares que você vincular conseguem ler. A busca de ofertas pedida no celular roda aqui.</p>
+        <div id="appcel-desligado"><button type="button" class="pri" id="appcel-vincular">Vincular um celular</button></div>
+        <div id="appcel-qr" hidden>
+          <ol class="cel-passos appcel-passos">
+            <li><b>Instale o app.</b> Aponte a câmera do celular para este código (ou abra <a id="appcel-url" target="_blank" rel="noopener noreferrer">o link do app</a> no celular) e baixe o arquivo. Ao abrir, o Android pergunta se o navegador pode instalar apps: permita.
+              <div class="appcel-codigo" id="appcel-qr-apk"></div>
+              <p class="hint" id="appcel-sem-apk" hidden>O arquivo do app ainda não está no GitHub: ele sai junto com a versão nova do painel, assim que a publicação terminar. Tente de novo mais tarde.</p></li>
+            <li><b>Vincule.</b> Abra o app Mineração, toque em <b>Ler o QR code</b> e aponte para este código.
+              <div class="appcel-codigo" id="appcel-qr-cod"></div>
+              <small class="hint">Sem câmera? No app, toque em Colar o código e cole o que este botão copia: <button type="button" class="link" id="appcel-copiar">Copiar o código</button>. O código é a chave dos seus dados: não mande para ninguém.</small></li>
+          </ol>
+          <div class="acoes"><button type="button" id="appcel-pronto">Esconder o QR code</button></div>
+        </div>
+        <div id="appcel-ligado" hidden>
+          <ul class="appcel-lista" id="appcel-lista"></ul>
+          <div class="acoes"><button type="button" id="appcel-outro">Vincular outro celular</button><button type="button" class="link" id="appcel-desvincular">Desvincular todos</button></div>
+        </div>
+        <p class="status" id="appcel-status" role="status" aria-live="polite"></p>
+      </article>
       <article class="painel" id="celular-p" aria-labelledby="t-celular" hidden>
         <div class="painel-h"><h2 id="t-celular">Avisos no celular</h2></div>
         <p class="sub" style="margin:0">O painel manda para o seu celular o resumo do dia, as ofertas boas e um aviso se este computador parar de dar sinal. Os avisos chegam pelo app ntfy, de graça e sem criar conta.</p>
@@ -931,8 +975,8 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         <p class="status" id="cel-status" role="status" aria-live="polite"></p>
       </article>
       <article class="painel" id="acesso-p" aria-labelledby="t-acesso" hidden>
-        <div class="painel-h"><h2 id="t-acesso">Abrir no celular</h2></div>
-        <p class="sub" style="margin:0">O celular abre este painel com os mesmos dados deste computador: o que você anotar ou cadastrar num aparece no outro na hora, e a busca de ofertas pedida no celular roda aqui. Em casa funciona pelo Wi-Fi; fora de casa, pelo Tailscale.</p>
+        <div class="painel-h"><h2 id="t-acesso">Abrir no navegador do celular</h2></div>
+        <p class="sub" style="margin:0">Outro jeito, sem instalar app: o navegador do celular abre este painel direto deste computador, com os mesmos dados. Em casa funciona pelo Wi-Fi; fora de casa, pelo Tailscale. Precisa deixar uma porta aberta neste PC; o App do celular (acima) não precisa.</p>
         <div id="ac-desligado"><button type="button" class="pri" id="ac-ligar">Ligar o acesso pelo celular</button></div>
         <div id="ac-ligado" hidden>
           <div class="ac-linha"><span class="lbl">Senha</span><code class="ac-pin" id="ac-pin"></code><button type="button" class="link" id="ac-trocar">Trocar a senha</button></div>
@@ -1187,8 +1231,10 @@ const brl0 = v => (v<0?"−":"")+"R$ "+Math.abs(v).toLocaleString("pt-BR",{maxim
 const n1 = v => v.toLocaleString("pt-BR",{maximumFractionDigits:1});
 const $ = id => document.getElementById(id);
 /* rodando como aplicativo do computador (Electron): o navegador escondido e o backup vêm de window.desktop.
-   REMOTO: o celular abrindo o painel servido pelo PC; os dados são os do PC e as buscas rodam no PC */
+   REMOTO: no celular, com os dados do PC (pelo navegador, servido pelo PC, ou pelo app do celular, APP); os dados
+   vão e voltam por window.desktop.sync e as buscas rodam no PC (window.desktop.pedirAoPc) */
 const REMOTO = !!(window.desktop && window.desktop.remoto);
+const APP = REMOTO && !!window.desktop.app;
 const DESKTOP = !!(window.desktop && window.desktop.versao) && !REMOTO;
 const ONDE_SALVO = REMOTO ? "Dados do PC" : DESKTOP ? "Salvo neste computador" : "Salvo neste navegador";
 const ONDE_FB = DESKTOP ? "Clique em Entrar no Facebook (Premissas › Este computador), entre na sua conta" : "Entre no Facebook no navegador do app";
@@ -1278,9 +1324,10 @@ function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return
 /* chaves que o PC e o celular dividem (o resto, como a tela aberta e os filtros, é de cada aparelho) */
 const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos"];
 var aplicandoRemoto = false;   /* var: lsSet roda antes da parte do celular, lá embaixo */
+var painelPronto = false;      /* o script inteiro já rodou (as telas que dependem de tudo podem ser desenhadas) */
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
 function dadosMudaram(k){
-  if(REMOTO){ if(typeof remotoEnfileirar==="function") remotoEnfileirar(k); }
+  if(REMOTO){ if(window.desktop.sync) window.desktop.sync.mudou(k); }
   else if(DESKTOP && window.desktop.dadosMudaram) window.desktop.dadosMudaram(k);
 }
 let saveT;
@@ -1883,7 +1930,29 @@ async function lerAba(mcp){
   }
   return txt;
 }
+/* espera os dados do PC chegarem (a resposta de um pedido pode vir um pouco antes deles, no celular pelo navegador) */
+async function esperarDados(cond, ms){ for(let i=0; i<ms/200 && !cond(); i++) await esperar(200); return cond(); }
+/* no celular: o PC abre e lê o anúncio, guarda em Analisar anúncio e a análise chega pela sincronia */
+async function analisarLinkNoPc(url){
+  if(analisando) return null;
+  if(ofEst.rodando || atualizandoDados){ status("Espere terminar a busca ou a atualização em andamento e tente de novo.", "erro"); return null; }
+  if(!linkSeguro(url)){ status("Cole um link completo, começando com https://", "erro"); return null; }
+  analisando = true; $("a-btn").disabled = true;
+  status("O PC está abrindo o anúncio e lendo título, preço e descrição…");
+  try{
+    const r = await pedirAoPc("analisar", {url});
+    if(r.ok && r.id){
+      await esperarDados(()=>anuncios.some(x=>x._id===r.id), 8000);
+      atualId = r.id; $("a-link").value = ""; renderAnalise();
+      status(r.texto || "Pronto.", r.tipo==="erro" ? "" : "ok");
+    }
+    else status(r.texto ? "No PC: " + r.texto : "O PC não conseguiu ler o anúncio agora.", "erro");
+  }catch(e){ status("Não deu certo: " + (e && e.message || e), "erro"); }
+  finally{ analisando = false; $("a-btn").disabled = false; }
+  return null;
+}
 async function analisarLink(url){
+  if(REMOTO) return analisarLinkNoPc(url);
   if(analisando) return;
   if(atualizandoDados){ status("Espere terminar a atualização dos dados de fora (Premissas) e tente de novo.", "erro"); return; }
   if(ofEst.rodando){ status("Espere terminar a busca de ofertas e tente de novo.", "erro"); return; }
@@ -1904,10 +1973,12 @@ async function analisarLink(url){
     await addAnuncio(a);
     avisar(a);
     $("a-link").value = "";
+    return a;
   }catch(e){
     const code = e?.code || "upstream_error";
     status(MSG_ERRO[code] || `Não consegui ler o anúncio agora (${code}). Tente de novo ou cole o texto do anúncio.`, "erro");
   }finally{ analisando = false; $("a-btn").disabled = false; }
+  return null;
 }
 function avisar(a){
   const c = byId[a.modelo];
@@ -2862,17 +2933,30 @@ function marcarBotoes(rodando){
   document.querySelectorAll('#dados-fora [data-x]').forEach(b=>{ if(b.dataset.x!=="tudo") b.disabled = rodando; });
   $("x-tudo").textContent = rodando ? "Parar" : "Atualizar tudo";
 }
+/* no celular: o PC lê as páginas e os números novos chegam pela sincronia */
+async function xRodarNoPc(quais){
+  if(atualizandoDados){ if(quais==="tudo"){ xStatus("Pedindo para o PC parar…"); pedirAoPc("parar").catch(()=>{}); } return; }
+  if(analisando || ofEst.rodando){ xStatus("Espere terminar a busca ou a leitura em andamento.", "erro"); return; }
+  atualizandoDados = true; marcarBotoes(true);
+  xStatus("O PC está lendo as páginas… pode levar alguns minutos.");
+  try{ const r = await pedirAoPc("atualizar", {quais}); xStatus(r.texto || (r.ok ? "Atualizado no PC." : "Não deu certo no PC."), r.ok ? "ok" : "erro"); }
+  catch(e){ xStatus("Não deu certo: " + (e && e.message || e), "erro"); }
+  finally{ atualizandoDados = false; marcarBotoes(false); renderDadosFora(); }
+}
+/* devolve {ok, texto} (o pedido do celular usa) */
 async function xRodar(quais){
-  if(atualizandoDados){ if(quais==="tudo"){ pararDados = true; xStatus("Parando depois da página atual…"); } return; }
-  if(analisando){ xStatus("Espere a análise do anúncio terminar.", "erro"); return; }
-  if(ofEst.rodando){ xStatus("Espere a busca de ofertas terminar.", "erro"); return; }
+  if(REMOTO) return xRodarNoPc(quais);
+  if(atualizandoDados){ if(quais==="tudo"){ pararDados = true; xStatus("Parando depois da página atual…"); } return {ok:false, texto:"Já tem uma atualização rodando no PC."}; }
+  if(analisando){ xStatus("Espere a análise do anúncio terminar.", "erro"); return {ok:false, texto:"Espere a análise do anúncio terminar."}; }
+  if(ofEst.rodando){ xStatus("Espere a busca de ofertas terminar.", "erro"); return {ok:false, texto:"Espere a busca de ofertas terminar."}; }
   const mcp = await mcpPronto;
-  if(!mcp){ xStatus(SEM_APP_X, "erro"); return; }
+  if(!mcp){ xStatus(SEM_APP_X, "erro"); return {ok:false, texto:SEM_APP_X}; }
   const lista = quais==="tudo" ? ["dolar","kryptex","novas","usadas"] : [quais];
   const FN = {dolar:xDolar, kryptex:xKryptex, novas:xNovas, usadas:xUsadas};
   const INICIO = {dolar:"Buscando a cotação do dólar…", kryptex:"Lendo as receitas na Kryptex…", novas:"Buscando preço de placa nova…", usadas:"Buscando placas usadas no Marketplace…"};
   atualizandoDados = true; pararDados = false; marcarBotoes(true);
   const feitos = [], falhas = [];
+  let resultado = {ok:false, texto:""};
   try{
     for(const q of lista){
       if(pararDados) break;
@@ -2890,8 +2974,10 @@ async function xRodar(quais){
   }finally{
     atualizandoDados = false; marcarBotoes(false); renderDadosFora();
     const ok = feitos.length ? `Atualizado: ${feitos.join(" · ")}.` : "";
-    xStatus([pararDados && !falhas.length ? "Parado." : "", ok, ...falhas].filter(Boolean).join(" "), falhas.length ? (feitos.length ? "" : "erro") : "ok");
+    resultado = {ok: !falhas.length || feitos.length > 0, texto:[pararDados && !falhas.length ? "Parado." : "", ok, ...falhas].filter(Boolean).join(" ")};
+    xStatus(resultado.texto, falhas.length ? (feitos.length ? "" : "erro") : "ok");
   }
+  return resultado;
 }
 function xColar(){
   const t = $("x-texto").value;
@@ -2949,6 +3035,13 @@ if(DESKTOP){
       else if(b.dataset.pc==="importar"){ const txt = await window.desktop.abrirArquivo(); if(!txt){ st("Importação cancelada."); return; } restaurarBackup(txt); }
     }catch(err){ st("Não deu certo: " + (err && err.message || err), "erro"); }
   });
+}
+/* no celular, o que precisa de navegador roda no PC */
+if(REMOTO){
+  if(APP) $("sobre-versao").textContent = "app do celular, versão " + window.desktop.versao;
+  document.querySelector("#dados-fora > .sub").textContent = "O PC abre as páginas no navegador escondido dele, uma por vez, lê os números e manda para cá. Se o Facebook pedir login, resolva no PC (Premissas › Este computador › Entrar no Facebook).";
+  document.querySelector(".x-colar > summary").textContent = "Colar a lista da Kryptex";
+  const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o PC abre o anúncio no navegador escondido dele e lê título, preço e descrição. Se o Facebook pedir login, resolva no PC (Premissas › Este computador › Entrar no Facebook).";
 }
 
 /* ---------- cidade e distância: municípios do IBGE com latitude e longitude ---------- */
@@ -3216,7 +3309,7 @@ function decidirBoasVindas(configNoBanco){
 }
 
 /* ---------- ofertas: Marketplace e OLX perto de você (aplicativo do computador) ---------- */
-const OF_PODE = () => (DESKTOP || REMOTO) && !!(window.desktop && window.desktop.buscarAnuncios);
+const OF_PODE = () => (DESKTOP && !!window.desktop.buscarAnuncios) || (REMOTO && !!window.desktop.pedirAoPc);
 $("nav-ofertas").hidden = !OF_PODE();
 let ofertas = lsGet("min-ofertas");      /* a última busca: {quando, cidade, uf, raio, sites, itens, avisos, fbLocal, fora} */
 let ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
@@ -3359,21 +3452,49 @@ function atualizarUsadas(itens){
   return n;
 }
 const ocupado = () => ofEst.rodando || atualizandoDados || analisando;
-function barraOf(f){ $("of-prog").firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, f))*100) + "%"; }
-async function buscarOfertas(op){
-  const auto = !!(op && op.auto === true);   /* busca automática do alerta de ofertas (o clique no botão passa o evento) */
-  if(ofEst.rodando){ if(auto) return; ofEst.parar = true; ofStatus("Parando depois da página atual…"); return; }
-  if(!OF_PODE()) return;
-  if(!temCidade()){ if(!auto) ofStatus("Informe a sua cidade primeiro (botão Mudar cidade).", "erro"); return; }
-  if(atualizandoDados || analisando){ if(!auto) ofStatus("Espere terminar a leitura em andamento (Premissas ou Analisar anúncio) e tente de novo.", "erro"); return; }
+function barraOf(f){ $("of-prog").classList.remove("indef"); $("of-prog").firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, f))*100) + "%"; }
+/* no celular: o mesmo botão pede a busca ao PC (com as opções escolhidas aqui) e o resultado chega pela sincronia */
+async function buscarOfertasNoPc(){
+  if(ofEst.rodando){ ofEst.parar = true; ofStatus("Pedindo para o PC parar…"); pedirAoPc("parar").catch(()=>{}); return; }
+  if(!temCidade()){ ofStatus("Informe a sua cidade primeiro (botão Mudar cidade).", "erro"); return; }
   const sites = [$("of-fb").checked && "fb", $("of-olx").checked && "olx"].filter(Boolean);
-  if(!sites.length){ if(!auto) ofStatus("Marque o Marketplace, a OLX ou os dois.", "erro"); return; }
+  if(!sites.length){ ofStatus("Marque o Marketplace, a OLX ou os dois.", "erro"); return; }
   const ids = modelosOfertas(), raio = +$("of-raio").value || raioPerfil(), teto = tetoOf();
-  if(!gruposDeBusca(ids, teto).length){ if(!auto) ofStatus("Nenhum modelo para procurar: marque algum em Modelos procurados ou aumente o preço máximo.", "erro"); return; }
+  if(!gruposDeBusca(ids, teto).length){ ofStatus("Nenhum modelo para procurar: marque algum em Modelos procurados ou aumente o preço máximo.", "erro"); return; }
+  ofEst.rodando = true; ofEst.parar = false;
+  $("of-buscar").textContent = "Parar"; $("of-prog").hidden = false; $("of-prog").classList.add("indef");
+  ofStatus(APP ? "Buscando no PC… leva alguns minutos. Pode fechar o app: o resultado fica guardado aqui." : "Buscando no PC… leva alguns minutos.");
+  try{
+    const r = await pedirAoPc("buscar-ofertas", {sites, raio, teto, modelos: Array.isArray(ofSel) && ofSel.length ? ofSel : null});
+    ofStatus(r.texto || (r.ok ? "Busca feita no PC." : "Não deu certo no PC."), r.ok ? "ok" : "erro");
+  }catch(e){ ofStatus("Não deu certo: " + (e && e.message || e), "erro"); }
+  finally{
+    ofEst.rodando = false; ofEst.parar = false;
+    $("of-buscar").textContent = "Buscar ofertas"; $("of-prog").hidden = true; $("of-prog").classList.remove("indef");
+    renderOfertas();
+  }
+}
+/* op.auto: busca automática do alerta de ofertas (o clique no botão passa o evento, que não tem auto nem remoto).
+   op.remoto: pedido do celular rodando aqui no PC, com as opções escolhidas lá. Devolve {ok, texto}. */
+async function buscarOfertas(op){
+  if(REMOTO) return buscarOfertasNoPc();
+  const auto = !!(op && op.auto === true), remoto = !!(op && op.remoto === true);
+  const fim = (texto, tipo) => { if(!auto) ofStatus(texto, tipo); return {ok: tipo!=="erro", texto}; };
+  if(ofEst.rodando){ if(auto || remoto) return {ok:false, texto:"Já tem uma busca rodando no PC."}; ofEst.parar = true; ofStatus("Parando depois da página atual…"); return; }
+  if(!OF_PODE()) return {ok:false, texto:"A busca de ofertas só funciona no aplicativo do computador."};
+  if(!temCidade()) return fim("Informe a sua cidade primeiro (botão Mudar cidade).", "erro");
+  if(atualizandoDados || analisando) return fim("Espere terminar a leitura em andamento (Premissas ou Analisar anúncio) e tente de novo.", "erro");
+  const sites = remoto ? ["fb","olx"].filter(s=>[].concat(op.sites||[]).includes(s)) : [$("of-fb").checked && "fb", $("of-olx").checked && "olx"].filter(Boolean);
+  if(!sites.length) return fim("Marque o Marketplace, a OLX ou os dois.", "erro");
+  const ids = remoto && Array.isArray(op.modelos) && op.modelos.length ? op.modelos.filter(id=>byId[id]) : modelosOfertas();
+  const raio = remoto ? (Math.min(500, +op.raio||0) || raioPerfil()) : (+$("of-raio").value || raioPerfil()), teto = remoto ? Math.max(0, +op.teto||0) : tetoOf();
+  if(!gruposDeBusca(ids, teto).length) return fim("Nenhum modelo para procurar: marque algum em Modelos procurados ou aumente o preço máximo.", "erro");
   if(auto){ alerta.ultima = Date.now(); salvarAlerta(); }   /* mesmo se der errado, a próxima tentativa fica para o próximo intervalo */
   ofEst.rodando = true; ofEst.parar = false;
   $("of-buscar").textContent = "Parar"; $("of-prog").hidden = false; barraOf(0);
+  if(remoto) ofStatus("Busca pedida pelo celular…");
   const antes = new Map((ofertas && ofertas.itens || []).map(x=>[x.k, x]));
+  let resultado = {ok:false, texto:""};
   try{
     const r = await coletarAnuncios({ids, sites, raio, teto, deveParar:()=>ofEst.parar,
       aoProgresso:(i,n,t)=>{ barraOf(i/n); ofStatus(`${t.site==="fb" ? "Marketplace" : "OLX ("+t.uf+")"}: ${t.g.q} · página ${i+1} de ${n}…`); }});
@@ -3397,15 +3518,17 @@ async function buscarOfertas(op){
     const compensam = res.itens.filter(x=>vereditoOferta(x).cls==="g").length;
     registrarVistos(res.itens);
     const avisou = auto ? alertarOfertas(res.itens, vistosAntes, r) : 0;
-    if(!r.feitas) ofStatus(`${auto ? "Busca automática: " : ""}Nenhuma página abriu. Veja os avisos abaixo.`, "erro");
-    else ofStatus(`${auto ? `Busca automática de ${quando(Date.now())}: ` : ""}${ofEst.parar ? "Parado. " : ""}${res.itens.length} ${plural(res.itens.length,"anúncio")} até ${raio} km, ${compensam} ${plural(compensam,"compensa","compensam")}.${avisou ? ` ${avisou} ${plural(avisou,"aviso novo","avisos novos")} no Windows.` : ""}${nUsadas ? ` Preço típico de usada atualizado em ${nUsadas} ${plural(nUsadas,"modelo")}.` : ""}`, "ok");
+    if(!r.feitas) resultado = {ok:false, texto:`${auto ? "Busca automática: " : ""}Nenhuma página abriu. Veja os avisos na tela Ofertas.`};
+    else resultado = {ok:true, texto:`${auto ? `Busca automática de ${quando(Date.now())}: ` : ""}${ofEst.parar ? "Parado. " : ""}${res.itens.length} ${plural(res.itens.length,"anúncio")} até ${raio} km, ${compensam} ${plural(compensam,"compensa","compensam")}.${avisou ? ` ${avisou} ${plural(avisou,"aviso novo","avisos novos")} no Windows.` : ""}${nUsadas ? ` Preço típico de usada atualizado em ${nUsadas} ${plural(nUsadas,"modelo")}.` : ""}`};
+    ofStatus(resultado.texto, resultado.ok ? "ok" : "erro");
     if(nUsadas) render();
-  }catch(e){ ofStatus("Não deu certo: " + (e && e.message || e), "erro"); }
+  }catch(e){ resultado = {ok:false, texto:"Não deu certo: " + (e && e.message || e)}; ofStatus(resultado.texto, "erro"); }
   finally{
     ofEst.rodando = false; ofEst.parar = false;
     $("of-buscar").textContent = "Buscar ofertas"; setTimeout(()=>{ if(!ofEst.rodando) $("of-prog").hidden = true; }, 900);
     renderOfertas();
   }
+  return resultado;
 }
 /* preço muito baixo ou "no estado": aparece, mas depois dos outros */
 const risco = x => (x.flags.includes("suspeito") || x.flags.includes("estado")) ? 1 : 0;
@@ -3454,13 +3577,25 @@ async function verDetalhes(x){
   ofEst.abertos.add(x.k);
   if(x.det && !x.det.erro){ renderOfertas({k:x.k, of:"det"}); return; }
   if(ocupado()){ x.det = {erro:"Espere terminar a busca ou a leitura em andamento e abra de novo."}; renderOfertas({k:x.k, of:"det"}); return; }
+  await lerDetalhesOferta(x);
+}
+/* lê o anúncio e guarda em x.det: no PC, pelo navegador escondido; no celular, pedindo ao PC (que lê, guarda e manda de volta) */
+async function lerDetalhesOferta(x){
   ofEst.lendo.add(x.k); analisando = true; renderOfertas({k:x.k, of:"det"});
   try{
+    if(REMOTO){
+      const r = await pedirAoPc("detalhes", {k:x.k});
+      x.det = r.det || {erro: r.texto || "O PC não conseguiu ler o anúncio agora."};
+      /* os dados do PC (já com a leitura) podem ter chegado antes da resposta e trocado a lista */
+      const atual = ofertas && ofertas.itens.find(i=>i.k===x.k);
+      if(atual && atual!==x && !atual.det) atual.det = x.det;
+      return;
+    }
     const r = await window.desktop.detalhesAnuncio({site:x.site, url:x.url});
     if(r && r.bloqueio) x.det = {erro: r.bloqueio==="login" ? "O Facebook pediu login. Use Premissas › Este computador › Entrar no Facebook." : "O site pediu uma verificação. Use Premissas › Este computador › Mostrar o navegador escondido."};
     else x.det = x.site==="fb" ? lerDetalheFb(r && r.texto) : lerDetalheOlx(r && r.texto);
-  }catch(e){ x.det = {erro:"Não consegui abrir o anúncio agora. Tente de novo em alguns segundos."}; }
-  finally{ ofEst.lendo.delete(x.k); analisando = false; salvarOfertas(); renderOfertas({k:x.k, of:"det"}); }
+  }catch(e){ x.det = {erro: REMOTO ? "Não deu para pedir ao PC: " + (e && e.message || e) : "Não consegui abrir o anúncio agora. Tente de novo em alguns segundos."}; }
+  finally{ ofEst.lendo.delete(x.k); analisando = false; if(!REMOTO) salvarOfertas(); renderOfertas({k:x.k, of:"det"}); }
 }
 async function mandarAnalisar(x){
   const c = byId[x.modelo], d = x.det && !x.det.erro ? x.det : null;
@@ -3684,10 +3819,10 @@ function renderAlerta(){
    ou dos avisos no celular; abrir junto com o Windows vale se um dos dois pedir */
 function sincronizarSegundoPlano(){
   if(!DESKTOP || !window.desktop.segundoPlano) return;
-  if((window.desktop.celular && !celCfg) || (window.desktop.acesso && !acCfg)) return;   /* espera as configurações chegarem */
-  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado);
-  /* com o acesso pelo celular ligado, o painel precisa estar rodando: fica no ícone e abre com o Windows */
-  const bandeja = ofertasBg || cel || ac, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac);
+  if((window.desktop.celular && !celCfg) || (window.desktop.acesso && !acCfg) || (window.desktop.appCelular && !apCfg)) return;   /* espera as configurações chegarem */
+  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado), apl = !!(apCfg && apCfg.ligado);
+  /* com o acesso pelo celular ligado ou o app do celular vinculado, o painel precisa estar rodando: fica no ícone e abre com o Windows */
+  const bandeja = ofertasBg || cel || ac || apl, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl);
   window.desktop.segundoPlano({bandeja, iniciar}).catch(()=>{});
 }
 $("al-horas").addEventListener("change", e=>{ alerta.horas = +e.target.value || 0; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
@@ -3891,56 +4026,61 @@ function recarregarDados(ks){
   for(const f of [render, renderAlerta, renderCelular]) try{ f(); }catch(e){}
 }
 
-/* celular abrindo o painel do PC: manda o que mudou aqui, escuta o que mudou lá */
-var remotoPend = null, remotoT = null, remotoVersao = 0, remotoEnviando = false;
-function remotoEstado(ok){
-  setSync(ok, ok ? "Ligado ao PC" : "Sem conexão com o PC");
+/* no celular: a ponte (navegador ou app) manda o que mudou aqui e entrega o que mudou no PC; aqui só aplica e mostra o estado.
+   s = {ok, texto (o selo do canto), aviso (a faixa de cima; vazio esconde)} */
+var remotoInfo = null;
+function remotoEstado(s){
+  remotoInfo = s || {};
+  const ok = !!remotoInfo.ok;
+  setSync(ok, remotoInfo.texto || (ok ? "Ligado ao PC" : "Sem conexão com o PC"));
   let b = $("remoto-aviso");
-  if(!b){ if(ok) return; b = document.createElement("div"); b.id = "remoto-aviso"; b.className = "remoto-aviso"; b.setAttribute("role", "status"); document.body.appendChild(b); }
-  b.textContent = "Sem conexão com o PC. Confira se ele está ligado, com o painel aberto, e se o celular está no Wi-Fi de casa ou no Tailscale. Tentando de novo…";
-  b.hidden = ok;
+  if(!b && remotoInfo.aviso){ b = document.createElement("div"); b.id = "remoto-aviso"; b.className = "remoto-aviso"; b.setAttribute("role", "status"); document.body.appendChild(b); }
+  if(b){ b.textContent = remotoInfo.aviso || ""; b.hidden = !remotoInfo.aviso; }
+  if(APP && painelPronto) try{ renderAppCel(); }catch(e){}
 }
-function remotoEnfileirar(k){
-  if(!REMOTO) return;
-  (remotoPend = remotoPend || new Set()).add(k);
-  clearTimeout(remotoT); remotoT = setTimeout(remotoEnviar, 300);
-}
-async function remotoEnviar(){
-  if(!remotoPend || !remotoPend.size) return;
-  if(remotoEnviando){ clearTimeout(remotoT); remotoT = setTimeout(remotoEnviar, 300); return; }
-  const ks = [...remotoPend], chaves = {}; remotoPend.clear(); remotoEnviando = true;
-  for(const k of ks){ try{ chaves[k] = localStorage.getItem(k); }catch(e){ chaves[k] = null; } }
-  try{
-    const r = await fetch("/api/dados", {method:"POST", headers:{"Content-Type":"application/json","X-Painel":"1","X-Cliente":window.desktop.cliente}, body:JSON.stringify({chaves})});
-    if(r.status===401){ location.reload(); return; }   /* a sessão caiu: volta para a senha */
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    const j = await r.json(); if(j.versao) remotoVersao = j.versao;
-    remotoEstado(true);
-  }catch(e){
-    for(const k of ks) remotoPend.add(k);             /* sem conexão: tenta de novo em 5 segundos */
-    remotoEstado(false);
-    clearTimeout(remotoT); remotoT = setTimeout(remotoEnviar, 5000);
-  }finally{ remotoEnviando = false; }
-}
-async function remotoBuscar(ks){
-  const r = await fetch("/api/dados" + (ks && ks.length ? "?chaves=" + encodeURIComponent(ks.join(",")) : ""), {headers:{"X-Painel":"1"}, cache:"no-store"});
-  if(r.status===401){ location.reload(); return; }
-  if(!r.ok) throw new Error("HTTP " + r.status);
-  const j = await r.json(), chaves = {};
-  for(const [k, v] of Object.entries(j.chaves||{})) if(!(remotoPend && remotoPend.has(k))) chaves[k] = v;   /* o que ainda vai daqui para lá ganha */
-  aplicarDadosRemotos(chaves);
-  if(j.versao) remotoVersao = j.versao;
-  remotoEstado(true);
-}
-if(REMOTO){
-  remotoVersao = window.desktop.versaoDados || 0;
-  remotoEstado(true);
+if(REMOTO && window.desktop.sync){
   document.documentElement.classList.add("remoto");
-  const es = new EventSource("/api/eventos?cliente=" + encodeURIComponent(window.desktop.cliente));
-  es.addEventListener("ola", e=>{ let d = {}; try{ d = JSON.parse(e.data); }catch(err){} remotoEstado(true); if(d.versao!==remotoVersao) remotoBuscar().catch(()=>remotoEstado(false)); });
-  es.addEventListener("mudou", e=>{ let d = {}; try{ d = JSON.parse(e.data); }catch(err){} if(d.origem===window.desktop.cliente){ if(d.versao) remotoVersao = d.versao; return; } remotoBuscar(d.chaves).catch(()=>remotoEstado(false)); });
-  es.onerror = ()=>remotoEstado(false);   /* o navegador reconecta sozinho */
-  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") remotoBuscar().catch(()=>remotoEstado(false)); });
+  if(APP) document.documentElement.classList.add("app-celular");
+  window.desktop.sync.aoReceber(chaves=>aplicarDadosRemotos(chaves));
+  window.desktop.sync.aoEstado(remotoEstado);
+}
+
+/* ---------- pedidos para o PC: o que precisa do navegador escondido roda no painel do PC ----------
+   No celular, os botões de buscar ofertas, ler um anúncio e atualizar os dados de fora mandam um pedido
+   (window.desktop.pedirAoPc); no PC, executarPedidoRemoto roda o mesmo código do botão e devolve o resultado.
+   Os dados que mudaram chegam ao celular pela sincronia, junto com a resposta. */
+let pedindoAoPc = 0;
+async function pedirAoPc(nome, args){
+  pedindoAoPc++;
+  try{ return await window.desktop.pedirAoPc(nome, args||{}) || {}; }
+  finally{ pedindoAoPc--; }
+}
+async function executarPedidoRemoto(p){
+  const nome = String(p && p.nome || ""), a = (p && p.args && typeof p.args==="object") ? p.args : {};
+  if(nome==="parar"){
+    if(ofEst.rodando) ofEst.parar = true;
+    if(atualizandoDados) pararDados = true;
+    return {ok:true, texto:"Parando depois da página atual…"};
+  }
+  if(!DESKTOP) return {ok:false, texto:"Só o painel do PC atende pedidos."};
+  if(!$("bv").hidden) return {ok:false, texto:"O painel do PC está na configuração inicial. Termine a configuração no PC e tente de novo."};
+  if(ocupado()) return {ok:false, ocupado:true, texto:"O PC está no meio de outra busca ou leitura. Tente de novo em alguns minutos."};
+  if(nome==="buscar-ofertas") return await buscarOfertas({remoto:true, sites:a.sites, raio:a.raio, teto:a.teto, modelos:a.modelos});
+  if(nome==="detalhes"){
+    const x = ofertas && ofertas.itens.find(i=>i.k===String(a.k||""));
+    if(!x) return {ok:false, texto:"Esse anúncio não está mais na última busca do PC. Busque de novo."};
+    await lerDetalhesOferta(x);
+    return {ok:!(x.det && x.det.erro), k:x.k, det:x.det || null};
+  }
+  if(nome==="analisar"){
+    const r = await analisarLink(String(a.url||""));
+    return {ok:!!(r && r._id), id:r && r._id || "", texto:$("a-status").textContent, tipo:$("a-status").className.includes("erro") ? "erro" : "ok"};
+  }
+  if(nome==="atualizar"){
+    const quais = ["dolar","kryptex","novas","usadas","tudo"].includes(a.quais) ? a.quais : "tudo";
+    return await xRodar(quais);
+  }
+  return {ok:false, texto:"O PC não conhece esse pedido."};
 }
 
 /* ---------- abrir no celular: a tela no PC ---------- */
@@ -3990,6 +4130,114 @@ if(AC){
   });
 }
 
+/* ---------- app do celular: a tela no PC (vincular pelo QR code) ---------- */
+var apCfg = null;   /* var: sincronizarSegundoPlano, que vem antes, já pergunta por ele */
+const APC = DESKTOP && !!(window.desktop && window.desktop.appCelular);
+let apQrAberto = false, apIdsAntes = null, apDesvArmado = 0;
+const quandoVisto = t => { if(!t) return "nunca"; const min = Math.round((Date.now()-t)/6e4); return min < 2 ? "agora" : min < 60 ? `há ${min} min` : quando(t); };
+function renderAppCelPc(){
+  const box = $("appcel-p"); if(!box) return;
+  box.hidden = !APC; if(!APC || !apCfg) return;
+  const c = apCfg, aps = c.aparelhos || [];
+  $("appcel-desligado").hidden = !!c.ligado;
+  $("appcel-qr").hidden = !(c.ligado && apQrAberto);
+  $("appcel-ligado").hidden = !c.ligado || (apQrAberto && !aps.length);
+  if(c.ligado && apQrAberto){
+    const q = $("appcel-qr-cod");
+    if(q.dataset.cod !== c.codigo){ q.innerHTML = c.qr; q.dataset.cod = c.codigo; }
+    if(!$("appcel-qr-apk").innerHTML) $("appcel-qr-apk").innerHTML = c.qrApk;
+    $("appcel-url").href = c.urlApk;
+    $("appcel-qr-apk").hidden = c.apk === false; $("appcel-sem-apk").hidden = c.apk !== false;
+  }
+  $("appcel-lista").innerHTML = aps.length
+    ? aps.map(a=>`<li><b>${esc(a.nome)}</b><small>${a.app ? "app " + esc(a.app) + " · " : ""}${a.ativo ? '<span class="on">com o app aberto</span>' : "visto " + esc(quandoVisto(a.visto))}</small></li>`).join("")
+    : `<li class="hint">Nenhum celular vinculado ainda.</li>`;
+  $("appcel-outro").textContent = aps.length ? "Vincular outro celular" : "Mostrar o QR code";
+  $("appcel-outro").hidden = apQrAberto;
+  $("appcel-desvincular").textContent = Date.now() < apDesvArmado ? (aps.length ? "Confirmar: desvincular todos" : "Confirmar: desligar") : (aps.length ? "Desvincular todos" : "Desligar o app do celular");
+  const st = $("appcel-status");
+  if(st.dataset.fixo && Date.now() < +st.dataset.fixo) return;
+  if(!c.ligado) status2("appcel-status", "");
+  else if(c.erro) status2("appcel-status", "Não deu certo: " + c.erro + ".", "erro");
+  else if(apQrAberto) status2("appcel-status", "Esperando o celular ler o código…");
+  else status2("appcel-status", c.ultimoEnvio ? `Última mensagem para o celular: ${quando(c.ultimoEnvio)}.` : "Com o app vinculado, fechar a janela deixa o painel no ícone perto do relógio, e ele abre junto com o Windows: o celular só recebe dados com o PC ligado.");
+}
+function avisoApc(txt, tipo){ status2("appcel-status", txt, tipo); $("appcel-status").dataset.fixo = String(Date.now() + 9000); }
+/* um celular novo apareceu com o QR code aberto: pronto, vinculou */
+function conferirVinculo(){
+  if(!apQrAberto || !apIdsAntes || !apCfg) return;
+  const novo = (apCfg.aparelhos||[]).find(a=>!apIdsAntes.has(a.id));
+  if(!novo) return;
+  apIdsAntes = null;
+  avisoApc(`Vinculado: ${novo.nome}. Os dados do painel já estão no celular.`, "ok");
+  setTimeout(()=>{ apQrAberto = false; renderAppCelPc(); }, 4000);
+}
+function abrirQrApp(){
+  apQrAberto = true; apIdsAntes = new Set((apCfg && apCfg.aparelhos || []).map(a=>a.id)); renderAppCelPc(); $("appcel-qr").scrollIntoView({block:"nearest", behavior:suave()});
+  window.desktop.appCelular.config({mostrarQr:true}).then(c=>{ apCfg = c; renderAppCelPc(); }).catch(()=>{});   /* confere se o arquivo do app já está no GitHub */
+}
+async function mudarAppCel(op){ try{ apCfg = await window.desktop.appCelular.config(op); }catch(e){ avisoApc("Não deu certo: " + (e && e.message || e), "erro"); } renderAppCelPc(); sincronizarSegundoPlano(); }
+if(APC){
+  window.desktop.appCelular.aoMudar(s=>{ apCfg = s; conferirVinculo(); renderAppCelPc(); });
+  window.desktop.appCelular.config().then(c=>{ apCfg = c; renderAppCelPc(); sincronizarSegundoPlano(); }).catch(()=>{});
+  setInterval(()=>{ if(apCfg && apCfg.ligado && !$("v-premissas").hidden) renderAppCelPc(); }, 30e3);   /* "visto há x min" */
+  $("appcel-vincular").addEventListener("click", async ()=>{ await mudarAppCel({vincular:true}); if(apCfg && apCfg.ligado) abrirQrApp(); });
+  $("appcel-outro").addEventListener("click", abrirQrApp);
+  $("appcel-pronto").addEventListener("click", ()=>{ apQrAberto = false; apIdsAntes = null; renderAppCelPc(); $("appcel-outro").focus(); });
+  $("appcel-copiar").addEventListener("click", async ()=>{
+    try{ await window.desktop.copiar(apCfg.codigo); avisoApc("Código copiado. Cole no app, em Colar o código.", "ok"); }catch(e){ avisoApc("Não consegui copiar.", "erro"); }
+  });
+  $("appcel-desvincular").addEventListener("click", async ()=>{
+    if(Date.now() > apDesvArmado){ apDesvArmado = Date.now() + 6000; renderAppCelPc(); setTimeout(renderAppCelPc, 6100); return; }
+    apDesvArmado = 0; apQrAberto = false;
+    await mudarAppCel({desvincular:true});
+    avisoApc("Desvinculado: os celulares param de receber os dados. Para usar de novo, vincule outra vez.", "ok");
+  });
+}
+
+/* ---------- este celular (app do celular): de qual PC vêm os dados, atualizar, versão nova e desvincular ---------- */
+let ecDesvArmado = 0;
+function renderAppCel(){
+  const box = $("estecel-p"); if(!box) return;
+  box.hidden = !APP; if(!APP) return;
+  const i = (window.desktop.sync.info && window.desktop.sync.info()) || {};
+  $("estecel-versao").textContent = "versão " + window.desktop.versao;
+  const linhas = [["PC", i.pc && i.pc.nome ? i.pc.nome + (i.pc.app ? ` · painel ${i.pc.app}` : "") : "—"],
+    ["Dados do PC", i.ultimaVez ? `recebidos ${quandoVisto(i.ultimaVez)}` : "ainda não chegaram"],
+    ["Conexão", i.conectado ? "ligado ao ntfy.sh" : "sem internet agora"],
+    ...(i.pendentes ? [["Para mandar", `${i.pendentes} ${plural(i.pendentes,"mudança","mudanças")} esperando o PC`]] : [])];
+  $("estecel-info").innerHTML = linhas.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  const nova = i.versaoNova || "";
+  $("estecel-baixar").hidden = !nova;
+  if(nova){ $("estecel-baixar").href = i.urlApk; $("estecel-baixar").textContent = `Baixar a versão ${nova} do app`; }
+  $("estecel-desvincular").textContent = Date.now() < ecDesvArmado ? "Confirmar: desvincular" : "Desvincular este celular";
+  renderAppNova(i);
+}
+/* versão nova do app: uma faixa embaixo, com o link (some por esta sessão no ×) */
+function renderAppNova(i){
+  let b = $("app-nova");
+  const fechado = (()=>{ try{ return sessionStorage.getItem("min-app-nova-fechada") === i.versaoNova; }catch(e){ return false; } })();
+  const mostrar = !!(i.versaoNova && !fechado && !(remotoInfo && remotoInfo.aviso));
+  if(!b){ if(!mostrar) return; b = document.createElement("div"); b.id = "app-nova"; b.className = "remoto-aviso info"; b.setAttribute("role", "status"); document.body.appendChild(b); }
+  b.hidden = !mostrar; if(!mostrar) return;
+  b.innerHTML = `<span>Versão ${esc(i.versaoNova)} do app disponível.</span> <a href="${esc(i.urlApk)}" target="_blank" rel="noopener noreferrer">Baixar</a> <button type="button" class="link" aria-label="Fechar o aviso">×</button>`;
+  b.querySelector("button").onclick = ()=>{ try{ sessionStorage.setItem("min-app-nova-fechada", i.versaoNova); }catch(e){} b.hidden = true; };
+}
+if(APP){
+  renderAppCel();
+  setInterval(()=>{ if(!$("v-premissas").hidden) renderAppCel(); }, 30e3);
+  $("estecel-atualizar").addEventListener("click", async e=>{
+    const b = e.currentTarget; b.disabled = true; status2("estecel-status", "Pedindo os dados ao PC…");
+    try{ await window.desktop.sync.atualizar(); status2("estecel-status", `O PC respondeu às ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}. Tudo em dia.`, "ok"); }
+    catch(err){ status2("estecel-status", (err && err.message) || "O PC não respondeu.", "erro"); }
+    b.disabled = false; renderAppCel();
+  });
+  $("estecel-desvincular").addEventListener("click", ()=>{
+    if(Date.now() > ecDesvArmado){ ecDesvArmado = Date.now() + 6000; renderAppCel(); setTimeout(renderAppCel, 6100); return; }
+    ecDesvArmado = 0; window.desktop.desvincular();
+  });
+}
+
 /* ---------- backup automático: um arquivo por dia numa pasta do computador (app do computador) ---------- */
 let bkpInfo = null;
 function renderBackup(tipo, msg){
@@ -4025,6 +4273,9 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.4.0", itens:[
+    "App do celular para Android (Premissas › App do celular): o painel no celular com os mesmos dados deste PC, em casa ou na rua. Instale pelo QR code e vincule o celular lendo outro QR code. Nenhuma porta fica aberta no computador: os dados vão criptografados pelo ntfy.sh. A busca de ofertas, a leitura de anúncios e a atualização dos dados de fora pedidas no app rodam neste PC.",
+    "O jeito da versão 1.3.0, pelo navegador do celular, continua em Premissas › Abrir no navegador do celular."]},
   {v:"1.3.0", itens:[
     "Abrir no celular (Premissas › Abrir no celular): o celular abre este painel com os mesmos dados do PC, ao vivo. O que você anotar ou cadastrar num aparece no outro na hora, e a busca de ofertas pedida no celular roda no PC. Em casa funciona pelo Wi-Fi; fora de casa, pelo app Tailscale. O acesso tem senha."]},
   {v:"1.2.5", itens:[
@@ -4254,8 +4505,10 @@ let configNoBanco = false;
 const lc = lsGet("min-cfg"); if(lc) cfg = migrar({...DEF,...lc});
 placas = lsGet("min-placas")||[];
 anuncios = lsGet("min-anuncios")||[];
-render(); setSync(false, ONDE_SALVO); renderNovidades();
+render(); if(!REMOTO) setSync(false, ONDE_SALVO); renderNovidades();
 irPara((location.hash||"").slice(1) || (()=>{ try{ return localStorage.getItem("min-view"); }catch(e){ return null; } })() || "resumo");
+painelPronto = true;
+if(REMOTO && remotoInfo) remotoEstado(remotoInfo);
 
 (async()=>{
   try{ db = await window.claude?.use?.("db"); }catch(e){ db=null; }

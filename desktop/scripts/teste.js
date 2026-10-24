@@ -8,6 +8,7 @@ const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
 
+const Sincronia = require("../sincronia.js");
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 const escXml = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const precoDe = (linhas) => { const l = linhas.find((s) => /^R\$/.test(s)); return l ? +l.replace(/\D/g, "") : 0; };
@@ -86,7 +87,25 @@ function paginaBuscaOlx(uf, q) {
 }
 const paginaTexto = (titulo, linhas, papel) => `<!doctype html><html><head><meta charset="utf-8"><title>${esc(titulo)}</title></head><body><div ${papel}>${linhas.map((s) => `<div>${esc(s)}</div>`).join("")}</div></body></html>`;
 
-module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, celular: celularMain, acesso: acessoMain }) {
+/* um QR code (o SVG que o PC mostra) em pixels: cada quadradinho do SVG vira um bloco escuro numa imagem clara */
+function qrDoSvg(svg, escala) {
+  const vb = /viewBox="0 0 (\d+) (\d+)"/.exec(svg), lado = +vb[1] * escala;
+  const px = new Uint8ClampedArray(lado * lado).fill(255);
+  for (const m of svg.matchAll(/M(\d+),(\d+)l(\d+),0/g)) {
+    const x0 = +m[1] * escala, y0 = +m[2] * escala, t = +m[3] * escala;
+    for (let y = y0; y < y0 + t; y++) px.fill(20, y * lado + x0, y * lado + x0 + t);
+  }
+  return { lado, px };
+}
+/* vídeo Y4M (a "câmera" do Chromium no teste): o QR no meio de uma mesa cinza */
+function videoDoQr(q, arquivo) {
+  const W = 640, H = 480, Y = Buffer.alloc(W * H, 190), x0 = (W - q.lado) >> 1, y0 = (H - q.lado) >> 1;
+  for (let y = 0; y < q.lado; y++) for (let x = 0; x < q.lado; x++) Y[(y0 + y) * W + x0 + x] = q.px[y * q.lado + x];
+  const UV = Buffer.alloc((W / 2) * (H / 2), 128), quadro = Buffer.concat([Buffer.from("FRAME\n"), Y, UV, UV]);
+  fs.writeFileSync(arquivo, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F15:1 Ip A1:1 C420jpeg\n`), ...Array(20).fill(quadro)]));
+}
+
+module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, celular: celularMain, acesso: acessoMain, appCelular: appMain }) {
   /* versões de mentira no formato das Releases do GitHub, para a atualização automática.
      modo "igual": a última versão publicada é a que está instalada; "defeito": versão nova com o arquivo corrompido; "ok": versão nova certa */
   const versaoApp = app.getVersion(), proxima = versaoApp.replace(/(\d+)$/, (n) => String(+n + 1));
@@ -118,40 +137,16 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
   const fx = (n) => fs.readFileSync(path.join(process.env.PAINEL_FIXOS, n), "utf8");
   const emDivs = (txt) => txt.split("\n").map((l) => `<div>${esc(l)}</div>`).join("");
   const pedidos = [], agentes = [];
-  /* ntfy de mentira (avisos no celular): guarda o que o painel publicou, agenda/substitui/cancela o "sinal de vida"
-     como o ntfy.sh faz (mesmo sequence_id substitui o agendado) e deixa abertas as escutas do tópico de pedidos */
-  const ntfy = { publicados: [], agendados: {}, apagados: [], escutas: [], n: 0 };
-  function tratarNtfy(req, res, u, caminho) {
-    const json = (o) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
-    if (req.method === "POST" && (caminho === "/" || caminho === "")) {
-      let corpo = ""; req.on("data", (d) => { corpo += d; });
-      req.on("end", () => {
-        let m = null; try { m = JSON.parse(corpo); } catch (e) {}
-        if (!m || !m.topic) { res.writeHead(400); res.end("{}"); return; }
-        ntfy.publicados.push({ ...m, recebido: Date.now() });
-        if (m.delay && m.sequence_id) ntfy.agendados[`${m.topic}/${m.sequence_id}`] = { ...m, recebido: Date.now() };
-        json({ id: "m" + (++ntfy.n), sequence_id: m.sequence_id || "m" + ntfy.n, time: Math.floor(Date.now() / 1000), event: "message", topic: m.topic });
-      });
-      return;
-    }
-    const apagar = /^\/([\w-]{1,64})\/([\w-]{1,64})$/.exec(caminho);
-    if (req.method === "DELETE" && apagar) { const k = `${apagar[1]}/${apagar[2]}`; ntfy.apagados.push(k); delete ntfy.agendados[k]; json({ event: "message_delete" }); return; }
-    const escuta = /^\/([\w-]{1,64})\/json$/.exec(caminho);
-    if (req.method === "GET" && escuta) {
-      res.writeHead(200, { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" });
-      res.write(JSON.stringify({ id: "o" + (++ntfy.n), time: Math.floor(Date.now() / 1000), event: "open", topic: escuta[1] }) + "\n");
-      const e = { topico: escuta[1], res, since: u.searchParams.get("since") }; ntfy.escutas.push(e);
-      req.on("close", () => { ntfy.escutas = ntfy.escutas.filter((x) => x !== e); });
-      return;
-    }
-    res.writeHead(404); res.end("nada");
-  }
-  /* o botão Atualizar no celular: uma mensagem chega no tópico de pedidos */
-  const ntfyPedir = (texto) => { for (const e of ntfy.escutas) e.res.write(JSON.stringify({ id: "p" + (++ntfy.n), time: Math.floor(Date.now() / 1000), event: "message", topic: e.topico, message: texto }) + "\n"); };
+  /* ntfy de mentira (avisos no celular e app do celular): guarda o que o painel publicou, agenda/substitui/cancela o "sinal de vida"
+     como o ntfy.sh faz (mesmo sequence_id substitui o agendado), guarda as cartas da sincronia e os anexos e entrega a quem escuta */
+  let baseNtfy = "";
+  const falso = require("./ntfy-falso.js")(() => baseNtfy), ntfy = falso.ntfy;
+  /* o botão Atualizar no celular: uma mensagem chega no tópico de pedidos (o nome dos avisos + "-p") */
+  const ntfyPedir = (texto) => { for (const t of new Set(ntfy.escutas.map((e) => e.topico).filter((t) => /^painel-.*-p$/.test(t)))) falso.entregar(t, texto); };
   const ntfyUltimo = (filtro) => ntfy.publicados.filter(filtro).slice(-1)[0] || null;
   const srv = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), p = u.pathname;
-    if (p === "/ntfy" || p.startsWith("/ntfy/")) { tratarNtfy(req, res, u, p.slice(5)); return; }
+    if (p === "/ntfy" || p.startsWith("/ntfy/")) { falso.tratar(req, res, u, p.slice(5)); return; }
     pedidos.push(p + u.search);
     let corpo = null, tipo = "text/html; charset=utf-8";
     /* releases (a atualização usa o próprio identificador, "electron-builder"; o navegador escondido não passa por aqui) */
@@ -177,6 +172,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
     const base = `http://127.0.0.1:${srv.address().port}`;
     process.env.PAINEL_REDIRECIONAR = base;
     process.env.PAINEL_NTFY = base + "/ntfy";
+    baseNtfy = base + "/ntfy";
     principal.webContents.once("did-finish-load", async () => {
       const r = { erros: [], passos: {} };
       principal.webContents.on("console-message", (e) => { if (e.level === "error") r.erros.push(e.message); });
@@ -449,6 +445,9 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await esperar(1600);
         r.acesso.celular.anotou = { noCelular: await jc(`diario.length`), noPc: await js(`({dias:diario.length, ontem:!!diario.find(e=>e.data==="${ontemPc}")})`), sync: await jc(`document.getElementById("sync").textContent.trim()`) };
         await fotoCel("diario");
+        /* o celular pede ao PC para ler um anúncio: a leitura roda no navegador escondido do PC e volta para o celular */
+        r.acesso.celular.detalhe = await jc(`(async()=>{ const x = ofertas.itens.find(i=>i.k==="fb:1000000000000007"); delete x.det; await lerDetalhesOferta(x);
+          return {condicao:(x.det||{}).condicao, vendedor:(x.det||{}).vendedor, erro:(x.det||{}).erro||"", semNavegadorAqui:!window.desktop.detalhesAnuncio}; })()`);
         /* o PC some (acesso desligado): o celular avisa; o acesso volta: o aviso some sozinho */
         await js(`document.getElementById("ac-desligar").click()`); await esperar(2500);
         const avisoCel = `({aviso:!!document.getElementById("remoto-aviso") && !document.getElementById("remoto-aviso").hidden, sync:document.getElementById("sync").textContent.trim()})`;
@@ -468,6 +467,170 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         const bloq = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + ac.pin });
         r.acesso.bloqueio = { status: bloq.status, avisa: /Muitas tentativas/.test(bloq.corpo), cookie: !!bloq.headers["set-cookie"] };
         await foto("acesso");
+
+        /* app do celular: vincula pelo QR code (câmera de mentira), sincroniza nos dois sentidos pelo ntfy, pedidos ao PC e desvincular */
+        r.app = {};
+        const pastaApp = path.join(SAIDA, "app-www");
+        try { require("child_process").execFileSync("python3", [path.join(__dirname, "..", "..", "celular", "scripts", "montar-www.py"), "--saida", pastaApp, "--ntfy", base + "/ntfy"], { stdio: "pipe" }); }
+        catch (e) { r.app.montar = String(e.stderr || e.message).slice(0, 400); }
+        const tiposApp = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png", ".woff2": "font/woff2" };
+        const srvApp = http.createServer((req, res) => {
+          const f = path.join(pastaApp, decodeURIComponent(new URL(req.url, "http://x").pathname));
+          if (!f.startsWith(pastaApp) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
+          res.writeHead(200, { "Content-Type": tiposApp[path.extname(f)] || "application/octet-stream" }); res.end(fs.readFileSync(f));
+        });
+        await new Promise((ok) => srvApp.listen(0, "127.0.0.1", ok));
+        /* no PC: Premissas › App do celular › Vincular um celular */
+        await js(`irPara("premissas"); document.getElementById("appcel-p").scrollIntoView()`);
+        r.app.antes = await js(`({visivel:!document.getElementById("appcel-p").hidden, botao:!document.getElementById("appcel-desligado").hidden, titulo:document.getElementById("t-appcel").textContent})`);
+        await js(`document.getElementById("appcel-vincular").click()`); await esperar(1200);
+        const ap = appMain.publico();
+        r.app.vinculando = { ligado: ap.ligado, codigoOk: /^PM1-[\w-]{43}$/.test(ap.codigo), escutando: appMain.conectado(),
+          tela: await js(`({qr:!document.getElementById("appcel-qr").hidden, svgCod:!!document.querySelector("#appcel-qr-cod svg"), svgApk:!!document.querySelector("#appcel-qr-apk svg"), link:document.getElementById("appcel-url").href, status:document.getElementById("appcel-status").textContent})`),
+          segundoPlano: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
+        await foto("app_qr");
+        /* o QR que o PC mostra, lido de verdade com o mesmo leitor do app (jsQR) */
+        const jsQR = require(path.join(__dirname, "..", "..", "celular", "node_modules", "jsqr"));
+        const rgba = (q) => { const d = new Uint8ClampedArray(q.lado * q.lado * 4); for (let i = 0; i < q.px.length; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = q.px[i]; d[i * 4 + 3] = 255; } return d; };
+        const qCod = qrDoSvg(ap.qr, 2), qApk = qrDoSvg(ap.qrApk, 2);
+        r.app.qrLido = { codigo: (jsQR(rgba(qCod), qCod.lado, qCod.lado) || {}).data === ap.codigo, apk: (jsQR(rgba(qApk), qApk.lado, qApk.lado) || {}).data };
+        if (process.env.PAINEL_CAMERA) videoDoQr(qCod, process.env.PAINEL_CAMERA);
+        /* o "celular": a página do app, num outro endereço (como no Android) */
+        const { BrowserWindow: JanelaApp } = require("electron");
+        const celApp = new JanelaApp({ show: false, width: 390, height: 844, webPreferences: { partition: "app-teste", contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+        celApp.webContents.setUserAgent("Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.0.0 Mobile Safari/537.36");
+        const errosApp = []; celApp.webContents.on("console-message", (e) => { if (e.level === "error") errosApp.push(e.message); });
+        await celApp.loadURL(`http://127.0.0.1:${srvApp.address().port}/index.html`);
+        const ja = (code) => celApp.webContents.executeJavaScript(code);
+        const fotoApp = async (nome) => { await esperar(600); celApp.webContents.invalidate(); await esperar(300); fs.writeFileSync(path.join(SAIDA, `app_${nome}.png`), (await celApp.webContents.capturePage()).toPNG()); };
+        await esperar(800);
+        r.app.celular = { inicio: await ja(`({app:APP, remoto:REMOTO, tela:!!document.getElementById("pm-vinc"), escondido:document.documentElement.classList.contains("pm-vinculando"), placas:placas.length})`) };
+        await fotoApp("vincular");
+        /* lê o QR pela câmera de mentira (sem ela, cola o código no meio de um texto) */
+        if (process.env.PAINEL_CAMERA) await ja(`document.getElementById("pm-ler").click()`);
+        else await ja(`document.getElementById("pm-colar-b").click(); document.getElementById("pm-cod").value = ${JSON.stringify("Meu código: " + ap.codigo + " (do PC)")}; document.getElementById("pm-vincular").click()`);
+        for (let i = 0; i < 80 && await ja(`!!document.getElementById("pm-vinc")`); i++) await esperar(250);
+        await esperar(800);
+        r.app.celular.vinculou = await ja(`({tela:!!document.getElementById("pm-vinc"), pelaCamera:${!!process.env.PAINEL_CAMERA}, codigoIgual:localStorage.getItem("pm-codigo")===${JSON.stringify(ap.codigo)},
+          nome:(cfg.perfil||{}).nome, placas:placas.length, dias:diario.length, ofertas:(ofertas&&ofertas.itens||[]).length, anuncios:anuncios.length, maquinas:setup.maquinas.length,
+          sync:document.getElementById("sync").textContent.trim(), navOfertas:!document.getElementById("nav-ofertas").hidden, alertaOculto:document.getElementById("of-alerta").hidden,
+          estecel:!document.getElementById("estecel-p").hidden, appcelOculto:document.getElementById("appcel-p").hidden, estePcOculto:document.getElementById("este-pc").hidden, largura:[document.documentElement.scrollWidth, innerWidth]})`);
+        r.app.pc = await js(`({placas:placas.length, dias:diario.length, ofertas:(ofertas&&ofertas.itens||[]).length, anuncios:anuncios.length})`);
+        /* os dados do celular são iguais aos do PC, chave por chave */
+        const chavesDiferentes = async () => {
+          const ler = `JSON.stringify(${JSON.stringify(Sincronia.SINCRONIZADAS)}.map(k=>localStorage.getItem(k)))`;
+          const x = JSON.parse(await js(ler)), y = JSON.parse(await ja(ler));
+          return Sincronia.SINCRONIZADAS.filter((k, i) => x[i] !== y[i]);
+        };
+        r.app.diferentesDepoisDeVincular = await chavesDiferentes();
+        await esperar(4500);   /* o QR some sozinho depois de vincular */
+        r.app.pcVinculado = { aparelhos: appMain.publico().aparelhos, tela: await js(`({qr:!document.getElementById("appcel-qr").hidden, lista:document.getElementById("appcel-lista").innerText, status:document.getElementById("appcel-status").textContent})`) };
+        await foto("app_vinculado");
+        await ja(`irPara("resumo")`); await fotoApp("resumo");
+        /* o celular anota um dia no Diário (formulário): chega no PC */
+        const anteontem = await js(`isoLocal(new Date(Date.now()-2*864e5))`);
+        await ja(`irPara("diario"); document.getElementById("d-data").value = "${anteontem}"; document.getElementById("d-valor").value = "3.1"; document.getElementById("dform").requestSubmit(); true`);
+        for (let i = 0; i < 40 && !(await js(`!!diario.find(e=>e.data==="${anteontem}")`)); i++) await esperar(250);
+        await esperar(1500);
+        r.app.doCelular = { noPc: await js(`({dias:diario.length, anteontem:!!diario.find(e=>e.data==="${anteontem}")})`), pendentes: await ja(`window.desktop.sync.info().pendentes`) };
+        await fotoApp("diario");
+        /* o PC muda a margem: com o app aberto, chega no celular sozinho */
+        await js(`cfg.margem = 15; salvarCfg(); render(); true`);
+        for (let i = 0; i < 40 && (await ja(`cfg.margem`)) !== 15; i++) await esperar(250);
+        r.app.doPc = { margem: await ja(`cfg.margem`) };
+        /* pedidos ao PC: ler um anúncio da OLX e analisar um link do Marketplace (rodam no navegador escondido do PC) */
+        r.app.detalhe = await ja(`(async()=>{ irPara("ofertas"); const x = ofertas.itens.find(i=>i.k==="olx:1543531037"); delete x.det; await lerDetalhesOferta(x);
+          return {condicao:(x.det||{}).condicao, vendedor:(x.det||{}).vendedor, erro:(x.det||{}).erro||""}; })()`);
+        r.app.analisar = await ja(`(async()=>{ irPara("anuncio"); const n0 = anuncios.length; await analisarLink("https://www.facebook.com/marketplace/item/1000000000000007/");
+          return {antes:n0, depois:anuncios.length, atual:atualId, status:document.getElementById("a-status").textContent, modelo:(anuncios.find(a=>a._id===atualId)||{}).modelo}; })()`);
+        r.app.analisarNoPc = await js(`anuncios.length`);
+        await fotoApp("analisar");
+        /* busca de ofertas pedida no celular, só com a RTX 3070 (escolhida no celular, em Modelos procurados) */
+        await ja(`irPara("ofertas"); ofSel = ["rtx-3070"]; lsSet("min-ofertas-modelos", ofSel); renderOfModelos(); true`);
+        await esperar(3000);
+        const quandoAntes = await js(`ofertas.quando`);
+        await ja(`document.getElementById("of-buscar").click()`);
+        await esperar(1500);
+        r.app.buscaRodando = { celular: await ja(`({rodando:ofEst.rodando, botao:document.getElementById("of-buscar").textContent, status:document.getElementById("of-status").textContent, barra:document.getElementById("of-prog").className})`), pc: await js(`ofEst.rodando`) };
+        await fotoApp("buscando");
+        for (let i = 0; i < 240 && (await ja(`ofEst.rodando`)); i++) await esperar(500);
+        await esperar(1000);
+        r.app.busca = { status: await ja(`document.getElementById("of-status").textContent`), novaBusca: (await ja(`ofertas.quando`)) !== quandoAntes, igualAoPc: (await ja(`ofertas.quando`)) === (await js(`ofertas.quando`)),
+          modelosNoPc: await js(`ofSel`), pedidos: appMain.registro.pedidos.slice() };
+        await fotoApp("ofertas");
+        r.app.diferentesDepoisDosPedidos = await chavesDiferentes();
+        /* app fechado há mais de 20 minutos: o PC não manda as mudanças na hora (economia); o Atualizar agora busca */
+        appMain.esquecerAtivos();
+        const nCartas = appMain.registro.cartas.length;
+        await js(`cfg.margem = 18; salvarCfg(); render(); true`); await esperar(4500);
+        r.app.semAppAberto = { cartas: appMain.registro.cartas.length - nCartas, margemNoCelular: await ja(`cfg.margem`) };
+        await ja(`window.desktop.sync.atualizar().then(()=>true)`);
+        r.app.semAppAberto.depoisDeAtualizar = await ja(`cfg.margem`);
+        /* o app fecha e abre de novo: os dados continuam lá, sem pedir nada ao PC (perguntou há menos de 10 minutos) */
+        const nRec = appMain.registro.recebidas.length;
+        await new Promise((ok) => { celApp.webContents.once("did-finish-load", ok); celApp.webContents.reload(); }); await esperar(1500);
+        r.app.reaberto = await ja(`({tela:!!document.getElementById("pm-vinc"), margem:cfg.margem, placas:placas.length, ofertas:(ofertas&&ofertas.itens||[]).length, sync:document.getElementById("sync").textContent.trim()})`);
+        r.app.reaberto.cartasDoCelular = appMain.registro.recebidas.length - nRec;
+        /* mudanças nos dois lados quase ao mesmo tempo (chaves diferentes): no fim, os dois ficam iguais */
+        await ja(`cfg.cdi = 12.5; salvarCfg(); true`); await js(`ofMarcas.salvos["fb:1000000000000013"] = {t:Date.now()}; salvarMarcas(); true`);
+        await esperar(7000);
+        r.app.diferentesNoFim = await chavesDiferentes();
+        r.app.cdi = { pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`) };
+        /* relógio do celular errado: 1 hora atrasado e depois 1 hora adiantado. A mudança entra no PC (ninguém mais mexeu
+           nela) e o PC confirma; nada fica indo e voltando */
+        const msgsCel = () => (ntfy.topicos.get([...ntfy.topicos.keys()].find((t) => /^pm-.*-cel$/.test(t))) || []).length;
+        const msgsPc = () => (ntfy.topicos.get([...ntfy.topicos.keys()].find((t) => /^pm-.*-pc$/.test(t))) || []).length;
+        r.app.relogio = {};
+        for (const [nome, desvio, valor] of [["atrasado", -3600e3, 0.97], ["adiantado", 3600e3, 0.98]]) {
+          await ja(`(()=>{ const f = (window.__agoraReal = window.__agoraReal || Date.now.bind(Date)); Date.now = () => f() + (${desvio}); return true; })()`);
+          const c0 = msgsCel(), p0 = msgsPc();
+          await ja(`cfg.tarifa = ${valor}; salvarCfg(); true`);
+          for (let i = 0; i < 40 && (await js(`cfg.tarifa`)) !== valor; i++) await esperar(250);
+          await esperar(6000);
+          r.app.relogio[nome] = { noPc: await js(`cfg.tarifa`), pendentes: await ja(`window.desktop.sync.info().pendentes`), msgsDoCelular: msgsCel() - c0, msgsDoPc: msgsPc() - p0 };
+        }
+        await ja(`Date.now = window.__agoraReal; true`);
+        /* conflito de verdade: o celular sem internet muda a tarifa, o PC muda as horas (a mesma chave, min-cfg);
+           quando a internet volta, vale a mudança mais nova (a do PC) e os dois ficam iguais */
+        falso.ntfy.recusar = (req, caminho) => (req.method === "POST" && /-cel$/.test(caminho) ? 503 : 0);
+        await ja(`cfg.tarifa = 0.99; salvarCfg(); true`); await esperar(2500);
+        await js(`cfg.horas = 23; salvarCfg(); render(); true`); await esperar(3500);
+        falso.ntfy.recusar = null;
+        const c1 = msgsCel(), p1 = msgsPc();
+        for (let i = 0; i < 60 && (await chavesDiferentes()).length; i++) await esperar(500);
+        await esperar(4000);
+        r.app.conflito = { diferentes: await chavesDiferentes(), pc: await js(`({tarifa:cfg.tarifa, horas:cfg.horas})`), celular: await ja(`({tarifa:cfg.tarifa, horas:cfg.horas})`),
+          pendentes: await ja(`window.desktop.sync.info().pendentes`), recusadasNoPc: appMain.registro.recusadas, msgsDoCelular: msgsCel() - c1, msgsDoPc: msgsPc() - p1 };
+        /* uma mudança grande no PC (vai como anexo no ntfy): 3.000 anúncios vistos pelo alerta de ofertas */
+        await js(`(()=>{ for(let i=0;i<3000;i++) alerta.vistos["fb:" + (2e15+i)] = {t:Date.now(), p:1000+i}; salvarAlerta(); return true; })()`);
+        for (let i = 0; i < 40 && (await chavesDiferentes()).length; i++) await esperar(500);
+        r.app.grande = { diferentes: await chavesDiferentes(), vistosNoCelular: await ja(`Object.keys(alerta.vistos).length`), tamanhoKB: Math.round((await js(`localStorage.getItem("min-ofertas-alerta").length`)) / 1024) };
+        await ja(`irPara("premissas")`); await fotoApp("premissas");
+        r.app.esteCelular = await ja(`({tela:!document.getElementById("v-premissas").hidden, cartao:!document.getElementById("estecel-p").hidden, info:document.getElementById("estecel-info").innerText.replace(/\\n/g," | ")})`);
+        /* quantas mensagens o teste gastou no ntfy (o ntfy.sh aceita 250 por dia de cada internet) e se tudo foi cifrado */
+        const topicosApp = [...ntfy.topicos.keys()].filter((t) => /^pm-/.test(t));
+        r.app.mensagens = Object.fromEntries(topicosApp.map((t) => [t.endsWith("-pc") ? "doPc" : "doCelular", ntfy.topicos.get(t).length]));
+        r.app.anexos = topicosApp.reduce((n, t) => n + ntfy.topicos.get(t).filter((m) => m.attachment).length, 0);
+        r.app.cifrado = topicosApp.length === 2 && topicosApp.every((t) => ntfy.topicos.get(t).every((m) => m.attachment ? m.message === "pm1" : /^pm1\.[\w-]+\.[\w-]+$/.test(m.message)));
+        /* nada de JSON nem nomes das chaves no ntfy: só "pm1.<base64>.<base64>" nas mensagens e bytes cifrados nos anexos */
+        r.app.textoClaroNoNtfy = topicosApp.some((t) => ntfy.topicos.get(t).some((m) => /["{}\s]|min-|perfil/.test(m.message || "")))
+          || [...ntfy.arquivos.values()].some((b) => /min-cfg|"perfil"|Itaja/.test(b.toString("latin1")));
+        r.app.cartasPc = appMain.registro.cartas.map((c) => `${c.base}→${c.versao} [${c.chaves.join(",")}] ${c.resps.join(" ")}`);
+        r.app.recebidas = appMain.registro.recebidas.map((c) => `${c.tipo}${c.versao != null ? " v" + c.versao : ""} [${c.chaves.join(",")}]${c.nome ? " " + c.nome : ""}`);
+        r.app.arquivoPc = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "app-celular.json"), "utf8")); return { codigoIgual: c.codigo === ap.codigo, versao: c.versao, aparelhos: Object.keys(c.aparelhos).length, envios: c.envios.length }; } catch (e) { return String(e.message); } })();
+        /* desvincular no PC (dois cliques): o celular volta para a tela de vincular, sem os dados */
+        await js(`irPara("premissas"); document.getElementById("appcel-desvincular").click()`); await esperar(300);
+        r.app.desvincular = { confirmar: await js(`document.getElementById("appcel-desvincular").textContent`) };
+        const recarregou = new Promise((ok) => celApp.webContents.once("did-finish-load", ok));
+        await js(`document.getElementById("appcel-desvincular").click()`);
+        await Promise.race([recarregou, esperar(12000)]); await esperar(1500);
+        r.app.desvincular.celular = await ja(`({tela:!!document.getElementById("pm-vinc"), msg:document.getElementById("pm-status").textContent, codigo:localStorage.getItem("pm-codigo"), cfg:localStorage.getItem("min-cfg")})`);
+        const pub = appMain.publico();
+        r.app.desvincular.pc = { ligado: pub.ligado, codigo: pub.codigo, aparelhos: pub.aparelhos.length, escutando: appMain.conectado() };
+        r.app.desvincular.tela = await js(`({botao:!document.getElementById("appcel-desligado").hidden, status:document.getElementById("appcel-status").textContent})`);
+        await fotoApp("desvinculado");
+        r.app.erros = errosApp;
+        celApp.destroy(); srvApp.close();
 
         /* alerta de ofertas: liga, força a hora da busca automática e confere os avisos do Windows */
         r.alerta = {};

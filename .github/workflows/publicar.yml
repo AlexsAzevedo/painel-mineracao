@@ -1,12 +1,14 @@
 name: Publicar versão
 
-# Toda vez que a versão em desktop/package.json muda no main, o GitHub monta o instalador do Windows
-# e publica a release com o instalador, o .blockmap e o latest.yml, usando o texto de notas/vX.Y.Z.md.
-# Os painéis instalados encontram a versão nova sozinhos. Se a versão já tem release, não faz nada.
+# Toda vez que a versão em desktop/package.json muda no main, o GitHub monta o instalador do Windows e o app do
+# celular (Android) e publica a release com o instalador, o .blockmap, o latest.yml e o Painel-de-Mineracao.apk,
+# usando o texto de notas/vX.Y.Z.md. Os painéis instalados encontram a versão nova sozinhos.
+# O .apk só sai com a chave de assinatura nos segredos do repositório (ANDROID_KEYSTORE_B64 e ANDROID_KEYSTORE_SENHA).
+# Se a versão já tem release, só confere se falta o .apk (segredos postos depois): aí monta e acrescenta o .apk.
 on:
   push:
     branches: [main]
-    paths: ["desktop/package.json"]
+    paths: ["desktop/package.json", "celular/**"]
   workflow_dispatch:
 
 permissions:
@@ -19,9 +21,10 @@ concurrency:
 jobs:
   publicar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       GH_TOKEN: ${{ github.token }}
+      TEM_CHAVE: ${{ secrets.ANDROID_KEYSTORE_B64 != '' && secrets.ANDROID_KEYSTORE_SENHA != '' && 'sim' || 'nao' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,22 +33,38 @@ jobs:
         run: |
           versao=$(jq -r .version desktop/package.json)
           echo "versao=$versao" >> "$GITHUB_OUTPUT"
+          if [ "$(jq -r .version celular/package.json)" != "$versao" ]; then
+            echo "::error::A versão do app do celular (celular/package.json) é diferente da do PC ($versao)."
+            exit 1
+          fi
           if gh release view "v$versao" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "A versão $versao já está publicada. Nada a fazer."
             echo "publicar=nao" >> "$GITHUB_OUTPUT"
+            if [ "$TEM_CHAVE" = "sim" ] && ! gh release view "v$versao" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx "Painel-de-Mineracao.apk"; then
+              echo "A versão $versao já está publicada, sem o app do celular: vou montar o .apk e acrescentar."
+              echo "apk=sim" >> "$GITHUB_OUTPUT"
+            else
+              echo "A versão $versao já está publicada. Nada a fazer."
+              echo "apk=nao" >> "$GITHUB_OUTPUT"
+            fi
           elif [ ! -f "notas/v$versao.md" ]; then
             echo "::error::Falta o arquivo notas/v$versao.md com as novidades da versão $versao."
             exit 1
           else
             echo "publicar=sim" >> "$GITHUB_OUTPUT"
+            echo "apk=$TEM_CHAVE" >> "$GITHUB_OUTPUT"
+            if [ "$TEM_CHAVE" != "sim" ]; then
+              echo "::warning::Sem a chave de assinatura nos segredos (ANDROID_KEYSTORE_B64 e ANDROID_KEYSTORE_SENHA): a versão sai sem o app do celular."
+            fi
           fi
 
       - uses: actions/setup-node@v4
-        if: steps.v.outputs.publicar == 'sim'
+        if: steps.v.outputs.publicar == 'sim' || steps.v.outputs.apk == 'sim'
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: desktop/package-lock.json
+          cache-dependency-path: |
+            desktop/package-lock.json
+            celular/package-lock.json
 
       - name: Instalar as dependências
         if: steps.v.outputs.publicar == 'sim'
@@ -64,13 +83,42 @@ jobs:
         working-directory: desktop
         run: node scripts/build-win.js
 
+      - uses: actions/setup-java@v4
+        if: steps.v.outputs.apk == 'sim'
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Gerar o app do celular (Android)
+        if: steps.v.outputs.apk == 'sim'
+        working-directory: celular
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          PAINEL_KEYSTORE_SENHA: ${{ secrets.ANDROID_KEYSTORE_SENHA }}
+        run: |
+          npm ci
+          python3 scripts/montar-www.py
+          npx cap sync android
+          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/painel.jks"
+          export PAINEL_KEYSTORE="$RUNNER_TEMP/painel.jks"
+          (cd android && ./gradlew --no-daemon assembleRelease)
+          rm -f "$RUNNER_TEMP/painel.jks"
+          cp android/app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Painel-de-Mineracao.apk"
+          bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
+          "$ANDROID_HOME/build-tools/$bt/apksigner" verify --print-certs "$GITHUB_WORKSPACE/Painel-de-Mineracao.apk"
+
       - name: Publicar a release
         if: steps.v.outputs.publicar == 'sim'
         env:
           V: ${{ steps.v.outputs.versao }}
         run: |
+          arquivos=("desktop/dist/Painel-de-Mineracao-Setup-$V.exe" "desktop/dist/Painel-de-Mineracao-Setup-$V.exe.blockmap" "desktop/dist/latest.yml")
+          if [ -f Painel-de-Mineracao.apk ]; then arquivos+=("Painel-de-Mineracao.apk"); fi
           gh release create "v$V" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Versão $V" --notes-file "notas/v$V.md" \
-            "desktop/dist/Painel-de-Mineracao-Setup-$V.exe" \
-            "desktop/dist/Painel-de-Mineracao-Setup-$V.exe.blockmap" \
-            "desktop/dist/latest.yml"
+            --title "Versão $V" --notes-file "notas/v$V.md" "${arquivos[@]}"
+
+      - name: Acrescentar o app do celular à release
+        if: steps.v.outputs.publicar == 'nao' && steps.v.outputs.apk == 'sim'
+        env:
+          V: ${{ steps.v.outputs.versao }}
+        run: gh release upload "v$V" --repo "$GITHUB_REPOSITORY" Painel-de-Mineracao.apk
