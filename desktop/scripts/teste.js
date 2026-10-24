@@ -105,7 +105,7 @@ function videoDoQr(q, arquivo) {
   fs.writeFileSync(arquivo, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F15:1 Ip A1:1 C420jpeg\n`), ...Array(20).fill(quadro)]));
 }
 
-module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, celular: celularMain, acesso: acessoMain, appCelular: appMain }) {
+module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, comoAbrir, celular: celularMain, acesso: acessoMain, appCelular: appMain }) {
   /* versões de mentira no formato das Releases do GitHub, para a atualização automática.
      modo "igual": a última versão publicada é a que está instalada; "defeito": versão nova com o arquivo corrompido; "ok": versão nova certa */
   const versaoApp = app.getVersion(), proxima = versaoApp.replace(/(\d+)$/, (n) => String(+n + 1));
@@ -317,13 +317,24 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.celular.ligado = await js(`({topico:document.getElementById("cel-topico").textContent, passos:!document.getElementById("cel-ligado").hidden, botaoLigar:!document.getElementById("cel-desligado").hidden,
           status:document.getElementById("cel-status").textContent, resumo:celCfg.resumo, ofertas:celCfg.ofertas, sinal:celCfg.sinal, hora:celCfg.hora, resumoDia:celCfg.resumoDia})`);
         const topico = r.celular.ligado.topico;
-        /* com os avisos ligados, o painel fica no ícone perto do relógio e abre com o Windows; dá para desligar o abrir com o Windows */
+        /* com os avisos ligados, o painel fica no ícone perto do relógio e abre com o Windows (sem escolha da pessoa, vale o que
+           os avisos pedem); em Premissas › Este computador dá para escolher abrir com o Windows e abrir minimizado */
         await esperar(300);
-        r.celular.segundoPlano = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
-        await js(`(()=>{ const c = document.getElementById("cel-iniciar"); c.checked = false; c.dispatchEvent(new Event("change", {bubbles:true})); })()`); await esperar(500);
-        r.celular.semIniciar = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
-        await js(`(()=>{ const c = document.getElementById("cel-iniciar"); c.checked = true; c.dispatchEvent(new Event("change", {bubbles:true})); })()`); await esperar(500);
+        r.celular.segundoPlano = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows, abre: comoAbrir(true), abreNaMao: comoAbrir(false) };
+        const marcarPc = (id, v) => js(`(()=>{ const c = document.getElementById("${id}"); c.checked = ${v}; c.dispatchEvent(new Event("change", {bubbles:true})); })()`);
+        const telaInicio = () => js(`({visivel:!document.getElementById("inicio").hidden, iniciar:document.getElementById("pc-iniciar").checked, minimizado:document.getElementById("pc-minimizado").checked,
+          minimizadoDesligado:document.getElementById("pc-minimizado").disabled, dica:document.getElementById("pc-iniciar-dica").hidden ? "" : document.getElementById("pc-iniciar-dica").textContent, minH:document.getElementById("pc-minimizado-h").textContent})`);
+        const arquivoSp = () => { try { const j = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "segundo-plano.json"), "utf8")); return { comWindows: j.comWindows, minimizado: j.minimizado }; } catch (e) { return String(e.message); } };
+        r.celular.inicio = { tela: await telaInicio() };
+        await marcarPc("pc-minimizado", false); await esperar(400);
+        r.celular.inicio.semMinimizar = { abre: comoAbrir(true), arquivo: arquivoSp(), tela: await telaInicio() };
+        await marcarPc("pc-minimizado", true); await esperar(400);
+        r.celular.inicio.minimizadoDeNovo = { abre: comoAbrir(true), arquivo: arquivoSp() };
+        await marcarPc("pc-iniciar", false); await esperar(500);
+        r.celular.semIniciar = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows, arquivo: arquivoSp(), tela: await telaInicio() };
+        await marcarPc("pc-iniciar", true); await esperar(500);
         r.celular.iniciarDeNovo = testeSegundoPlano.inicioComWindows;
+        r.celular.inicio.textoAlerta = await js(`[...document.querySelectorAll("#al-opcoes .hint")].map(x=>x.textContent).join(" | ")`);
         r.celular.formatoTopico = /^painel-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}-[a-hj-km-np-z2-9]{4}$/.test(topico);
         r.celular.arquivo = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "celular.json"), "utf8")); return { topicoIgual: c.topico === topico, ligado: c.ligado }; } catch (e) { return String(e.message); } })();
         await esperar(Number(process.env.PAINEL_SINAL_MS || 2000) * 2 + 600);
@@ -872,8 +883,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await js(`irPara("ofertas")`);
         const marcar = (id, v) => js(`(()=>{ const c = document.getElementById("${id}"); c.checked = ${v}; c.dispatchEvent(new Event("change", {bubbles:true})); })()`);
         await marcar("al-bandeja", true); await esperar(300);
-        await marcar("al-iniciar", true); await esperar(300);
-        r.bandeja = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
+        await marcar("pc-iniciar", true); await esperar(300);
+        r.bandeja = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows, abre: comoAbrir(true) };
         try { r.bandeja.arquivo = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "segundo-plano.json"), "utf8")); } catch (e) { r.bandeja.arquivo = String(e.message); }
         if (r.bandeja.config.temBandeja) {
           const n0 = testeSegundoPlano.notificacoes.length;
@@ -883,7 +894,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
           r.bandeja.fechar2 = { destruida: principal.isDestroyed(), escondeu: testeSegundoPlano.escondeu, avisos: testeSegundoPlano.notificacoes.length - n0 };
         }
         await marcar("al-bandeja", false); await esperar(300);
-        r.bandeja.desligada = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows, iniciarDesabilitado: await js(`document.getElementById("al-iniciar").disabled`) };
+        r.bandeja.desligada = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows, abre: comoAbrir(true) };
 
         /* Sair pelo painel: cancela o aviso agendado e marca que saiu de propósito (ao abrir, não diz que "voltou") */
         if (r.celular) {

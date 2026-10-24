@@ -14,7 +14,8 @@ const zlib = require("zlib");
 
 const PARTICAO = "persist:navegador";
 const TESTE = process.env.PAINEL_TESTE === "1";
-/* aberto pelo Windows ao ligar o computador: começa escondido, só com o ícone perto do relógio */
+/* aberto pelo Windows ao ligar o computador: com "abrir minimizado" (o normal), começa escondido, só com o ícone perto do
+   relógio (ou minimizado na barra de tarefas, quando não há ícone) */
 const NA_BANDEJA = process.argv.includes("--na-bandeja");
 let principal = null, leitor = null, saindo = false;
 
@@ -70,8 +71,15 @@ function criarPrincipal() {
       additionalArguments: [`--painel-versao=${app.getVersion()}`]
     }
   });
-  if (j.max) principal.maximize();
-  principal.once("ready-to-show", () => { if (!TESTE && !(NA_BANDEJA && segundoPlano.bandeja)) principal.show(); });
+  /* maximizar mostra a janela: fica para a hora de mostrar (aberto pelo Windows e minimizado, ela não pode aparecer) */
+  principal.maximizarAoMostrar = !!j.max;
+  principal.once("ready-to-show", () => {
+    const modo = comoAbrir(NA_BANDEJA);
+    if (TESTE) { testeSegundoPlano.abriu = modo; return; }
+    if (modo === "escondida") return;
+    if (principal.maximizarAoMostrar) { principal.maximizarAoMostrar = false; principal.maximize(); }
+    if (modo === "minimizada") principal.minimize(); else principal.show();
+  });
   principal.loadFile(path.join(__dirname, "app", "index.html"));
   principal.webContents.on("did-finish-load", () => aoCarregarPainel());
   /* links de lojas, Kryptex etc. abrem no navegador padrão do Windows */
@@ -97,16 +105,24 @@ function criarPrincipal() {
 /* trazer o painel para a frente (ícone perto do relógio, segunda instância, clique num aviso) e, se for o caso, abrir uma tela */
 function mostrarPrincipal(tela, chave) {
   if (!principal || principal.isDestroyed()) criarPrincipal();
-  if (!TESTE) { if (principal.isMinimized()) principal.restore(); principal.show(); principal.focus(); }
+  if (!TESTE) {
+    if (principal.maximizarAoMostrar) { principal.maximizarAoMostrar = false; principal.maximize(); }
+    if (principal.isMinimized()) principal.restore();
+    principal.show(); principal.focus();
+  }
   if (tela) {
     const enviar = () => principal.webContents.send("abrir", { tela: String(tela), chave: String(chave || "") });
     if (principal.webContents.isLoading()) principal.webContents.once("did-finish-load", enviar); else enviar();
   }
 }
 
-/* ---------- segundo plano: ícone perto do relógio e abrir junto com o Windows ---------- */
+/* ---------- segundo plano: ícone perto do relógio e abrir junto com o Windows ----------
+   bandeja: fechar a janela só esconde (o alerta de ofertas, os avisos no celular, o acesso pelo navegador ou o app do
+   celular precisam do painel rodando); iniciar: o que essas funções pedem para abrir junto com o Windows (o painel calcula).
+   comWindows e minimizado: a escolha da pessoa em Premissas › Este computador (comWindows null = ainda não escolheu,
+   vale o que as funções pedem). */
 const arquivoSegundoPlano = () => path.join(app.getPath("userData"), "segundo-plano.json");
-let segundoPlano = { bandeja: false, iniciar: false, avisouBandeja: false };
+let segundoPlano = { bandeja: false, iniciar: false, avisouBandeja: false, comWindows: null, minimizado: true };
 let bandeja = null;
 const testeSegundoPlano = { escondeu: 0, inicioComWindows: null, notificacoes: [] };
 function lerSegundoPlano() { try { segundoPlano = { ...segundoPlano, ...JSON.parse(fs.readFileSync(arquivoSegundoPlano(), "utf8")) }; } catch (e) {} }
@@ -125,10 +141,18 @@ function criarBandeja() {
   ]));
   bandeja.on("click", () => mostrarPrincipal());
 }
+/* abrir junto com o Windows: a escolha da pessoa; sem escolha, o que as funções ligadas pedem */
+const inicioEfetivo = () => (segundoPlano.comWindows == null ? !!(segundoPlano.bandeja && segundoPlano.iniciar) : !!segundoPlano.comWindows);
+/* como a janela abre: "normal"; aberto pelo Windows com "abrir minimizado", "escondida" (só o ícone perto do relógio) ou,
+   sem o ícone, "minimizada" (na barra de tarefas) */
+function comoAbrir(peloWindows) {
+  if (!peloWindows || segundoPlano.minimizado === false) return "normal";
+  return segundoPlano.bandeja && bandeja ? "escondida" : "minimizada";
+}
 function aplicarSegundoPlano() {
   if (segundoPlano.bandeja) criarBandeja();
   else if (bandeja) { bandeja.destroy(); bandeja = null; }
-  const iniciar = !!(segundoPlano.bandeja && segundoPlano.iniciar);
+  const iniciar = inicioEfetivo();
   if (TESTE) testeSegundoPlano.inicioComWindows = iniciar;
   else if (app.isPackaged) { try { app.setLoginItemSettings({ openAtLogin: iniciar, args: ["--na-bandeja"] }); } catch (e) {} }
 }
@@ -155,6 +179,18 @@ ipcMain.handle("segundo-plano", (e, op) => {
     gravarSegundoPlano(); aplicarSegundoPlano();
   }
   return { bandeja: segundoPlano.bandeja, iniciar: segundoPlano.iniciar, temBandeja: !!bandeja };
+});
+/* Premissas › Este computador: abrir junto com o Windows e abrir minimizado */
+const inicioPublico = () => ({ comWindows: inicioEfetivo(), escolheu: segundoPlano.comWindows != null, minimizado: segundoPlano.minimizado !== false,
+  bandeja: !!(segundoPlano.bandeja && bandeja), precisa: !!(segundoPlano.bandeja && segundoPlano.iniciar) });
+ipcMain.handle("inicio-windows", (e, op) => {
+  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+  if (op && typeof op === "object") {
+    if ("comWindows" in op) segundoPlano.comWindows = !!op.comWindows;
+    if ("minimizado" in op) segundoPlano.minimizado = !!op.minimizado;
+    gravarSegundoPlano(); aplicarSegundoPlano();
+  }
+  return inicioPublico();
 });
 ipcMain.handle("notificar", (e, n) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return notificar(n || {}); });
 ipcMain.handle("janela-visivel", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return !!(principal && principal.isVisible() && !principal.isMinimized()); });
@@ -1311,7 +1347,7 @@ if (UNICO) app.whenReady().then(() => {
   iniciarAcesso();
   iniciarAppCelular();
   /* no teste, quem liga a atualização é o próprio teste, depois de subir o servidor de versões de mentira */
-  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }),
+  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir,
     celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular },
     acesso: { estado: acessoPublico, config: () => ({ ...acesso }), versao: () => versaoDados },
     appCelular: { estado: () => JSON.parse(JSON.stringify(appCel)), publico: appPublico, registro: testeApp, conectado: () => appConectado,

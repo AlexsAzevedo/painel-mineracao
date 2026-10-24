@@ -646,6 +646,10 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* versões: atualização automática e novidades (app do computador) */
 .atu{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:12px 14px;border-radius:10px;background:var(--sunk)}
 .atu-msg{margin:3px 0 0;overflow-wrap:anywhere}
+.inicio-opcoes{display:flex;flex-direction:column;gap:8px;min-width:0}
+.inicio-opcoes .check{align-items:flex-start;line-height:1.4}
+.inicio-opcoes .check input{margin-top:3px}
+.inicio-opcoes .hint{margin:0}
 .atu > div:first-child{min-width:0;flex:1 1 320px}
 .aviso-atu{position:fixed;right:20px;bottom:20px;z-index:50;width:min(390px,calc(100vw - 32px));background:var(--surface);color:var(--fg);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;box-shadow:0 18px 50px -18px var(--shadow);padding:16px 18px 14px;display:flex;flex-direction:column;gap:10px}
 .aviso-atu h2{font-size:1.02rem}
@@ -745,7 +749,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
           <p class="hint">Avisa no Windows quando aparecer um anúncio novo, ou um que baixou de preço, que se paga dentro do seu prazo. Descartados, preço suspeito e “no estado” não geram aviso.</p>
           <div class="of-al-opcoes" id="al-opcoes" hidden>
             <label class="check"><input type="checkbox" id="al-bandeja"> Continuar procurando com a janela fechada (o painel fica no ícone perto do relógio)</label>
-            <label class="check"><input type="checkbox" id="al-iniciar"> Abrir junto com o Windows, já no ícone perto do relógio</label>
+            <p class="hint" style="margin:0">Abrir junto com o Windows, e se abre minimizado: em Premissas › Este computador.</p>
           </div>
         </fieldset>
         <div class="of-prog" id="of-prog" hidden><span></span></div>
@@ -924,6 +928,14 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
           <div><span class="lbl">Backup automático</span><p class="status atu-msg" id="bkp-msg" role="status" aria-live="polite"></p></div>
           <div class="acoes"><button type="button" id="bkp-agora">Fazer agora</button><button type="button" class="link" id="bkp-abrir">Abrir a pasta</button><button type="button" class="link" id="bkp-mudar">Mudar a pasta</button></div>
         </div>
+        <div class="atu" id="inicio" hidden>
+          <div class="inicio-opcoes">
+            <span class="lbl" id="inicio-t">Ao ligar o computador</span>
+            <label class="check"><input type="checkbox" id="pc-iniciar"> Abrir o painel junto com o Windows</label>
+            <label class="check"><input type="checkbox" id="pc-minimizado"><span>Abrir minimizado <small class="hint" id="pc-minimizado-h"></small></span></label>
+            <p class="hint" id="pc-iniciar-dica" hidden></p>
+          </div>
+        </div>
         <div class="acoes">
           <button type="button" data-pc="facebook">Entrar no Facebook</button>
           <button type="button" data-pc="navegador">Mostrar o navegador escondido</button>
@@ -968,8 +980,8 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
             <label class="check"><input type="checkbox" id="cel-resumo"><span>Resumo todo dia às <input type="time" id="cel-hora" value="08:00" aria-label="Hora do resumo"><br><small>Lucro, ganho anotado, quanto já recuperou e as melhores ofertas. O botão Atualizar, no aviso, pede um resumo novo na hora.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-ofertas"><span>Ofertas boas que a busca automática encontrar<br><small id="cel-ofertas-h">Os mesmos avisos que aparecem no Windows, com o link do anúncio.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-sinal"><span>Avisar se este computador ficar mais de 45 minutos sem dar sinal<br><small>Desligado, travado ou sem internet: a mineração parou. Sair pelo painel não avisa.</small></span></label>
-            <label class="check"><input type="checkbox" id="cel-iniciar"><span>Abrir o painel junto com o Windows<br><small>Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos. Para fechar de vez: botão direito no ícone › Sair.</small></span></label>
           </div>
+          <p class="hint" style="margin:0">Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos (para fechar de vez: botão direito no ícone › Sair). Abrir junto com o Windows: em Premissas › Este computador.</p>
           <div class="acoes"><button type="button" id="cel-resumo-agora">Mandar o resumo agora</button><button type="button" class="link" id="cel-trocar">Gerar outro nome</button><button type="button" class="link" id="cel-desligar">Desligar os avisos</button></div>
         </div>
         <p class="status" id="cel-status" role="status" aria-live="polite"></p>
@@ -986,7 +998,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
             <li>Para ficar com cara de aplicativo: no Chrome, ⋮ › Adicionar à tela inicial; no Safari, Compartilhar › Adicionar à Tela de Início.</li>
             <li id="ac-ts">Fora de casa: instale o <b>Tailscale</b> no PC e no celular e entre com a mesma conta nos dois. O endereço do Tailscale aparece aqui, e ele funciona de qualquer lugar.</li>
           </ol>
-          <p class="hint" style="margin:0">Na primeira vez, o Windows pergunta se o painel pode usar a rede: clique em Permitir acesso. O celular só abre o painel com este computador ligado; por isso, com o acesso ligado, fechar a janela deixa o painel no ícone perto do relógio, e ele abre junto com o Windows.</p>
+          <p class="hint" style="margin:0">Na primeira vez, o Windows pergunta se o painel pode usar a rede: clique em Permitir acesso. O celular só abre o painel com este computador ligado; por isso, com o acesso ligado, fechar a janela deixa o painel no ícone perto do relógio (abrir junto com o Windows: em Este computador, acima).</p>
           <div class="acoes"><button type="button" id="ac-mandar">Mandar o endereço para o celular</button><button type="button" class="link" id="ac-desconectar">Desconectar os celulares</button><button type="button" class="link" id="ac-desligar">Desligar</button></div>
         </div>
         <p class="status" id="ac-status" role="status" aria-live="polite"></p>
@@ -3045,6 +3057,12 @@ if(DESKTOP){
       else if(b.dataset.pc==="importar"){ const txt = await window.desktop.abrirArquivo(); if(!txt){ st("Importação cancelada."); return; } restaurarBackup(txt); }
     }catch(err){ st("Não deu certo: " + (err && err.message || err), "erro"); }
   });
+  /* abrir junto com o Windows e abrir minimizado (renderInicio, mais abaixo) */
+  if(window.desktop.inicioWindows){
+    $("pc-iniciar").addEventListener("change", e=>carregarInicio({comWindows: e.target.checked}));
+    $("pc-minimizado").addEventListener("change", e=>carregarInicio({minimizado: e.target.checked}));
+    carregarInicio();
+  }
 }
 /* no celular, o que precisa de navegador roda no PC */
 if(REMOTO){
@@ -3820,7 +3838,7 @@ function renderAlerta(){
   if(!OF_PODE() || REMOTO){ $("of-alerta").hidden = true; return; }   /* a busca automática é coisa do PC */
   if(document.activeElement!==$("al-horas")) $("al-horas").value = String(alerta.horas||0);
   $("al-opcoes").hidden = !alerta.horas;
-  $("al-bandeja").checked = !!alerta.bandeja; $("al-iniciar").checked = !!(alerta.bandeja && alerta.iniciar); $("al-iniciar").disabled = !alerta.bandeja;
+  $("al-bandeja").checked = !!alerta.bandeja;
   const p = proximaBuscaAuto();
   $("al-prox").textContent = !alerta.horas ? "" : !temCidade() ? "Informe a sua cidade para o alerta funcionar." : `Próxima busca: ${p <= Date.now() + 60e3 ? "em instantes" : quando(p)}`;
   if(typeof renderCelular==="function" && celCfg) renderCelular();
@@ -3833,11 +3851,29 @@ function sincronizarSegundoPlano(){
   const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado), apl = !!(apCfg && apCfg.ligado);
   /* com o acesso pelo celular ligado ou o app do celular vinculado, o painel precisa estar rodando: fica no ícone e abre com o Windows */
   const bandeja = ofertasBg || cel || ac || apl, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl);
-  window.desktop.segundoPlano({bandeja, iniciar}).catch(()=>{});
+  window.desktop.segundoPlano({bandeja, iniciar}).then(()=>carregarInicio()).catch(()=>{});
+}
+/* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha fica no aplicativo, deste PC).
+   Sem escolha, vale o que as funções ligadas pedem (app do celular, avisos, acesso pelo navegador, alerta de ofertas) */
+var inicioCfg = null;
+function renderInicio(){
+  const box = $("inicio"); if(!box || !inicioCfg) return;
+  box.hidden = false;
+  const c = inicioCfg;
+  $("pc-iniciar").checked = !!c.comWindows;
+  $("pc-minimizado").checked = !!c.minimizado; $("pc-minimizado").disabled = !c.comWindows;
+  $("pc-minimizado-h").textContent = c.bandeja ? "(a janela não aparece: o painel fica no ícone perto do relógio)" : "(a janela fica minimizada na barra de tarefas)";
+  const dica = $("pc-iniciar-dica");
+  dica.hidden = !!c.comWindows || !c.precisa;
+  dica.textContent = "Sem abrir junto com o Windows, o app do celular, os avisos no celular e a busca automática de ofertas param até você abrir o painel.";
+}
+async function carregarInicio(op){
+  if(!DESKTOP || !window.desktop.inicioWindows) return;
+  try{ inicioCfg = await window.desktop.inicioWindows(op||null); }catch(e){}
+  renderInicio();
 }
 $("al-horas").addEventListener("change", e=>{ alerta.horas = +e.target.value || 0; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
 $("al-bandeja").addEventListener("change", e=>{ alerta.bandeja = e.target.checked; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
-$("al-iniciar").addEventListener("change", e=>{ alerta.iniciar = e.target.checked; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
 
 /* depois de uma busca automática: o que nunca tinha aparecido (ou baixou de preço) e compensa vira um aviso do Windows */
 function alertarOfertas(itens, vistosAntes, r){
@@ -3956,7 +3992,7 @@ function renderCelular(){
   const c = celCfg, lig = !!(c.ligado && c.topico);
   $("cel-desligado").hidden = lig; $("cel-ligado").hidden = !lig;
   $("cel-topico").textContent = c.topico || "";
-  for(const k of ["resumo","ofertas","sinal","iniciar"]) $("cel-"+k).checked = !!c[k];
+  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).checked = !!c[k];
   if(document.activeElement!==$("cel-hora")) $("cel-hora").value = c.hora || "08:00";
   $("cel-ofertas-h").textContent = c.ofertas && !alerta.horas ? "Ligue Procurar sozinho, em Ofertas, para a busca rodar sem você." : "Os mesmos avisos que aparecem no Windows, com o link do anúncio.";
   const st = $("cel-status");
@@ -3985,7 +4021,7 @@ if(CEL){
     catch(err){ avisoCel("Não deu certo: " + (err && err.message || err) + ".", "erro"); }
     b.disabled = false; renderCelular();
   });
-  for(const k of ["resumo","ofertas","sinal","iniciar"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
+  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
   $("cel-hora").addEventListener("change", e=>{ if(/^\d{2}:\d{2}$/.test(e.target.value)) mudarCelular({hora:e.target.value}); });
   $("cel-resumo-agora").addEventListener("click", async e=>{
     const b = e.currentTarget; b.disabled = true;
@@ -4174,7 +4210,7 @@ function renderAppCelPc(){
   if(!c.ligado) status2("appcel-status", "");
   else if(c.erro) status2("appcel-status", "Não deu certo: " + c.erro + ".", "erro");
   else if(apQrAberto) status2("appcel-status", "Esperando o celular ler o código…");
-  else status2("appcel-status", c.ultimoEnvio ? `Última mensagem para o celular: ${quando(c.ultimoEnvio)}.` : "Com o app vinculado, fechar a janela deixa o painel no ícone perto do relógio, e ele abre junto com o Windows: o celular só recebe dados com o PC ligado.");
+  else status2("appcel-status", c.ultimoEnvio ? `Última mensagem para o celular: ${quando(c.ultimoEnvio)}.` : "Com o app vinculado, fechar a janela deixa o painel no ícone perto do relógio: o celular só recebe dados com o painel aberto neste PC. Abrir junto com o Windows: em Este computador, acima.");
 }
 function avisoApc(txt, tipo){ status2("appcel-status", txt, tipo); $("appcel-status").dataset.fixo = String(Date.now() + 9000); }
 /* um celular novo apareceu com o QR code aberto: pronto, vinculou */
@@ -4287,6 +4323,9 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.4.1", itens:[
+    "Você escolhe se o painel abre junto com o Windows e se abre minimizado, só no ícone perto do relógio: Premissas › Este computador › Ao ligar o computador. Antes, com o app do celular, os avisos ou o acesso pelo navegador ligados, ele sempre abria com o Windows.",
+    "Corrigido: com a janela maximizada, o painel aparecia na tela ao ligar o computador, em vez de ficar só no ícone perto do relógio."]},
   {v:"1.4.0", itens:[
     "App do celular para Android (Premissas › App do celular): o painel no celular com os mesmos dados deste PC, em casa ou na rua. Instale pelo QR code e vincule o celular lendo outro QR code. Nenhuma porta fica aberta no computador: os dados vão criptografados pelo ntfy.sh. A busca de ofertas, a leitura de anúncios e a atualização dos dados de fora pedidas no app rodam neste PC.",
     "O jeito da versão 1.3.0, pelo navegador do celular, continua em Premissas › Abrir no navegador do celular."]},

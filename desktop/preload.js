@@ -23,6 +23,13 @@ contextBridge.exposeInMainWorld("desktop", {
   /* alerta de ofertas: aviso do Windows, ícone perto do relógio / abrir com o Windows, e o pedido de abrir uma tela (clique num aviso) */
   notificar: (n) => ipcRenderer.invoke("notificar", { titulo: String(n && n.titulo || ""), corpo: String(n && n.corpo || ""), tela: String(n && n.tela || ""), chave: String(n && n.chave || "") }),
   segundoPlano: (op) => ipcRenderer.invoke("segundo-plano", op ? { bandeja: !!op.bandeja, iniciar: !!op.iniciar } : null),
+  /* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha da pessoa) */
+  inicioWindows: (op) => {
+    if (!op || typeof op !== "object") return ipcRenderer.invoke("inicio-windows", null);
+    const o = {};
+    for (const k of ["comWindows", "minimizado"]) if (k in op) o[k] = !!op[k];
+    return ipcRenderer.invoke("inicio-windows", o);
+  },
   janelaVisivel: () => ipcRenderer.invoke("janela-visivel"),
   aoAbrir: (fn) => {
     if (typeof fn !== "function") return;
