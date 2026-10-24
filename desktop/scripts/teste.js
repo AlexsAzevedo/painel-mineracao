@@ -686,13 +686,13 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         rec1 = appMain.registro.recusadas;
         await js(`cfg.horas = 19; lsSet("min-cfg", cfg); true`); await esperar(3500);
         const vHoras = await cfgCom({ horas: 17 });
-        await canalTeste.publicar({ tipo: "dados", t: Date.now() + 3600e3, aparelho: outroCel, chaves: { "min-cfg": { v: vHoras, t: Date.now() - 10e3 + 3600e3, s: 2, n: 1 } } }, "cel");
+        await canalTeste.publicar({ tipo: "dados", t: Date.now() + 3600e3, aparelho: outroCel, chaves: { "min-cfg": { v: vHoras, t: Date.now() - 10e3 + 3600e3, s: 4, n: 1 } } }, "cel");
         await esperar(1500);
         r.app.relogioConflito = { diferentes: await ateIguais(), pc: await js(`cfg.horas`), celular: await ja(`cfg.horas`), recusadas: appMain.registro.recusadas - rec1 };
         /* celular sem espaço para guardar: o que veio do PC não fica guardado, o celular avisa e não manda o valor velho
            de volta ao PC; com espaço de novo, o Atualizar pede a chave outra vez */
         const encheu = await ja(`(()=>{ let i = 0; for (const t of [1e6, 1e5, 1e4, 1e3, 100, 10, 1]) { try { for (;;) localStorage.setItem("lixo-" + (i++), "x".repeat(t)); } catch (e) {} } return i; })()`);
-        await js(`cfg.tarifa = 0.8875; lsSet("min-cfg", cfg); true`);   /* um valor maior que o que o celular tem: não cabe */
+        await js(`cfg.tarifa = 0.8875; cfg.notaTeste = "x".repeat(300); lsSet("min-cfg", cfg); true`);   /* bem maior que o que o celular tem: não cabe */
         let avisoEspaco = "";
         for (let i = 0; i < 40 && !/espaço/.test(avisoEspaco); i++) { await esperar(250); avisoEspaco = await ja(`(document.getElementById("remoto-aviso")||{}).textContent||""`); }
         await esperar(2500);
