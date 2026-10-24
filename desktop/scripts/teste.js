@@ -643,9 +643,12 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
            antes: o PC grava o que foi digitado antes de comparar, e isso não se perde */
         let rec1 = appMain.registro.recusadas;
         const vCdi = await cfgCom({ cdi: 9.9 });
+        const nRecPc = appMain.registro.recebidas.length;
         await js(`cfg.cdi = 11.1; salvarCfg(); true`);
         await canalTeste.publicar({ tipo: "dados", aparelho: outroCel, chaves: { "min-cfg": { v: vCdi, t: Date.now() - 5000, s: 1, n: appMain.estado().vers["min-cfg"] } } }, "cel");
-        r.app.corridaPc = { diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1 };
+        for (let i = 0; i < 40 && appMain.registro.recebidas.length === nRecPc; i++) await esperar(100);
+        await esperar(3500);
+        r.app.corridaPc = { chegou: appMain.registro.recebidas.length > nRecPc, diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1 };
         /* reenvio: o celular manda de novo uma mudança que o PC já tinha aplicado (a confirmação se perdeu), depois que o PC
            mudou a mesma chave e dizendo uma hora mais nova que a do PC: é a mesma mudança (mesmo número), o PC só confirma */
         calarCelular(); await esperar(300);
@@ -672,7 +675,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         /* celular sem espaço para guardar: o que veio do PC não fica guardado, o celular avisa e não manda o valor velho
            de volta ao PC; com espaço de novo, o Atualizar pede a chave outra vez */
         const encheu = await ja(`(()=>{ let i = 0; for (const t of [1e6, 1e5, 1e4, 1e3, 100, 10, 1]) { try { for (;;) localStorage.setItem("lixo-" + (i++), "x".repeat(t)); } catch (e) {} } return i; })()`);
-        await js(`cfg.tarifa = 0.89; lsSet("min-cfg", cfg); true`);
+        await js(`cfg.tarifa = 0.8875; lsSet("min-cfg", cfg); true`);   /* um valor maior que o que o celular tem: não cabe */
         let avisoEspaco = "";
         for (let i = 0; i < 40 && !/espaço/.test(avisoEspaco); i++) { await esperar(250); avisoEspaco = await ja(`(document.getElementById("remoto-aviso")||{}).textContent||""`); }
         await esperar(2500);
