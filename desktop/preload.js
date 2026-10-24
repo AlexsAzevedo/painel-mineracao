@@ -29,6 +29,18 @@ contextBridge.exposeInMainWorld("desktop", {
     ipcRenderer.on("abrir", (_e, p) => { try { fn({ tela: String(p && p.tela || ""), chave: String(p && p.chave || "") }); } catch (err) {} });
   },
   copiar: (t) => ipcRenderer.invoke("copiar", String(t || "")),
+  /* o painel gravou uma chave de dados: o aplicativo avisa os celulares conectados */
+  dadosMudaram: (k) => ipcRenderer.send("dados-mudaram", String(k || "")),
+  /* abrir o painel no celular: liga/desliga o servidor, troca a senha, desconecta os celulares */
+  acesso: {
+    config: (op) => {
+      if (!op || typeof op !== "object") return ipcRenderer.invoke("acesso-config", null);
+      const o = { novoPin: !!op.novoPin, desconectar: !!op.desconectar };
+      if ("ligado" in op) o.ligado = !!op.ligado;
+      return ipcRenderer.invoke("acesso-config", o);
+    },
+    aoMudar: (fn) => { if (typeof fn === "function") ipcRenderer.on("acesso", (_e, s) => { try { fn(s); } catch (err) {} }); }
+  },
   /* avisos no celular (app ntfy): configuração, mandar um aviso, mudanças de estado e pedidos que chegam do celular */
   celular: {
     config: (op) => {

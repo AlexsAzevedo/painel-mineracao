@@ -287,6 +287,16 @@ td .ein{width:90px;text-align:right;font-family:var(--mono);padding:4px 6px}
 .cel-opcoes .check input[type=checkbox]{margin-top:3px}
 .cel-opcoes input[type=time]{width:auto;padding:2px 6px;margin-left:4px;font-family:var(--mono)}
 .cel-opcoes small{color:var(--muted)}
+/* abrir no celular */
+#ac-ligado,#cel-ligado{display:flex;flex-direction:column;gap:14px}
+.remoto-aviso{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:60;background:var(--bad);color:#fff;border-radius:10px;padding:10px 14px;font-size:.88rem;line-height:1.4;box-shadow:0 10px 30px -10px var(--shadow)}
+.ac-linha{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.ac-linha > .lbl{min-width:90px}
+.ac-pin{font-family:var(--mono);font-size:1.5rem;font-weight:600;letter-spacing:.18em;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:4px 12px}
+.ac-end{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+.ac-end li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.ac-end li > span{color:var(--muted);font-size:.85rem;min-width:190px}
+.ac-end code{font-family:var(--mono);font-size:.95rem;overflow-wrap:anywhere}
 .status{font-size:.88rem;color:var(--muted);margin:0;min-height:1.3em}
 .status.erro{color:var(--bad)}
 .status.ok{color:var(--good)}
@@ -920,6 +930,23 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         </div>
         <p class="status" id="cel-status" role="status" aria-live="polite"></p>
       </article>
+      <article class="painel" id="acesso-p" aria-labelledby="t-acesso" hidden>
+        <div class="painel-h"><h2 id="t-acesso">Abrir no celular</h2></div>
+        <p class="sub" style="margin:0">O celular abre este painel com os mesmos dados deste computador: o que você anotar ou cadastrar num aparece no outro na hora, e a busca de ofertas pedida no celular roda aqui. Em casa funciona pelo Wi-Fi; fora de casa, pelo Tailscale.</p>
+        <div id="ac-desligado"><button type="button" class="pri" id="ac-ligar">Ligar o acesso pelo celular</button></div>
+        <div id="ac-ligado" hidden>
+          <div class="ac-linha"><span class="lbl">Senha</span><code class="ac-pin" id="ac-pin"></code><button type="button" class="link" id="ac-trocar">Trocar a senha</button></div>
+          <div class="ac-linha"><span class="lbl">Endereços</span><ul class="ac-end" id="ac-end"></ul></div>
+          <ol class="cel-passos">
+            <li>No celular, abra um dos endereços no navegador (Chrome ou Safari) e digite a senha.</li>
+            <li>Para ficar com cara de aplicativo: no Chrome, ⋮ › Adicionar à tela inicial; no Safari, Compartilhar › Adicionar à Tela de Início.</li>
+            <li id="ac-ts">Fora de casa: instale o <b>Tailscale</b> no PC e no celular e entre com a mesma conta nos dois. O endereço do Tailscale aparece aqui, e ele funciona de qualquer lugar.</li>
+          </ol>
+          <p class="hint" style="margin:0">Na primeira vez, o Windows pergunta se o painel pode usar a rede: clique em Permitir acesso. O celular só abre o painel com este computador ligado; por isso, com o acesso ligado, fechar a janela deixa o painel no ícone perto do relógio, e ele abre junto com o Windows.</p>
+          <div class="acoes"><button type="button" id="ac-mandar">Mandar o endereço para o celular</button><button type="button" class="link" id="ac-desconectar">Desconectar os celulares</button><button type="button" class="link" id="ac-desligar">Desligar</button></div>
+        </div>
+        <p class="status" id="ac-status" role="status" aria-live="polite"></p>
+      </article>
       <div class="grupos">
         <fieldset class="grupo"><legend>Receita</legend>
           <label><span class="lbl">Dólar (R$)</span><input id="dolar" type="number" step="0.01" inputmode="decimal"><span class="hint" id="dolar-hint">Comercial, 21/10: R$ 5,03</span></label>
@@ -1159,9 +1186,11 @@ const brl = v => (v<0?"−":"")+"R$ "+Math.abs(v).toLocaleString("pt-BR",{minimu
 const brl0 = v => (v<0?"−":"")+"R$ "+Math.abs(v).toLocaleString("pt-BR",{maximumFractionDigits:0});
 const n1 = v => v.toLocaleString("pt-BR",{maximumFractionDigits:1});
 const $ = id => document.getElementById(id);
-/* rodando como aplicativo do computador (Electron): o navegador escondido e o backup vêm de window.desktop */
-const DESKTOP = !!(window.desktop && window.desktop.versao);
-const ONDE_SALVO = DESKTOP ? "Salvo neste computador" : "Salvo neste navegador";
+/* rodando como aplicativo do computador (Electron): o navegador escondido e o backup vêm de window.desktop.
+   REMOTO: o celular abrindo o painel servido pelo PC; os dados são os do PC e as buscas rodam no PC */
+const REMOTO = !!(window.desktop && window.desktop.remoto);
+const DESKTOP = !!(window.desktop && window.desktop.versao) && !REMOTO;
+const ONDE_SALVO = REMOTO ? "Dados do PC" : DESKTOP ? "Salvo neste computador" : "Salvo neste navegador";
 const ONDE_FB = DESKTOP ? "Clique em Entrar no Facebook (Premissas › Este computador), entre na sua conta" : "Entre no Facebook no navegador do app";
 
 /* número de cada placa: o da Kryptex de 22/10, trocado pelo que "Atualizar" trouxe da Kryptex, e por cima o que você editou à mão */
@@ -1246,7 +1275,14 @@ function parcelasPadrao(){ try{ const n = Math.round(+setup.parcelas||1); return
 
 /* ---------- persistência: db do artifact, com fallback local ---------- */
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+/* chaves que o PC e o celular dividem (o resto, como a tela aberta e os filtros, é de cada aparelho) */
+const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos"];
+var aplicandoRemoto = false;   /* var: lsSet roda antes da parte do celular, lá embaixo */
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
+function dadosMudaram(k){
+  if(REMOTO){ if(typeof remotoEnfileirar==="function") remotoEnfileirar(k); }
+  else if(DESKTOP && window.desktop.dadosMudaram) window.desktop.dadosMudaram(k);
+}
 let saveT;
 function salvarCfg(){
   clearTimeout(saveT);
@@ -3174,13 +3210,13 @@ $("bv-depois").addEventListener("click", ()=>{
 });
 /* primeira vez: no aplicativo do computador sempre que ainda não houver perfil; online, só se o painel estiver vazio */
 function decidirBoasVindas(configNoBanco){
-  if(cfg.perfil) return;
+  if(cfg.perfil || REMOTO) return;
   const usado = !!(configNoBanco || lsGet("min-cfg") || placas.length || anuncios.length || diario.length);
   if(DESKTOP || !usado) abrirBoasVindas(!usado);
 }
 
 /* ---------- ofertas: Marketplace e OLX perto de você (aplicativo do computador) ---------- */
-const OF_PODE = () => DESKTOP && !!(window.desktop && window.desktop.buscarAnuncios);
+const OF_PODE = () => (DESKTOP || REMOTO) && !!(window.desktop && window.desktop.buscarAnuncios);
 $("nav-ofertas").hidden = !OF_PODE();
 let ofertas = lsGet("min-ofertas");      /* a última busca: {quando, cidade, uf, raio, sites, itens, avisos, fbLocal, fora} */
 let ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
@@ -3493,7 +3529,7 @@ function renderOfertas(foco){
   const itens = ofertas && ofertas.itens || [];
   const box = $("of-lista"), avisos = avisosOfertas();
   $("of-avisos").hidden = !avisos.length;
-  $("of-avisos").innerHTML = avisos.map(([cl, t, acao, rot])=>`<li class="${cl}"><span>${esc(t)}${acao ? ` <button type="button" class="link" data-pc-of="${acao}">${rot}</button>` : ""}</span></li>`).join("");
+  $("of-avisos").innerHTML = avisos.map(([cl, t, acao, rot])=>`<li class="${cl}"><span>${esc(t)}${acao && DESKTOP ? ` <button type="button" class="link" data-pc-of="${acao}">${rot}</button>` : acao && REMOTO ? " Resolva no PC." : ""}</span></li>`).join("");
   const comp = itens.filter(x=>!ofMarcas.descartados[x.k] && vereditoOferta(x).cls==="g").length;
   $("b-ofertas").textContent = comp || "";
   $("of-filtros").hidden = !itens.length;
@@ -3636,7 +3672,7 @@ function proximaBuscaAuto(){
 }
 function renderAlerta(){
   if(!$("of-alerta")) return;
-  if(!OF_PODE()){ $("of-alerta").hidden = true; return; }
+  if(!OF_PODE() || REMOTO){ $("of-alerta").hidden = true; return; }   /* a busca automática é coisa do PC */
   if(document.activeElement!==$("al-horas")) $("al-horas").value = String(alerta.horas||0);
   $("al-opcoes").hidden = !alerta.horas;
   $("al-bandeja").checked = !!alerta.bandeja; $("al-iniciar").checked = !!(alerta.bandeja && alerta.iniciar); $("al-iniciar").disabled = !alerta.bandeja;
@@ -3648,9 +3684,10 @@ function renderAlerta(){
    ou dos avisos no celular; abrir junto com o Windows vale se um dos dois pedir */
 function sincronizarSegundoPlano(){
   if(!DESKTOP || !window.desktop.segundoPlano) return;
-  if(window.desktop.celular && !celCfg) return;   /* espera a configuração dos avisos no celular chegar */
-  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo();
-  const bandeja = ofertasBg || cel, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false));
+  if((window.desktop.celular && !celCfg) || (window.desktop.acesso && !acCfg)) return;   /* espera as configurações chegarem */
+  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado);
+  /* com o acesso pelo celular ligado, o painel precisa estar rodando: fica no ícone e abre com o Windows */
+  const bandeja = ofertasBg || cel || ac, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac);
   window.desktop.segundoPlano({bandeja, iniciar}).catch(()=>{});
 }
 $("al-horas").addEventListener("change", e=>{ alerta.horas = +e.target.value || 0; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
@@ -3715,7 +3752,7 @@ function destacarOferta(k){
   const t = el.querySelector(".of-tit"); if(t) t.focus({preventScroll:true});
   return true;
 }
-if(OF_PODE()){
+if(OF_PODE() && !REMOTO){
   renderAlerta(); sincronizarSegundoPlano();
   setInterval(()=>{ verificarAlerta().catch(()=>{}); renderAlerta(); }, 60e3);
 }
@@ -3820,6 +3857,139 @@ if(CEL){
   });
 }
 
+/* ---------- PC e celular com os mesmos dados ----------
+   O que chega do outro lado é gravado chave por chave e o painel redesenha o que depende dela, sem recarregar a página.
+   No PC, quem chama é o aplicativo (quando o celular grava); no celular, quem chama é a escuta de mudanças do PC. */
+function aplicarDadosRemotos(chaves){
+  const mudou = [];
+  aplicandoRemoto = true;
+  try{
+    for(const [k, v] of Object.entries(chaves||{})){
+      if(!SINCRONIZADAS.includes(k)) continue;
+      let atual = null; try{ atual = localStorage.getItem(k); }catch(e){}
+      if(v===null || v===undefined){ if(atual!==null){ try{ localStorage.removeItem(k); }catch(e){} mudou.push(k); } }
+      else if(atual!==v){ try{ localStorage.setItem(k, String(v)); }catch(e){} mudou.push(k); }
+    }
+    if(mudou.length) recarregarDados(mudou);
+  }finally{ aplicandoRemoto = false; }
+  return mudou;
+}
+function recarregarDados(ks){
+  const tem = k => ks.includes(k);
+  if(tem("min-cfg")){ const c = lsGet("min-cfg"); cfg = migrar({...DEF, ...(c||{})}); }
+  if(tem("min-placas")) placas = lsGet("min-placas")||[];
+  if(tem("min-anuncios")) anuncios = lsGet("min-anuncios")||[];
+  if(tem("min-setup")){ setup = migrarSetup(lsGet("min-setup")); setupJson = canon(setup); }
+  if(tem("min-diario")) diario = (lsGet("min-diario")||[]).filter(e=>e && /^\d{4}-\d{2}-\d{2}$/.test(e.data));
+  if(tem("min-ofertas")) ofertas = lsGet("min-ofertas");
+  if(tem("min-ofertas-marcas")) ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
+  if(tem("min-ofertas-modelos")) ofSel = lsGet("min-ofertas-modelos");
+  if(tem("min-ofertas-alerta")){
+    alerta = {horas:0, bandeja:false, iniciar:false, ultima:0, avisados:{}, vistos:{}, bloqueio:0, ...(lsGet("min-ofertas-alerta")||{})};
+    for(const k of ["avisados","vistos"]) if(!alerta[k] || typeof alerta[k]!=="object") alerta[k] = {};
+  }
+  for(const f of [render, renderAlerta, renderCelular]) try{ f(); }catch(e){}
+}
+
+/* celular abrindo o painel do PC: manda o que mudou aqui, escuta o que mudou lá */
+var remotoPend = null, remotoT = null, remotoVersao = 0, remotoEnviando = false;
+function remotoEstado(ok){
+  setSync(ok, ok ? "Ligado ao PC" : "Sem conexão com o PC");
+  let b = $("remoto-aviso");
+  if(!b){ if(ok) return; b = document.createElement("div"); b.id = "remoto-aviso"; b.className = "remoto-aviso"; b.setAttribute("role", "status"); document.body.appendChild(b); }
+  b.textContent = "Sem conexão com o PC. Confira se ele está ligado, com o painel aberto, e se o celular está no Wi-Fi de casa ou no Tailscale. Tentando de novo…";
+  b.hidden = ok;
+}
+function remotoEnfileirar(k){
+  if(!REMOTO) return;
+  (remotoPend = remotoPend || new Set()).add(k);
+  clearTimeout(remotoT); remotoT = setTimeout(remotoEnviar, 300);
+}
+async function remotoEnviar(){
+  if(!remotoPend || !remotoPend.size) return;
+  if(remotoEnviando){ clearTimeout(remotoT); remotoT = setTimeout(remotoEnviar, 300); return; }
+  const ks = [...remotoPend], chaves = {}; remotoPend.clear(); remotoEnviando = true;
+  for(const k of ks){ try{ chaves[k] = localStorage.getItem(k); }catch(e){ chaves[k] = null; } }
+  try{
+    const r = await fetch("/api/dados", {method:"POST", headers:{"Content-Type":"application/json","X-Painel":"1","X-Cliente":window.desktop.cliente}, body:JSON.stringify({chaves})});
+    if(r.status===401){ location.reload(); return; }   /* a sessão caiu: volta para a senha */
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json(); if(j.versao) remotoVersao = j.versao;
+    remotoEstado(true);
+  }catch(e){
+    for(const k of ks) remotoPend.add(k);             /* sem conexão: tenta de novo em 5 segundos */
+    remotoEstado(false);
+    clearTimeout(remotoT); remotoT = setTimeout(remotoEnviar, 5000);
+  }finally{ remotoEnviando = false; }
+}
+async function remotoBuscar(ks){
+  const r = await fetch("/api/dados" + (ks && ks.length ? "?chaves=" + encodeURIComponent(ks.join(",")) : ""), {headers:{"X-Painel":"1"}, cache:"no-store"});
+  if(r.status===401){ location.reload(); return; }
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  const j = await r.json(), chaves = {};
+  for(const [k, v] of Object.entries(j.chaves||{})) if(!(remotoPend && remotoPend.has(k))) chaves[k] = v;   /* o que ainda vai daqui para lá ganha */
+  aplicarDadosRemotos(chaves);
+  if(j.versao) remotoVersao = j.versao;
+  remotoEstado(true);
+}
+if(REMOTO){
+  remotoVersao = window.desktop.versaoDados || 0;
+  remotoEstado(true);
+  document.documentElement.classList.add("remoto");
+  const es = new EventSource("/api/eventos?cliente=" + encodeURIComponent(window.desktop.cliente));
+  es.addEventListener("ola", e=>{ let d = {}; try{ d = JSON.parse(e.data); }catch(err){} remotoEstado(true); if(d.versao!==remotoVersao) remotoBuscar().catch(()=>remotoEstado(false)); });
+  es.addEventListener("mudou", e=>{ let d = {}; try{ d = JSON.parse(e.data); }catch(err){} if(d.origem===window.desktop.cliente){ if(d.versao) remotoVersao = d.versao; return; } remotoBuscar(d.chaves).catch(()=>remotoEstado(false)); });
+  es.onerror = ()=>remotoEstado(false);   /* o navegador reconecta sozinho */
+  document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") remotoBuscar().catch(()=>remotoEstado(false)); });
+}
+
+/* ---------- abrir no celular: a tela no PC ---------- */
+var acCfg = null;
+const AC = DESKTOP && !!(window.desktop && window.desktop.acesso);
+const AC_NOMES = {casa:"Em casa (Wi-Fi)", tailscale:"De qualquer lugar (Tailscale)", "tailscale-nome":"Tailscale, pelo nome do PC"};
+function renderAcesso(){
+  const box = $("acesso-p"); if(!box) return;
+  box.hidden = !AC; if(!AC || !acCfg) return;
+  const c = acCfg, lig = !!c.ligado, ends = c.enderecos || [];
+  $("ac-desligado").hidden = lig; $("ac-ligado").hidden = !lig;
+  $("ac-pin").textContent = c.pin || "";
+  $("ac-end").innerHTML = ends.length ? ends.map((e,i)=>`<li><span>${esc(AC_NOMES[e.tipo]||e.tipo)}</span><code>${esc(e.url)}</code><button type="button" class="link" data-ac-copiar="${i}">Copiar</button></li>`).join("")
+    : `<li class="hint">${c.rodando ? "Nenhuma rede encontrada: confira se o computador está no Wi-Fi ou no cabo." : "Ligando…"}</li>`;
+  $("ac-ts").hidden = ends.some(e=>e.tipo==="tailscale");
+  $("ac-mandar").disabled = !celAtivo() || !ends.length;
+  $("ac-mandar").title = celAtivo() ? "Manda o endereço pelo app ntfy" : "Ligue os Avisos no celular para mandar o endereço";
+  const st = $("ac-status");
+  if(st.dataset.fixo && Date.now() < +st.dataset.fixo) return;
+  if(!lig) status2("ac-status", "");
+  else if(c.erro) status2("ac-status", "Não deu certo: " + c.erro + ".", "erro");
+  else status2("ac-status", c.conectados ? `${c.conectados} ${c.conectados===1 ? "celular conectado" : "celulares conectados"} agora.` : "Nenhum celular conectado agora.");
+}
+function avisoAc(txt, tipo){ status2("ac-status", txt, tipo); $("ac-status").dataset.fixo = String(Date.now() + 8000); }
+async function mudarAcesso(op){ try{ acCfg = await window.desktop.acesso.config(op); }catch(e){ avisoAc("Não deu certo: " + (e && e.message || e), "erro"); } renderAcesso(); sincronizarSegundoPlano(); }
+if(AC){
+  window.desktop.acesso.aoMudar(s=>{ acCfg = s; renderAcesso(); });
+  window.desktop.acesso.config().then(c=>{ acCfg = c; renderAcesso(); sincronizarSegundoPlano(); }).catch(()=>{});
+  $("ac-ligar").addEventListener("click", async ()=>{ await mudarAcesso({ligado:true}); avisoAc("Ligado. Abra um dos endereços no celular e digite a senha.", "ok"); });
+  $("ac-desligar").addEventListener("click", async ()=>{ await mudarAcesso({ligado:false}); avisoAc("Desligado: o celular não abre mais o painel até você ligar de novo.", "ok"); });
+  $("ac-trocar").addEventListener("click", async ()=>{ await mudarAcesso({novoPin:true}); avisoAc("Senha trocada. Quem já entrou continua; para tirar todos, use Desconectar os celulares.", "ok"); });
+  $("ac-desconectar").addEventListener("click", async ()=>{ await mudarAcesso({desconectar:true}); avisoAc("Pronto: os celulares vão pedir a senha de novo.", "ok"); });
+  $("ac-end").addEventListener("click", async e=>{
+    const b = e.target.closest("[data-ac-copiar]"); if(!b) return;
+    const end = (acCfg.enderecos||[])[+b.dataset.acCopiar]; if(!end) return;
+    try{ await window.desktop.copiar(end.url); avisoAc("Endereço copiado.", "ok"); }catch(err){ avisoAc("Não consegui copiar. Selecione o endereço e copie com Ctrl+C.", "erro"); }
+  });
+  $("ac-mandar").addEventListener("click", async e=>{
+    const ends = acCfg.enderecos || [], end = ends.find(x=>x.tipo==="tailscale") || ends.find(x=>x.tipo==="casa"); if(!end) return;
+    const b = e.currentTarget; b.disabled = true;
+    try{
+      await window.desktop.celular.enviar({tipo:"endereco", titulo:"Abrir o painel no celular", url:end.url,
+        corpo:`Toque para abrir o painel do PC (${end.url}) e digite a senha que aparece no PC.${end.tipo==="tailscale" ? "" : " Esse endereço funciona no Wi-Fi de casa."}`});
+      avisoAc("Endereço enviado para o celular pelo ntfy.", "ok");
+    }catch(err){ avisoAc("Não deu certo: " + (err && err.message || err) + ".", "erro"); }
+    renderAcesso();
+  });
+}
+
 /* ---------- backup automático: um arquivo por dia numa pasta do computador (app do computador) ---------- */
 let bkpInfo = null;
 function renderBackup(tipo, msg){
@@ -3855,6 +4025,8 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.3.0", itens:[
+    "Abrir no celular (Premissas › Abrir no celular): o celular abre este painel com os mesmos dados do PC, ao vivo. O que você anotar ou cadastrar num aparece no outro na hora, e a busca de ofertas pedida no celular roda no PC. Em casa funciona pelo Wi-Fi; fora de casa, pelo app Tailscale. O acesso tem senha."]},
   {v:"1.2.5", itens:[
     "Com os avisos no celular ligados, fechar a janela deixa o painel rodando no ícone perto do relógio, e ele abre junto com o Windows, para os avisos não pararem. Dá para desligar o abrir com o Windows em Premissas › Avisos no celular."]},
   {v:"1.2.4", itens:[

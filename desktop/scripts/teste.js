@@ -86,7 +86,7 @@ function paginaBuscaOlx(uf, q) {
 }
 const paginaTexto = (titulo, linhas, papel) => `<!doctype html><html><head><meta charset="utf-8"><title>${esc(titulo)}</title></head><body><div ${papel}>${linhas.map((s) => `<div>${esc(s)}</div>`).join("")}</div></body></html>`;
 
-module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, celular: celularMain }) {
+module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, celular: celularMain, acesso: acessoMain }) {
   /* versões de mentira no formato das Releases do GitHub, para a atualização automática.
      modo "igual": a última versão publicada é a que está instalada; "defeito": versão nova com o arquivo corrompido; "ok": versão nova certa */
   const versaoApp = app.getVersion(), proxima = versaoApp.replace(/(\d+)$/, (n) => String(+n + 1));
@@ -368,6 +368,106 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.celular.semSinal = { apagou: ntfy.apagados.includes(`${topico}/pc-sinal`), agendado: !!ntfy.agendados[`${topico}/pc-sinal`] };
         await marcarCel("cel-sinal", true); await esperar(600);
         r.celular.sinalDeNovo = !!ntfy.agendados[`${topico}/pc-sinal`];
+
+        /* abrir no celular: liga o servidor, entra com a senha numa janela de celular e confere que os dois mexem nos mesmos dados */
+        r.acesso = {};
+        await js(`irPara("premissas"); document.getElementById("acesso-p").scrollIntoView()`);
+        r.acesso.antes = await js(`({visivel:!document.getElementById("acesso-p").hidden, botao:!document.getElementById("ac-desligado").hidden})`);
+        await js(`document.getElementById("ac-ligar").click()`); await esperar(1000);
+        const ac = acessoMain.estado(), urlCel = `http://127.0.0.1:${ac.porta}`;
+        r.acesso.ligado = { rodando: ac.rodando, pinOk: /^\d{6}$/.test(ac.pin), tiposEndereco: ac.enderecos.map((e) => e.tipo),
+          tela: await js(`({pin:document.getElementById("ac-pin").textContent, ends:document.querySelectorAll("#ac-end li").length, status:document.getElementById("ac-status").textContent, mandar:document.getElementById("ac-mandar").disabled})`) };
+        r.acesso.segundoPlano = { config: segundoPlano(), inicioComWindows: testeSegundoPlano.inicioComWindows };
+        r.acesso.arquivo = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "acesso.json"), "utf8")); return { ligado: c.ligado, pinIgual: c.pin === ac.pin, temSegredo: /^[0-9a-f]{64}$/.test(c.segredo || "") }; } catch (e) { return String(e.message); } })();
+        const pedir = (caminho, op = {}) => new Promise((ok, nao) => {
+          const req = http.request(urlCel + caminho, { method: op.method || "GET", headers: op.headers || {} }, (res) => {
+            let b = ""; res.setEncoding("utf8"); res.on("data", (d) => { b += d; }); res.on("end", () => ok({ status: res.statusCode, headers: res.headers, corpo: b }));
+          });
+          req.on("error", nao); if (op.body) req.write(op.body); req.end();
+        });
+        const form = { "Content-Type": "application/x-www-form-urlencoded" };
+        const outroPin = ac.pin === "000000" ? "111111" : "000000";
+        r.acesso.semSenha = { pedeSenha: (await pedir("/")).corpo.includes('name="pin"'), api: (await pedir("/api/dados")).status, fonte: (await pedir("/fonts/public-sans-latin-400-normal.woff2")).status, manifesto: (await pedir("/manifest.webmanifest")).status };
+        const errada = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + outroPin });
+        r.acesso.senhaErrada = { status: errada.status, avisa: /Senha errada/.test(errada.corpo), cookie: !!errada.headers["set-cookie"] };
+        const certa = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + ac.pin });
+        const cookie = String((certa.headers["set-cookie"] || [""])[0]).split(";")[0];
+        r.acesso.senhaCerta = { status: certa.status, vaiPara: certa.headers.location, cookie: /^painel=[0-9a-f]{32}\.[0-9a-f]{64}$/.test(cookie), atributos: String((certa.headers["set-cookie"] || [""])[0]).replace(/painel=[^;]+/, "painel=…") };
+        const comCookie = (extra) => ({ Cookie: cookie, ...(extra || {}) });
+        const pag = await pedir("/", { headers: comCookie() });
+        r.acesso.pagina = { status: pag.status, temDados: pag.corpo.includes("window.__PC__="), ponte: pag.corpo.includes("remoto: true"), csp: /connect-src 'self'/.test(pag.corpo), semNone: !/connect-src 'none'/.test(pag.corpo), tamanhoKB: Math.round(pag.corpo.length / 1024) };
+        const dados = JSON.parse((await pedir("/api/dados", { headers: comCookie() })).corpo);
+        r.acesso.dados = { chaves: Object.keys(dados.chaves).sort(), cfgTemPerfil: !!(JSON.parse(dados.chaves["min-cfg"] || "{}").perfil), versao: typeof dados.versao };
+        r.acesso.semCabecalho = (await pedir("/api/dados", { method: "POST", headers: comCookie({ "Content-Type": "application/json" }), body: "{}" })).status;
+        /* escuta os eventos como o celular faz */
+        const evs = [];
+        const sse = http.request(urlCel + "/api/eventos?cliente=teste-http", { headers: comCookie() }, (res) => { res.setEncoding("utf8"); res.on("data", (d) => evs.push(d)); });
+        sse.on("error", () => {}); sse.end();
+        await esperar(500);
+        /* o PC cadastra uma placa: o celular fica sabendo */
+        await js(`addPlaca({modelo:"rtx-3070", qtd:1, preco:1800, pagamento:"avista", parcelas:1, data:hojeISO(), criado:Date.now()})`); await esperar(900);
+        r.acesso.eventoDoPc = evs.join("").split("\n\n").filter((b) => /event: mudou/.test(b)).map((b) => JSON.parse(b.split("data: ")[1] || "{}"));
+        /* o "celular" grava um dia no diário pela API: chega no PC e na tela do PC */
+        const hojePc = await js(`hojeISO()`);
+        const dia = JSON.stringify([{ data: hojePc, valor: 3.05, moeda: "USD", dolar: 5.03, horas: 24, obs: "pelo celular", criado: Date.now(), _id: hojePc }]);
+        const gravou = await pedir("/api/dados", { method: "POST", headers: comCookie({ "Content-Type": "application/json", "X-Painel": "1", "X-Cliente": "teste-http" }), body: JSON.stringify({ chaves: { "min-diario": dia } }) });
+        await esperar(500);
+        r.acesso.gravouDoCelular = { status: gravou.status, mudou: JSON.parse(gravou.corpo).mudou, noPc: await js(`({dias:diario.length, obs:(diario[0]||{}).obs, badge:document.getElementById("b-diario").textContent})`),
+          eventoComOrigem: evs.join("").split("\n\n").filter((b) => /event: mudou/.test(b)).map((b) => JSON.parse(b.split("data: ")[1] || "{}")).filter((e) => e.origem === "teste-http").length };
+        /* a busca pedida pelo celular roda no navegador escondido do PC */
+        const busca = await pedir("/api/acao", { method: "POST", headers: comCookie({ "Content-Type": "application/json", "X-Painel": "1" }),
+          body: JSON.stringify({ nome: "buscar-anuncios", args: { site: "fb", url: "https://www.facebook.com/marketplace/category/search/?query=rtx%203070&exact=false", rolar: 0 } }) });
+        r.acesso.buscaPeloPc = { status: busca.status, itens: (() => { try { return JSON.parse(busca.corpo).resultado.itens.length; } catch (e) { return busca.corpo.slice(0, 200); } })() };
+        const proibida = await pedir("/api/acao", { method: "POST", headers: comCookie({ "Content-Type": "application/json", "X-Painel": "1" }), body: JSON.stringify({ nome: "buscar-anuncios", args: { site: "fb", url: "https://example.com/x" } }) });
+        r.acesso.buscaProibida = { status: proibida.status, erro: (() => { try { return JSON.parse(proibida.corpo).erro; } catch (e) { return ""; } })() };
+        sse.destroy();
+
+        /* a janela de celular: entra com a senha, vê os dados do PC, anota um dia e o PC recebe */
+        const { BrowserWindow } = require("electron");
+        const cel = new BrowserWindow({ show: false, width: 390, height: 844, webPreferences: { partition: "celular-teste", contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+        cel.webContents.setUserAgent("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36");
+        const errosCel = []; cel.webContents.on("console-message", (e) => { if (e.level === "error") errosCel.push(e.message); });
+        await cel.loadURL(urlCel + "/");
+        const jc = (code) => cel.webContents.executeJavaScript(code);
+        const fotoCel = async (nome) => { await esperar(600); cel.webContents.invalidate(); await esperar(300); fs.writeFileSync(path.join(SAIDA, `celular_${nome}.png`), (await cel.webContents.capturePage()).toPNG()); };
+        r.acesso.celular = { pedeSenha: await jc(`!!document.querySelector('input[name="pin"]')`) };
+        await fotoCel("senha");
+        const carregou = new Promise((ok) => cel.webContents.once("did-finish-load", ok));
+        await jc(`document.querySelector('input[name="pin"]').value = "${ac.pin}"; document.querySelector("form").submit(); true`);
+        await carregou; await esperar(1500);
+        r.acesso.celular.painel = await jc(`({remoto:REMOTO, desktop:DESKTOP, sync:document.getElementById("sync").textContent.trim(), placas:placas.length, dias:diario.length, perfil:!!cfg.perfil,
+          ofertas:!!(ofertas && ofertas.itens && ofertas.itens.length), navOfertas:!document.getElementById("nav-ofertas").hidden, alertaOculto:document.getElementById("of-alerta").hidden,
+          estePcOculto:document.getElementById("este-pc").hidden, avisosOculto:document.getElementById("celular-p").hidden, acessoOculto:document.getElementById("acesso-p").hidden, boasVindasOculta:document.getElementById("bv").hidden,
+          largura:[document.documentElement.scrollWidth, window.innerWidth]})`);
+        await fotoCel("resumo");
+        /* o PC muda a margem: o celular atualiza sozinho */
+        await js(`cfg.margem = 25; salvarCfg(); render();`); await esperar(1600);
+        r.acesso.celular.margemDoPc = await jc(`cfg.margem`);
+        /* o celular anota o ganho de ontem pelo formulário do Diário */
+        const ontemPc = await js(`isoLocal(new Date(Date.now()-864e5))`);
+        await jc(`irPara("diario"); document.getElementById("d-data").value = "${ontemPc}"; document.getElementById("d-valor").value = "2.9"; document.getElementById("dform").requestSubmit(); true`);
+        await esperar(1600);
+        r.acesso.celular.anotou = { noCelular: await jc(`diario.length`), noPc: await js(`({dias:diario.length, ontem:!!diario.find(e=>e.data==="${ontemPc}")})`), sync: await jc(`document.getElementById("sync").textContent.trim()`) };
+        await fotoCel("diario");
+        /* o PC some (acesso desligado): o celular avisa; o acesso volta: o aviso some sozinho */
+        await js(`document.getElementById("ac-desligar").click()`); await esperar(2500);
+        const avisoCel = `({aviso:!!document.getElementById("remoto-aviso") && !document.getElementById("remoto-aviso").hidden, sync:document.getElementById("sync").textContent.trim()})`;
+        r.acesso.celular.semPc = await jc(avisoCel);
+        await fotoCel("sem_pc");
+        await js(`document.getElementById("ac-ligar").click()`); await esperar(6000);
+        r.acesso.celular.pcVoltou = await jc(avisoCel);
+        r.acesso.celular.erros = errosCel.filter((m) => !/ERR_CONNECTION_REFUSED|EventSource|api\/eventos/.test(m));
+        r.acesso.conectados = acessoMain.estado().conectados;
+        cel.destroy(); await esperar(400);
+        r.acesso.depoisDeFechar = acessoMain.estado().conectados;
+        /* desconectar os celulares: a sessão antiga deixa de valer */
+        await js(`document.getElementById("ac-desconectar").click()`); await esperar(500);
+        r.acesso.sessaoDepoisDeDesconectar = (await pedir("/api/dados", { headers: comCookie() })).status;
+        /* 5 senhas erradas: bloqueia por 15 minutos, mesmo com a senha certa */
+        for (let i = 0; i < 5; i++) await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + outroPin });
+        const bloq = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + ac.pin });
+        r.acesso.bloqueio = { status: bloq.status, avisa: /Muitas tentativas/.test(bloq.corpo), cookie: !!bloq.headers["set-cookie"] };
+        await foto("acesso");
 
         /* alerta de ofertas: liga, força a hora da busca automática e confere os avisos do Windows */
         r.alerta = {};

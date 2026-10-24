@@ -8,6 +8,9 @@ const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray, Notification, na
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const http = require("http");
+const crypto = require("crypto");
+const zlib = require("zlib");
 
 const PARTICAO = "persist:navegador";
 const TESTE = process.env.PAINEL_TESTE === "1";
@@ -201,6 +204,11 @@ function mensagemCelular({ tipo, titulo, corpo, url }) {
     actions: [{ action: "http", label: "Atualizar", url: `${ntfy()}/${celular.topico}-p`, method: "POST", body: "resumo" }] };
   if (tipo === "oferta") return { title, message, tags: ["moneybag"], priority: 4, ...(link ? { click: link, actions: [{ action: "view", label: "Abrir o anúncio", url: link }] } : {}) };
   if (tipo === "teste") return { title: title || "Painel de Mineração", message: message || "Funcionou! Os avisos do painel vão chegar aqui.", tags: ["white_check_mark"], priority: 3 };
+  /* endereço do painel deste PC (rede de casa ou Tailscale): http, com número de porta */
+  if (tipo === "endereco") {
+    const end = /^http:\/\/[\w.-]{1,64}:\d{2,5}\/?$/i.test(String(url || "")) ? String(url) : "";
+    return { title, message, tags: ["iphone"], priority: 3, ...(end ? { click: end, actions: [{ action: "view", label: "Abrir o painel", url: end }] } : {}) };
+  }
   return { title, message, tags: ["warning"], priority: 4 };
 }
 
@@ -312,6 +320,224 @@ app.on("before-quit", (e) => {
   if (!(celular.ligado && celular.sinal && celular.topico && celular.ultimoSinal)) return;
   e.preventDefault();
   sairCancelandoSinal().finally(() => app.quit());
+});
+
+/* ---------- abrir o painel no celular ----------
+   O PC serve o painel na rede de casa e na do Tailscale (porta 7777), protegido por uma senha de 6 números.
+   Os dados continuam só neste computador: a página do celular chega com um retrato deles, cada mudança no
+   celular vem para cá (/api/dados) e cada mudança aqui vai para o celular na hora (/api/eventos). A busca de
+   ofertas e a leitura de anúncios pedidas no celular rodam no navegador escondido deste PC (/api/acao). */
+const SINCRONIZADAS = ["min-cfg", "min-placas", "min-anuncios", "min-setup", "min-diario", "min-ofertas", "min-ofertas-marcas", "min-ofertas-alerta", "min-ofertas-modelos"];
+const arquivoAcesso = () => path.join(app.getPath("userData"), "acesso.json");
+let acesso = { ligado: false, porta: 7777, pin: "", segredo: "" };
+let servidor = null, servidorErro = "", versaoDados = Date.now(), paginaBaseCache = null, pcAvisouT = null;
+const pcMudou = new Set(), eventos = new Set(), tentativas = new Map();
+function lerAcesso() { try { acesso = { ...acesso, ...JSON.parse(fs.readFileSync(arquivoAcesso(), "utf8")) }; } catch (e) {} }
+function gravarAcesso() { try { fs.writeFileSync(arquivoAcesso(), JSON.stringify(acesso)); } catch (e) {} }
+const novoPin = () => String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+const novoSegredo = () => crypto.randomBytes(32).toString("hex");
+/* sessão do celular: id aleatório + assinatura com o segredo (trocar o segredo desconecta todos os celulares) */
+const assinar = (id) => crypto.createHmac("sha256", acesso.segredo).update(id).digest("hex");
+const novoToken = () => { const id = crypto.randomBytes(16).toString("hex"); return `${id}.${assinar(id)}`; };
+function tokenDe(req) { const m = /(?:^|;\s*)painel=([0-9a-f]{32})\.([0-9a-f]{64})/.exec(String(req.headers.cookie || "")); return m ? { id: m[1], mac: m[2] } : null; }
+function autenticado(req) {
+  const t = tokenDe(req); if (!t || !acesso.segredo) return false;
+  const a = Buffer.from(assinar(t.id), "hex"), b = Buffer.from(t.mac, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+function pinCerto(pin) {
+  const a = Buffer.from(String(pin || "").replace(/\D/g, "").padEnd(6, "x").slice(0, 6)), b = Buffer.from(String(acesso.pin).padEnd(6, "y").slice(0, 6));
+  return a.length === b.length && crypto.timingSafeEqual(a, b) && /^\d{6}$/.test(acesso.pin);
+}
+/* endereços deste PC: rede de casa e Tailscale (100.64.0.0/10) */
+function enderecos() {
+  const porta = servidor && servidor.address() ? servidor.address().port : acesso.porta, l = [];
+  for (const [rede, ifs] of Object.entries(os.networkInterfaces())) {
+    if (/vEthernet|VirtualBox|VMware|WSL|Hyper-V|Loopback|docker|br-|veth/i.test(rede)) continue;
+    for (const i of ifs || []) {
+      if (i.family !== "IPv4" || i.internal || /^169\.254\./.test(i.address)) continue;
+      const ts = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(i.address) || /tailscale/i.test(rede);
+      l.push({ tipo: ts ? "tailscale" : "casa", url: `http://${i.address}:${porta}` });
+    }
+  }
+  if (l.some((x) => x.tipo === "tailscale")) l.push({ tipo: "tailscale-nome", url: `http://${os.hostname().toLowerCase()}:${porta}` });
+  return l.slice(0, 6);
+}
+const acessoPublico = () => ({ ligado: acesso.ligado, pin: acesso.pin, porta: servidor && servidor.address() ? servidor.address().port : acesso.porta,
+  rodando: !!(servidor && servidor.listening), erro: servidorErro, enderecos: servidor && servidor.listening ? enderecos() : [], conectados: eventos.size });
+function avisarAcesso() { if (principal && !principal.isDestroyed()) principal.webContents.send("acesso", acessoPublico()); }
+
+/* dados do painel deste PC (o localStorage da janela principal) */
+async function janelaPronta() {
+  if (!principal || principal.isDestroyed()) throw new Error("o painel do PC está fechado");
+  if (principal.webContents.isLoading()) await new Promise((ok) => principal.webContents.once("did-finish-load", ok));
+}
+async function lerDadosPc(chaves) {
+  await janelaPronta();
+  return principal.webContents.executeJavaScript(`(()=>{ const o = {}; for (const k of ${JSON.stringify(chaves)}) o[k] = localStorage.getItem(k); return o; })()`, true);
+}
+async function aplicarNoPc(chaves) {
+  await janelaPronta();
+  return principal.webContents.executeJavaScript(`aplicarDadosRemotos(${JSON.stringify(chaves)})`, true);
+}
+function avisarMudanca(chaves, origem) {
+  versaoDados++;
+  const msg = `event: mudou\ndata: ${JSON.stringify({ versao: versaoDados, chaves, origem })}\n\n`;
+  for (const e of eventos) { try { e.res.write(msg); } catch (err) {} }
+}
+/* o painel do PC gravou algo: junta as mudanças por 250 ms e avisa os celulares */
+ipcMain.on("dados-mudaram", (e, k) => {
+  if (!deUmaJanelaNossa(e) || !SINCRONIZADAS.includes(k)) return;
+  pcMudou.add(k); clearTimeout(pcAvisouT);
+  pcAvisouT = setTimeout(() => { const ks = [...pcMudou]; pcMudou.clear(); if (eventos.size) avisarMudanca(ks, "pc"); else versaoDados++; }, 250);
+});
+
+/* página do celular: o mesmo painel, com a ponte que fala com este PC e um retrato dos dados */
+function paginaBase() {
+  if (paginaBaseCache) return paginaBaseCache;
+  let h = fs.readFileSync(path.join(__dirname, "app", "index.html"), "utf8");
+  h = h.replace("connect-src 'none'", "connect-src 'self'");
+  const cabeca = '<meta name="theme-color" content="#17181b"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">' +
+    '<meta name="apple-mobile-web-app-title" content="Mineração"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><link rel="icon" href="/icone.png">';
+  const i = h.indexOf("<script>");
+  paginaBaseCache = h.slice(0, i) + cabeca + "<!--DADOS-DO-PC-->" + h.slice(i);
+  return paginaBaseCache;
+}
+const PONTE_CELULAR = `(function(){
+  var P = window.__PC__ || {}, c = P.chaves || {};
+  /* grava o retrato dos dados do PC antes de o painel ler */
+  try{ Object.keys(c).forEach(function(k){ if(c[k] === null) localStorage.removeItem(k); else localStorage.setItem(k, c[k]); }); }catch(e){}
+  function acao(nome, args){
+    return fetch("/api/acao", {method:"POST", headers:{"Content-Type":"application/json","X-Painel":"1","X-Cliente":P.cliente}, body:JSON.stringify({nome:nome, args:args||{}})})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if(!r.ok) throw new Error(j.erro || ("o PC respondeu " + r.status)); return j.resultado; }); });
+  }
+  window.desktop = Object.freeze({
+    versao: P.versaoApp, remoto: true, cliente: P.cliente, versaoDados: P.versao,
+    navegar: function(url){ return acao("navegar", {url:String(url||"")}); },
+    texto: function(max){ return acao("texto", {max:Number(max)||50000}); },
+    buscarAnuncios: function(op){ return acao("buscar-anuncios", {site:String(op&&op.site||""), url:String(op&&op.url||""), rolar:Number(op&&op.rolar)||0}); },
+    detalhesAnuncio: function(op){ return acao("detalhes-anuncio", {site:String(op&&op.site||""), url:String(op&&op.url||"")}); }
+  });
+})();`;
+async function paginaCelular() {
+  const dados = { versao: versaoDados, chaves: await lerDadosPc(SINCRONIZADAS), cliente: crypto.randomBytes(8).toString("hex"), versaoApp: app.getVersion() };
+  const json = JSON.stringify(dados).replace(/</g, "\\u003c").replace(/[\u2028\u2029]/g, (c) => "\\u" + c.charCodeAt(0).toString(16));
+  return paginaBase().replace("<!--DADOS-DO-PC-->", `<script>window.__PC__=${json};</script><script>${PONTE_CELULAR}</script>`);
+}
+const ESTILO_ENTRAR = "body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#17181b;color:#ece9e2;display:flex;min-height:100vh;align-items:center;justify-content:center}" +
+  "main{width:min(360px,calc(100% - 32px))}h1{font-size:1.4rem;margin:0 0 8px}p{color:#a9a49a;margin:0 0 18px}" +
+  "input{box-sizing:border-box;width:100%;font:600 1.6rem/1 ui-monospace,monospace;letter-spacing:.3em;text-align:center;padding:12px;border-radius:10px;border:1px solid #3a3b40;background:#222327;color:#ece9e2}" +
+  "button{margin-top:12px;width:100%;font:600 1rem system-ui,sans-serif;padding:12px;border:0;border-radius:10px;background:#e8a33d;color:#17181b}.erro{color:#ef8a7a;margin-top:12px}";
+function paginaEntrar(erro) {
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#17181b">` +
+    `<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><title>Painel de Mineração</title><style>${ESTILO_ENTRAR}</style></head><body><main>` +
+    `<h1>Painel de Mineração</h1><p>Digite a senha de 6 números que aparece no PC, em Premissas › Abrir no celular.</p>` +
+    `<form method="post" action="/entrar"><input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" aria-label="Senha" required autofocus><button type="submit">Entrar</button></form>` +
+    (erro ? `<p class="erro" role="alert">${erro}</p>` : "") + `</main></body></html>`;
+}
+const MANIFESTO = JSON.stringify({ name: "Painel de Mineração", short_name: "Mineração", start_url: "/", display: "standalone", background_color: "#17181b", theme_color: "#17181b", lang: "pt-BR",
+  icons: [{ src: "/icone.png", sizes: "256x256", type: "image/png" }] });
+
+function responder(req, res, status, tipo, corpo, extra) {
+  let b = Buffer.isBuffer(corpo) ? corpo : Buffer.from(String(corpo));
+  const h = { "Content-Type": tipo, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", ...(extra || {}) };
+  if (b.length > 1024 && /gzip/.test(String(req.headers["accept-encoding"] || "")) && /text|json|javascript/.test(tipo)) { b = zlib.gzipSync(b); h["Content-Encoding"] = "gzip"; }
+  h["Content-Length"] = b.length;
+  res.writeHead(status, h); res.end(req.method === "HEAD" ? undefined : b);
+}
+const json = (req, res, status, o) => responder(req, res, status, "application/json; charset=utf-8", JSON.stringify(o));
+function lerCorpo(req, max) {
+  return new Promise((ok, nao) => {
+    const partes = []; let n = 0;
+    req.on("data", (d) => { n += d.length; if (n > max) { nao(new Error("grande demais")); req.destroy(); } else partes.push(d); });
+    req.on("end", () => ok(Buffer.concat(partes).toString("utf8"))); req.on("error", nao);
+  });
+}
+/* no máximo 5 senhas erradas a cada 15 minutos por aparelho */
+function bloqueado(ip) { const t = tentativas.get(ip); return t && t.n >= 5 && Date.now() - t.desde < 15 * 60e3 ? Math.ceil((15 * 60e3 - (Date.now() - t.desde)) / 60e3) : 0; }
+function errou(ip) { const t = tentativas.get(ip); if (!t || Date.now() - t.desde > 15 * 60e3) tentativas.set(ip, { n: 1, desde: Date.now() }); else t.n++; }
+const ACOES = { "navegar": (a) => navegarLeitor(a.url), "texto": (a) => textoLeitor(a.max), "buscar-anuncios": (a) => buscarAnunciosLeitor(a), "detalhes-anuncio": (a) => detalhesAnuncioLeitor(a) };
+
+async function tratarPedido(req, res) {
+  const u = new URL(req.url, "http://painel"), p = u.pathname, ip = req.socket.remoteAddress || "";
+  try {
+    if (p === "/manifest.webmanifest") return responder(req, res, 200, "application/manifest+json", MANIFESTO);
+    if (p === "/icone.png") return responder(req, res, 200, "image/png", fs.readFileSync(path.join(__dirname, "app", "icone.png")), { "Cache-Control": "max-age=86400" });
+    const fonte = /^\/fonts\/([\w.-]+\.woff2)$/.exec(p);
+    if (fonte) { const f = path.join(__dirname, "app", "fonts", fonte[1]); return fs.existsSync(f) ? responder(req, res, 200, "font/woff2", fs.readFileSync(f), { "Cache-Control": "max-age=604800" }) : responder(req, res, 404, "text/plain", "nada"); }
+    if (p === "/entrar" && req.method === "POST") {
+      const espera = bloqueado(ip);
+      if (espera) return responder(req, res, 429, "text/html; charset=utf-8", paginaEntrar(`Muitas tentativas. Tente de novo em ${espera} ${espera === 1 ? "minuto" : "minutos"}.`));
+      const pin = new URLSearchParams(await lerCorpo(req, 4096)).get("pin");
+      if (!pinCerto(pin)) { errou(ip); return responder(req, res, 401, "text/html; charset=utf-8", paginaEntrar("Senha errada. Confira no PC, em Premissas › Abrir no celular.")); }
+      tentativas.delete(ip);
+      return responder(req, res, 303, "text/plain", "", { "Location": "/", "Set-Cookie": `painel=${novoToken()}; Path=/; Max-Age=34560000; HttpOnly; SameSite=Strict` });
+    }
+    if (!autenticado(req)) {
+      if (p.startsWith("/api/")) return json(req, res, 401, { erro: "entre de novo com a senha do PC" });
+      return responder(req, res, (p === "/" || p === "/entrar") ? 200 : 404, "text/html; charset=utf-8", paginaEntrar(""));
+    }
+    if (p === "/entrar") return responder(req, res, 303, "text/plain", "", { "Location": "/" });
+    if (p === "/" && (req.method === "GET" || req.method === "HEAD")) return responder(req, res, 200, "text/html; charset=utf-8", await paginaCelular());
+    if (p === "/api/eventos" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
+      res.write(`retry: 3000\nevent: ola\ndata: ${JSON.stringify({ versao: versaoDados })}\n\n`);
+      const e = { res, cliente: u.searchParams.get("cliente") || "" }; eventos.add(e); avisarAcesso();
+      const vivo = setInterval(() => { try { res.write(": ok\n\n"); } catch (err) {} }, 20000);
+      req.on("close", () => { clearInterval(vivo); eventos.delete(e); avisarAcesso(); });
+      return;
+    }
+    if (p.startsWith("/api/") && req.method === "POST" && req.headers["x-painel"] !== "1") return json(req, res, 403, { erro: "pedido recusado" });
+    if (p === "/api/dados" && req.method === "GET") {
+      const pedidas = (u.searchParams.get("chaves") || "").split(",").filter((k) => SINCRONIZADAS.includes(k));
+      return json(req, res, 200, { versao: versaoDados, chaves: await lerDadosPc(pedidas.length ? pedidas : SINCRONIZADAS) });
+    }
+    if (p === "/api/dados" && req.method === "POST") {
+      const corpo = JSON.parse(await lerCorpo(req, 20 * 1024 * 1024)), chaves = {};
+      for (const [k, v] of Object.entries((corpo && corpo.chaves) || {})) if (SINCRONIZADAS.includes(k) && (v === null || typeof v === "string")) chaves[k] = v;
+      const mudou = await aplicarNoPc(chaves);
+      if (mudou && mudou.length) avisarMudanca(mudou, String(req.headers["x-cliente"] || ""));
+      return json(req, res, 200, { versao: versaoDados, mudou: mudou || [] });
+    }
+    if (p === "/api/acao" && req.method === "POST") {
+      const corpo = JSON.parse(await lerCorpo(req, 64 * 1024)), fn = corpo && ACOES[corpo.nome];
+      if (!fn) return json(req, res, 400, { erro: "ação desconhecida" });
+      try { return json(req, res, 200, { resultado: await fn(corpo.args || {}) }); }
+      catch (err) { return json(req, res, 502, { erro: String((err && err.message) || err) }); }
+    }
+    return responder(req, res, 404, "text/plain", "nada");
+  } catch (err) {
+    if (!res.headersSent) json(req, res, 500, { erro: String((err && err.message) || err) });
+  }
+}
+function iniciarServidor() {
+  if (servidor) return;
+  const s = http.createServer(tratarPedido);
+  servidor = s; servidorErro = "";
+  s.on("error", (e) => { servidorErro = e && e.code === "EADDRINUSE" ? `a porta ${acesso.porta} já está sendo usada por outro programa` : String((e && e.message) || e); if (servidor === s) servidor = null; avisarAcesso(); });
+  s.listen(TESTE ? Number(process.env.PAINEL_PORTA || 0) : acesso.porta, "0.0.0.0", () => avisarAcesso());
+}
+function pararServidor() {
+  if (!servidor) return;
+  for (const e of eventos) { try { e.res.end(); } catch (err) {} }
+  eventos.clear();
+  try { servidor.close(); } catch (e) {}
+  servidor = null; avisarAcesso();
+}
+function iniciarAcesso() { lerAcesso(); if (acesso.ligado) iniciarServidor(); }
+ipcMain.handle("acesso-config", (e, op) => {
+  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+  if (op && typeof op === "object") {
+    if ("ligado" in op) acesso.ligado = !!op.ligado;
+    if (acesso.ligado && !/^\d{6}$/.test(acesso.pin)) acesso.pin = novoPin();
+    if (acesso.ligado && !acesso.segredo) acesso.segredo = novoSegredo();
+    if (op.novoPin) acesso.pin = novoPin();
+    /* desconectar os celulares: a sessão de todos deixa de valer */
+    if (op.desconectar) { acesso.segredo = novoSegredo(); for (const ev of eventos) { try { ev.res.end(); } catch (err) {} } eventos.clear(); }
+    gravarAcesso();
+    if (acesso.ligado) iniciarServidor(); else pararServidor();
+  }
+  return acessoPublico();
 });
 
 /* ---------- navegador escondido ---------- */
@@ -437,8 +663,7 @@ async function paginaDetalhe() {
   return { texto: texto.slice(0, 20000), titulo: document.title, url: location.href };
 }
 
-ipcMain.handle("navegar", (e, url) => {
-  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+function navegarLeitor(url) {
   url = String(url || "");
   if (!/^https?:\/\//i.test(url)) throw new Error("endereço inválido");
   return emFila(async () => {
@@ -446,9 +671,8 @@ ipcMain.handle("navegar", (e, url) => {
     await carregar(w, url);
     return { url: w.webContents.getURL(), title: w.webContents.getTitle() };
   });
-});
-ipcMain.handle("texto", (e, max) => {
-  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+}
+function textoLeitor(max) {
   return emFila(async () => {
     if (!leitor || leitor.isDestroyed()) return { url: "", title: "", el: "body", text: "" };
     /* como o navegador do app Claude: primeiro o conteúdo principal (article/main), senão a página inteira */
@@ -461,10 +685,9 @@ ipcMain.handle("texto", (e, max) => {
     const n = Math.max(1000, Math.min(200000, Number(max) || 50000));
     return { url: leitor.webContents.getURL(), title: leitor.webContents.getTitle(), el: (r && r.el) || "body", text: String((r && r.text) || "").slice(0, n) };
   });
-});
+}
 /* busca de anúncios (tela Ofertas e preço das usadas) */
-ipcMain.handle("buscar-anuncios", (e, op) => {
-  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+function buscarAnunciosLeitor(op) {
   const site = op && op.site, url = String((op && op.url) || ""), rolar = Math.max(0, Math.min(6, Math.round(Number(op && op.rolar) || 0)));
   if (!urlPermitida(site, url, false)) throw new Error("endereço não permitido");
   return emFila(async () => {
@@ -473,10 +696,9 @@ ipcMain.handle("buscar-anuncios", (e, op) => {
     const r = await rodarNoLeitor(w, `(${site === "fb" ? paginaBuscaFb : paginaBuscaOlx})(${rolar})`);
     return r || { itens: [] };
   });
-});
+}
 /* um anúncio aberto: texto para ler condição, descrição e vendedor */
-ipcMain.handle("detalhes-anuncio", (e, op) => {
-  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+function detalhesAnuncioLeitor(op) {
   const site = op && op.site, url = String((op && op.url) || "");
   if (!urlPermitida(site, url, true)) throw new Error("endereço não permitido");
   return emFila(async () => {
@@ -485,7 +707,12 @@ ipcMain.handle("detalhes-anuncio", (e, op) => {
     const r = await rodarNoLeitor(w, `(${paginaDetalhe})()`);
     return r || {};
   });
-});
+}
+const doPainel = (fn) => (e, ...a) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return fn(...a); };
+ipcMain.handle("navegar", doPainel(navegarLeitor));
+ipcMain.handle("texto", doPainel(textoLeitor));
+ipcMain.handle("buscar-anuncios", doPainel(buscarAnunciosLeitor));
+ipcMain.handle("detalhes-anuncio", doPainel(detalhesAnuncioLeitor));
 
 function abrirFacebook() {
   return new Promise((ok) => {
@@ -670,9 +897,11 @@ if (UNICO) app.whenReady().then(() => {
   criarPrincipal();
   aplicarSegundoPlano();
   iniciarCelular();
+  iniciarAcesso();
   /* no teste, quem liga a atualização é o próprio teste, depois de subir o servidor de versões de mentira */
   if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }),
-    celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular } });
+    celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular },
+    acesso: { estado: acessoPublico, config: () => ({ ...acesso }), versao: () => versaoDados } });
   else iniciarAtualizacao();
 });
 app.on("window-all-closed", () => app.quit());
