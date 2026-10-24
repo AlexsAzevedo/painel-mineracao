@@ -638,8 +638,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await ouvirCelular();
         r.app.corrida = { pcMandou: appMain.registro.cartas.length > nC, diferentes: await ateIguais(), antes: { margem: margem0, horas: horas0 },
           pc: await js(`({margem:cfg.margem, horas:cfg.horas})`), celular: await ja(`({margem:cfg.margem, horas:cfg.horas})`) };
-        await esperar(2000);
-        r.app.corrida.depois = { estado: await estadoCel(), escutasPc: escutasPc(), pedidosPc: ntfy.pedidos.filter((x) => /^GET \/pm-[\w]+-pc\/json/.test(x)).slice(-3), cartasPc: appMain.registro.cartas.length };
+        const cartasDepoisDaCorrida = appMain.registro.cartas.length;
         /* cartas "de um celular" montadas pelo teste, com o código de vinculação (outro aparelho, para não mexer na conta do de verdade) */
         const canalTeste = await Sincronia.abrirCanal(ap.codigo, { servidor: base + "/ntfy" });
         const apCel = await ja(`localStorage.getItem("pm-aparelho")`);
@@ -655,7 +654,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         for (let i = 0; i < 40 && appMain.registro.recebidas.length === nRecPc; i++) await esperar(100);
         await esperar(3500);
         r.app.corridaPc = { chegou: appMain.registro.recebidas.length > nRecPc, diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1,
-          estado: await estadoCel(), escutasPc: escutasPc(), msgsNoTopicoPc: msgsPc(), cartasPc: appMain.registro.cartas.length, errosApp: errosApp.slice(-5) };
+          estado: await estadoCel(), escutasPc: escutasPc(), msgsNoTopicoPc: msgsPc(), cartasDepoisDaCorrida, cartasPc: appMain.registro.cartas.slice(-4), recebidasPc: appMain.registro.recebidas.slice(-3), errosApp: errosApp.slice(-5) };
         /* reenvio: o celular manda de novo uma mudança que o PC já tinha aplicado (a confirmação se perdeu), depois que o PC
            mudou a mesma chave e dizendo uma hora mais nova que a do PC: é a mesma mudança (mesmo número), o PC só confirma */
         calarCelular(); await esperar(300);
