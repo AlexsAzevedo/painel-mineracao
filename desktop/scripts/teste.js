@@ -655,6 +655,17 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await esperar(3500);
         r.app.corridaPc = { chegou: appMain.registro.recebidas.length > nRecPc, diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1,
           estado: await estadoCel(), escutasPc: escutasPc(), msgsNoTopicoPc: msgsPc(), cartasDepoisDaCorrida, cartasPc: appMain.registro.cartas.slice(-4), recebidasPc: appMain.registro.recebidas.slice(-3), errosApp: errosApp.slice(-5) };
+        /* dois celulares mudam a mesma chave quase juntos: a carta do PC confirma as duas mudanças (nenhuma confirmação se perde) */
+        calarCelular(); await esperar(300);
+        await ja(`cfg.cdi = 14.4; lsSet("min-cfg", cfg); true`);
+        for (let i = 0; i < 80 && (await js(`cfg.cdi`)) !== 14.4; i++) await esperar(50);
+        const vDois = await ja(`localStorage.getItem("min-cfg")`);
+        await canalTeste.publicar({ tipo: "dados", aparelho: outroCel, chaves: { "min-cfg": { v: vDois, t: Date.now(), s: 3, n: appMain.estado().vers["min-cfg"] } } }, "cel");
+        await esperar(1500);
+        const cartaDupla = appMain.registro.cartas.slice(-1)[0];
+        await ouvirCelular();
+        for (let i = 0; i < 20 && (await ja(`window.desktop.sync.info().pendentes`)); i++) await esperar(250);
+        r.app.doisCelulares = { diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), pendentes: await ja(`window.desktop.sync.info().pendentes`), acksNaCarta: cartaDupla && cartaDupla.acks };
         /* reenvio: o celular manda de novo uma mudança que o PC já tinha aplicado (a confirmação se perdeu), depois que o PC
            mudou a mesma chave e dizendo uma hora mais nova que a do PC: é a mesma mudança (mesmo número), o PC só confirma */
         calarCelular(); await esperar(300);

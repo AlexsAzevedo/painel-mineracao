@@ -628,7 +628,11 @@ let appCel = appVazio(), appCanal = null, appAbort = null, appConectado = false;
 /* diferença entre o relógio deste PC e o do ntfy.sh (ms), medida a cada sinal da escuta */
 let appDesvio = 0;
 let appEnvioT = null, appVerT = null, appGravarT = null, appEnviando = false, appPausaAte = 0;
+/* o que a próxima carta leva: base (a versão mais antiga que algum celular pediu), chaves a mandar de qualquer jeito,
+   respostas de pedidos, confirmações (ack: para cada chave, as horas das mudanças confirmadas, de um ou mais celulares)
+   e as perguntas ("ola") que ela responde */
 const appPend = { base: null, forcar: new Set(), resps: [], ack: {}, olas: [] };
+function appAck(k, t) { if (t) appPend.ack[k] = [...new Set([...[].concat(appPend.ack[k] || []), t])].slice(-20); }
 const testeApp = { cartas: [], recebidas: [], pedidos: [], recusadas: 0 };
 function lerAppCel() {
   for (const f of [arquivoAppCel(), arquivoAppCel() + ".tmp"]) {
@@ -733,7 +737,7 @@ async function appEnviar() {
     try {
       await appCanal.publicar(carta, "pc");
       appCel.enviado = Math.max(appCel.enviado, carta.versao); appCel.envios.push(Date.now()); appCel.ultimoEnvio = Date.now(); appCel.erro = "";
-      if (TESTE) testeApp.cartas.push({ base, versao: carta.versao, chaves: Object.keys(chaves), resps: carta.resps.map((r) => `${r.pid}:${r.estado}`), acks: Object.keys(carta.ack) });
+      if (TESTE) testeApp.cartas.push({ base, versao: carta.versao, chaves: Object.keys(chaves), resps: carta.resps.map((r) => `${r.pid}:${r.estado}`), acks: Object.entries(carta.ack).map(([k, ts]) => k + "×" + [].concat(ts).length) });
       if (appCel.versao > appCel.enviado && ativo) appAgendarEnvio(1500);   /* mudou de novo enquanto mandava */
     } catch (e) {
       appDevolver(guardado);
@@ -749,7 +753,7 @@ function appDevolver(guardado) {
   if (guardado.base != null) appPendBase(guardado.base);
   for (const k of guardado.forcar) appPend.forcar.add(k);
   appPend.resps.unshift(...guardado.resps);
-  appPend.ack = { ...guardado.ack, ...appPend.ack };
+  for (const [k, ts] of Object.entries(guardado.ack)) for (const t of [].concat(ts)) appAck(k, t);
   appPend.olas = [...guardado.olas, ...appPend.olas].slice(-20);
 }
 /* confere os dados do PC e monta a carta (em ordem com o que vem do celular). null: nada para mandar agora */
@@ -804,12 +808,12 @@ async function appDoCelularJa(c, ap, quandoServ) {
     if (v === undefined) continue;
     const t = Number(x.t) || 0, sq = Number(x.s) || 0, n = Number(x.n) || 0, autor = appCel.autor[k];
     acks[k] = t;
-    if (sq && sq <= (vistos[k] || 0)) { appPend.forcar.add(k); appPend.ack[k] = t; continue; }   /* reenvio de uma que o PC já tratou */
+    if (sq && sq <= (vistos[k] || 0)) { appPend.forcar.add(k); appAck(k, t); continue; }   /* reenvio de uma que o PC já tratou */
     const continuacao = !!(ap && sq && autor && autor.ap === ap && sq > (autor.s || 0));
     const conflito = (appCel.vers[k] || 0) > n && !continuacao;
     const tPc = t - desvio + appDesvio;   /* a hora da mudança no relógio deste PC */
     if (!conflito || Math.min(tPc, Date.now() + 60e3) > (appCel.mods[k] || 0)) aplicar[k] = { v, s: sq };
-    else { appPend.forcar.add(k); appPend.ack[k] = t; if (sq) vistos[k] = sq; if (TESTE) testeApp.recusadas++; }   /* a daqui é mais nova: o celular recebe a daqui */
+    else { appPend.forcar.add(k); appAck(k, t); if (sq) vistos[k] = sq; if (TESTE) testeApp.recusadas++; }   /* a daqui é mais nova: o celular recebe a daqui */
   }
   const ks = Object.keys(aplicar);
   if (!ks.length) { appGravar(); return; }
@@ -824,9 +828,9 @@ async function appDoCelularJa(c, ap, quandoServ) {
     if (aplicar[k].s) vistos[k] = Math.max(vistos[k] || 0, aplicar[k].s);   /* tratada: um reenvio dela só é confirmado */
     if (g === aplicar[k].v) {
       appCel.mods[k] = agora; appCel.hashes[k] = await Sincronia.resumo(g); appCel.vers[k] = ++appCel.versao;
-      appCel.autor[k] = { ap, s: aplicar[k].s }; appPend.ack[k] = acks[k]; entrou.push(k);
+      appCel.autor[k] = { ap, s: aplicar[k].s }; appAck(k, acks[k]); entrou.push(k);
     } else {
-      appCel.hashes[k] = await Sincronia.resumo(g); appPend.forcar.add(k); appPend.ack[k] = acks[k];
+      appCel.hashes[k] = await Sincronia.resumo(g); appPend.forcar.add(k); appAck(k, acks[k]);
       appCel.erro = "o painel do PC não conseguiu gravar uma mudança que veio do celular (falta de espaço?)";
     }
   }

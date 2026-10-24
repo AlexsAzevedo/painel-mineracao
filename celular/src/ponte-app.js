@@ -173,8 +173,9 @@
     const tServ = (Number(m.time) || 0) * 1000, quando = tServ ? Math.min(Date.now(), tServ) : Date.now();
     if (c.pc) est.pc = { nome: String(c.pc.nome || "PC").slice(0, 60), app: String(c.pc.app || "").slice(0, 20) };
     /* o PC confirma as mudanças daqui que já viu (aceitas ou não): a partir daí, vale o que ele mandar */
+    /* (para cada chave, as horas das mudanças confirmadas: as deste celular e as de outros vinculados ao mesmo PC) */
     const ack = c.ack || {};
-    for (const k of Object.keys(est.pend)) if (Number(ack[k]) === est.pend[k].t) delete est.pend[k];
+    for (const k of Object.keys(est.pend)) if ([].concat(ack[k] || []).map(Number).includes(est.pend[k].t)) delete est.pend[k];
     const versao = Number(c.versao) || 0, lacuna = Number(c.base) > est.versao;
     if (est.pronto && versao < est.versao) {
       /* carta mais velha que o que o celular já tem: repetida (fica de fora) ou, se é nova, o PC voltou atrás (backup
