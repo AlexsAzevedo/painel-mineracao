@@ -22,6 +22,7 @@
   const VERSAO = 1;
   const MAX_TEXTO = 3900;           /* mensagem comum do ntfy: até 4096 bytes */
   const MAX_ANEXO = 1900 * 1024;    /* anexo no ntfy.sh: até 2 MB */
+  const TEMPO_ANEXO = 60e3;         /* baixar um anexo: desiste depois de 1 minuto (e quem chamou tenta de novo) */
   const enc = new TextEncoder();
   const sutil = () => G.crypto.subtle;
 
@@ -95,6 +96,7 @@
       this.chave = chave;
       this.servidor = String((op && op.servidor) || "https://ntfy.sh").replace(/\/+$/, "");
       this.buscar = (op && op.buscar) || ((...a) => G.fetch(...a));
+      this.tempoAnexo = (op && op.tempoAnexo) || TEMPO_ANEXO;
       this.topico = { pc: `pm-${id}-pc`, cel: `pm-${id}-cel` };
     }
     aad(de) { return enc.encode("pm1|" + de); }
@@ -124,14 +126,25 @@
       if (!b || b.length < 32 || b[0] !== 0x50 || b[1] !== 0x4d || b[2] !== 0x31) throw new Error("não é uma carta");
       return this.abrirPartes(b.subarray(3, 15), b.subarray(15), de);
     }
-    /* uma mensagem do ntfy → a carta que veio nela (baixa o anexo, se for o caso). Só baixa anexos do próprio servidor. */
+    /* uma mensagem do ntfy → a carta que veio nela (baixa o anexo, se for o caso). Só baixa anexos do próprio servidor.
+       Erros: anexoPerdido = o ntfy já apagou o anexo (404/410; ele guarda por 3 horas); transitorio = sem conexão, demorou
+       mais de 1 minuto ou o ntfy recusou agora (limite, erro do servidor): vale tentar de novo daqui a pouco. */
     async lerMensagem(m, de) {
       const a = m && m.attachment;
       if (a && a.url) {
         if (!String(a.url).startsWith(this.servidor + "/file/") || Number(a.size) > MAX_ANEXO + 1024) throw new Error("anexo estranho");
-        const r = await this.buscar(String(a.url), { cache: "no-store" });
-        if (!r.ok) { const e = new Error(`o anexo não está mais no ntfy (HTTP ${r.status})`); e.anexoPerdido = true; throw e; }
-        return this.abrirBinario(new Uint8Array(await r.arrayBuffer()), de);
+        const falha = (msg, extra) => Object.assign(new Error(msg), extra);
+        const ctrl = new AbortController(), tempo = setTimeout(() => ctrl.abort(), this.tempoAnexo);
+        let r = null, bytes = null;
+        try {
+          try { r = await this.buscar(String(a.url), { cache: "no-store", signal: ctrl.signal }); }
+          catch (e) { throw falha("sem conexão para baixar o anexo", { transitorio: true }); }
+          if (r.status === 404 || r.status === 410) throw falha(`o anexo não está mais no ntfy (HTTP ${r.status})`, { anexoPerdido: true });
+          if (!r.ok) throw falha(`o ntfy recusou o anexo agora (HTTP ${r.status})`, { transitorio: true, status: r.status });
+          try { bytes = new Uint8Array(await r.arrayBuffer()); }
+          catch (e) { throw falha("a conexão caiu no meio do anexo", { transitorio: true }); }
+        } finally { clearTimeout(tempo); }
+        return this.abrirBinario(bytes, de);
       }
       const t = String((m && m.message) || "");
       if (!t.startsWith("pm1.")) throw new Error("não é uma carta");
@@ -173,6 +186,7 @@
             vigiar();
             resto += dec.decode(value, { stream: true });
             for (let i; (i = resto.indexOf("\n")) >= 0;) {
+              if (sinal.aborted) break;   /* parou (ou outra escuta começou): o que sobrou vem de novo na próxima */
               const linha = resto.slice(0, i).trim(); resto = resto.slice(i + 1);
               if (!linha) continue;
               let m = null; try { m = JSON.parse(linha); } catch (e) { continue; }

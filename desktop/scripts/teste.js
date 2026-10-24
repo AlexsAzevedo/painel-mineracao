@@ -590,6 +590,49 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
           r.app.relogio[nome] = { noPc: await js(`cfg.tarifa`), pendentes: await ja(`window.desktop.sync.info().pendentes`), msgsDoCelular: msgsCel() - c0, msgsDoPc: msgsPc() - p0 };
         }
         await ja(`Date.now = window.__agoraReal; true`);
+        /* a escuta do celular cai (o que o PC manda fica no ntfy) e volta na hora em que o teste quer ("online") */
+        const topicoPcApp = () => [...ntfy.topicos.keys()].find((t) => /^pm-.*-pc$/.test(t));
+        const calarCelular = () => { falso.ntfy.recusar = (req, caminho) => (req.method === "GET" && /^\/pm-[\w]+-pc\/json$/.test(caminho) ? 503 : 0); falso.derrubar(topicoPcApp()); };
+        const ouvirCelular = async () => { falso.ntfy.recusar = null; await ja(`window.dispatchEvent(new Event("online")); true`); };
+        const ateIguais = async (n = 60) => { for (let i = 0; i < n && (await chavesDiferentes()).length; i++) await esperar(500); return chavesDiferentes(); };
+        /* duas mudanças seguidas na mesma chave, com o relógio do celular 1 hora atrasado e sem ele ouvir o PC entre uma e
+           outra: a segunda vai com a versão velha da chave, mas é continuação do mesmo celular e entra */
+        await ja(`(()=>{ const f = window.__agoraReal; Date.now = () => f() - 3600e3; return true; })()`);
+        let rec0 = appMain.registro.recusadas;
+        calarCelular(); await esperar(300);
+        await ja(`cfg.tarifa = 0.91; lsSet("min-cfg", cfg); true`);
+        for (let i = 0; i < 40 && (await js(`cfg.tarifa`)) !== 0.91; i++) await esperar(250);
+        await esperar(1500);
+        await ja(`cfg.tarifa = 0.92; lsSet("min-cfg", cfg); true`);
+        for (let i = 0; i < 40 && (await js(`cfg.tarifa`)) !== 0.92; i++) await esperar(250);
+        await esperar(1500);
+        await ouvirCelular();
+        r.app.duasSeguidas = { diferentes: await ateIguais(), noPc: await js(`cfg.tarifa`), noCelular: await ja(`cfg.tarifa`), recusadas: appMain.registro.recusadas - rec0 };
+        await esperar(1500);
+        r.app.duasSeguidas.pendentes = await ja(`window.desktop.sync.info().pendentes`);
+        await ja(`Date.now = window.__agoraReal; true`);
+        /* o PC deixa de ouvir o celular (desligado, sem internet) e o celular muda a mesma chave duas vezes: quando o PC volta,
+           as duas chegam na ordem e fica a última */
+        rec0 = appMain.registro.recusadas;
+        appMain.pararEscuta(); await esperar(300);
+        await ja(`cfg.cdi = 13.1; lsSet("min-cfg", cfg); true`); await esperar(2500);
+        await ja(`cfg.cdi = 13.2; lsSet("min-cfg", cfg); true`); await esperar(2500);
+        const cdiParado = await js(`cfg.cdi`);
+        appMain.voltarEscuta();
+        r.app.pcParado = { enquantoParado: cdiParado, diferentes: await ateIguais(), noPc: await js(`cfg.cdi`), noCelular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec0 };
+        await esperar(1500);
+        r.app.pcParado.pendentes = await ja(`window.desktop.sync.info().pendentes`);
+        /* corrida: o celular muda a margem e, antes de a mudança sair (ela espera 1,2 s), chega uma mudança do PC na mesma chave
+           (as horas). A do celular é a mais nova: não se perde */
+        const margem0 = await js(`cfg.margem`), horas0 = await js(`cfg.horas`);
+        calarCelular(); await esperar(300);
+        const nC = appMain.registro.cartas.length;
+        await js(`cfg.horas = 21; lsSet("min-cfg", cfg); true`);
+        for (let i = 0; i < 40 && appMain.registro.cartas.length === nC; i++) await esperar(250);   /* o PC mandou (o celular ainda não ouviu) */
+        await ja(`cfg.margem = 11; lsSet("min-cfg", cfg); true`);
+        await ouvirCelular();
+        r.app.corrida = { pcMandou: appMain.registro.cartas.length > nC, diferentes: await ateIguais(), antes: { margem: margem0, horas: horas0 },
+          pc: await js(`({margem:cfg.margem, horas:cfg.horas})`), celular: await ja(`({margem:cfg.margem, horas:cfg.horas})`) };
         /* conflito de verdade: o celular sem internet muda a tarifa, o PC muda as horas (a mesma chave, min-cfg);
            quando a internet volta, vale a mudança mais nova (a do PC) e os dois ficam iguais */
         falso.ntfy.recusar = (req, caminho) => (req.method === "POST" && /-cel$/.test(caminho) ? 503 : 0);
@@ -605,6 +648,43 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await js(`(()=>{ for(let i=0;i<3000;i++) alerta.vistos["fb:" + (2e15+i)] = {t:Date.now(), p:1000+i}; salvarAlerta(); return true; })()`);
         for (let i = 0; i < 40 && (await chavesDiferentes()).length; i++) await esperar(500);
         r.app.grande = { diferentes: await chavesDiferentes(), vistosNoCelular: await ja(`Object.keys(alerta.vistos).length`), tamanhoKB: Math.round((await js(`localStorage.getItem("min-ofertas-alerta").length`)) / 1024) };
+        /* teto do PC: com 20 mensagens ou mais na última hora, as mudanças do PC não vão sozinhas para o celular; a resposta
+           ao Atualizar, sim */
+        const naHora = () => appMain.estado().envios.filter((t) => Date.now() - t < 3600e3).length;
+        const h0 = naHora(), p3 = msgsPc();
+        await js(`cfg.bandeira = 0.01; salvarCfg(); render(); true`); await esperar(5000);
+        const sozinho = msgsPc() - p3;
+        await ja(`window.desktop.sync.atualizar().then(()=>true)`);
+        r.app.teto = { naUltimaHora: h0, mandouSozinho: sozinho, depoisDeAtualizar: { msgsDoPc: msgsPc() - p3, bandeira: await ja(`cfg.bandeira`) } };
+        appMain.zerarEnvios();   /* daqui em diante, como numa hora nova */
+        /* o anexo de uma carta do PC não baixa na hora (o ntfy recusa uma vez: 429): o celular tenta de novo sozinho em 5 s,
+           sem pedir nada ao PC */
+        const getsAnexo = () => ntfy.pedidos.filter((x) => x.startsWith("GET /file/")).length;
+        let recusas = 0, g0 = getsAnexo(), c2 = msgsCel(), p2 = msgsPc();
+        falso.ntfy.recusar = (req, caminho) => (req.method === "GET" && caminho.startsWith("/file/") && recusas++ < 1 ? 429 : 0);
+        await js(`(()=>{ for(let i=0;i<400;i++) alerta.vistos["fb:" + (3e15+i)] = {t:Date.now(), p:2000+i}; salvarAlerta(); return true; })()`);
+        r.app.anexoRecusado = { diferentes: await ateIguais(40), downloads: getsAnexo() - g0, msgsDoCelular: msgsCel() - c2, msgsDoPc: msgsPc() - p2 };
+        /* o anexo sumiu do ntfy (404, como depois de 3 horas): o celular avisa e pede de novo ao PC, uma vez */
+        let apagados = 0, avisoVisto = "";
+        g0 = getsAnexo(); c2 = msgsCel(); p2 = msgsPc();
+        falso.ntfy.recusar = (req, caminho) => (req.method === "GET" && caminho.startsWith("/file/") && apagados++ < 1 ? 404 : 0);
+        await js(`(()=>{ for(let i=400;i<800;i++) alerta.vistos["fb:" + (3e15+i)] = {t:Date.now(), p:2000+i}; salvarAlerta(); return true; })()`);
+        for (let i = 0; i < 80; i++) {
+          await esperar(250);
+          const a = await ja(`(document.getElementById("remoto-aviso")||{}).textContent||""`); if (/não chegou inteira/.test(a)) avisoVisto = a;
+          if (avisoVisto && !(await chavesDiferentes()).length) break;
+        }
+        r.app.anexoPerdido = { diferentes: await ateIguais(40), downloads: getsAnexo() - g0, msgsDoCelular: msgsCel() - c2, msgsDoPc: msgsPc() - p2, avisou: !!avisoVisto,
+          avisoSumiu: await ja(`!document.getElementById("remoto-aviso") || document.getElementById("remoto-aviso").hidden`) };
+        /* no outro sentido: o PC não baixa na hora o anexo de uma mudança grande do celular (429); tenta de novo em 5 s e
+           confirma, e o celular não precisa mandar de novo */
+        recusas = 0; g0 = getsAnexo(); c2 = msgsCel();
+        falso.ntfy.recusar = (req, caminho) => (req.method === "GET" && caminho.startsWith("/file/") && recusas++ < 1 ? 429 : 0);
+        await ja(`(()=>{ for(let i=0;i<1200;i++) ofMarcas.descartados["fb:" + String(Math.random()).slice(2, 18)] = Date.now(); salvarMarcas(); return true; })()`);
+        r.app.anexoNoPc = { diferentes: await ateIguais(40), downloads: getsAnexo() - g0, msgsDoCelular: msgsCel() - c2 };
+        await esperar(2000);
+        r.app.anexoNoPc.pendentes = await ja(`window.desktop.sync.info().pendentes`);
+        falso.ntfy.recusar = null;
         await ja(`irPara("premissas")`); await fotoApp("premissas");
         r.app.esteCelular = await ja(`({tela:!document.getElementById("v-premissas").hidden, cartao:!document.getElementById("estecel-p").hidden, info:document.getElementById("estecel-info").innerText.replace(/\\n/g," | ")})`);
         /* quantas mensagens o teste gastou no ntfy (o ntfy.sh aceita 250 por dia de cada internet) e se tudo foi cifrado */

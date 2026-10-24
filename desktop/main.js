@@ -612,13 +612,19 @@ const URL_APK = "https://github.com/AlexsAzevedo/painel-mineracao/releases/lates
 const APP_ATIVO = 20 * 60e3, APP_PEDIDO_VALE = 10 * 60e3, APP_OLA_VALE = 15 * 60e3;
 const APP_PEDIDOS = ["buscar-ofertas", "detalhes", "analisar", "atualizar", "parar"];
 const arquivoAppCel = () => path.join(app.getPath("userData"), "app-celular.json");
-const appVazio = () => ({ codigo: "", criado: 0, versao: 0, enviado: 0, mods: {}, vers: {}, hashes: {}, aparelhos: {}, ultimoId: "", vistos: [], erro: "", ultimoEnvio: 0, envios: [] });
+/* versao: contador de mudanças; vers/mods/hashes: versão, hora (do PC) e resumo de cada chave; autor: o celular que fez a
+   última mudança de cada chave e o número dela (some quando o próprio PC muda a chave); enviado: a versão da última carta mandada */
+const appVazio = () => ({ codigo: "", criado: 0, versao: 0, enviado: 0, mods: {}, vers: {}, hashes: {}, autor: {}, aparelhos: {}, ultimoId: "", vistos: [], erro: "", ultimoEnvio: 0, envios: [] });
 let appCel = appVazio(), appCanal = null, appAbort = null, appConectado = false;
 let appEnvioT = null, appVerT = null, appGravarT = null, appEnviando = false, appPausaAte = 0;
 const appPend = { base: null, forcar: new Set(), resps: [], ack: {}, olas: [] };
 const testeApp = { cartas: [], recebidas: [], pedidos: [], recusadas: 0 };
 function lerAppCel() { try { appCel = { ...appVazio(), ...JSON.parse(fs.readFileSync(arquivoAppCel(), "utf8")) }; } catch (e) {} }
-function gravarAppCel() { clearTimeout(appGravarT); appGravarT = null; try { fs.writeFileSync(arquivoAppCel(), JSON.stringify(appCel)); } catch (e) {} }
+/* grava inteiro ou nada (um arquivo cortado no meio faria o PC esquecer o vínculo) */
+function gravarAppCel() {
+  clearTimeout(appGravarT); appGravarT = null;
+  try { const f = arquivoAppCel(); fs.writeFileSync(f + ".tmp", JSON.stringify(appCel)); fs.renameSync(f + ".tmp", f); } catch (e) {}
+}
 function appGravar() { if (!appGravarT) appGravarT = setTimeout(gravarAppCel, 1000); }
 const qrCache = new Map();
 function svgQr(texto, titulo) {
@@ -649,24 +655,31 @@ async function conferirApk() {
 function avisarAppCel() { if (principal && !principal.isDestroyed()) principal.webContents.send("app-celular", appPublico()); }
 
 /* teto de mensagens do PC para o app, contando tudo o que mandou: respostas (ao abrir o app, confirmações, pedidos) até 40
-   por hora e 120 no dia; mudanças mandadas sozinhas param antes, em 30 por hora e 90 no dia. Um uso normal fica bem abaixo;
-   o teto só segura um defeito que fizesse mensagens sem parar, para sobrar para o sinal de vida (96 das 250 do ntfy.sh). */
+   por hora e 80 no dia; mudanças mandadas sozinhas param antes, em 20 por hora e 50 no dia (depois disso, o celular pega
+   as novidades quando abre o app ou no Atualizar). O app do celular tem o dele (60 no dia). A conta fecha dentro das 250
+   do ntfy.sh com o sinal de vida (96) e os avisos: 80 + 60 + 96 + ~10. Um uso normal fica bem abaixo; o teto só segura
+   um defeito que fizesse mensagens sem parar. */
 function appPodeEnviar(resposta) {
   const agora = Date.now();
   appCel.envios = appCel.envios.filter((t) => agora - t < 864e5);
   if (agora < appPausaAte) return false;
   const hora = appCel.envios.filter((t) => agora - t < 3600e3).length, dia = appCel.envios.length;
-  return resposta ? hora < 40 && dia < 120 : hora < 30 && dia < 90;
+  return resposta ? hora < 40 && dia < 80 : hora < 20 && dia < 50;
 }
+/* uma coisa de cada vez nos dados do app (conferir o PC, aplicar o que veio do celular, montar a carta): assim o valor e a
+   versão de cada chave que vão numa carta são sempre do mesmo momento */
+let appTrava = Promise.resolve();
+function appEmOrdem(fn) { const p = appTrava.then(fn); appTrava = p.catch(() => {}); return p; }
 /* confere o que mudou nos dados do PC desde a última vez (por qualquer caminho: tela, backup restaurado, celular pelo navegador) */
-async function appVerificar() {
+const appVerificar = () => appEmOrdem(appVerificarJa);
+async function appVerificarJa() {
   if (!appCel.codigo) return null;
   let dados = null;
   try { dados = await lerDadosPc(SINCRONIZADAS); } catch (e) { return null; }
   const agora = Date.now(); let mudou = false;
   for (const k of SINCRONIZADAS) {
     const h = await Sincronia.resumo(dados[k]);
-    if (appCel.hashes[k] !== h) { appCel.hashes[k] = h; appCel.mods[k] = agora; appCel.vers[k] = ++appCel.versao; mudou = true; }
+    if (appCel.hashes[k] !== h) { appCel.hashes[k] = h; appCel.mods[k] = agora; appCel.vers[k] = ++appCel.versao; delete appCel.autor[k]; mudou = true; }
   }
   if (mudou) appGravar();
   return dados;
@@ -679,23 +692,12 @@ async function appEnviar() {
   if (appEnviando) { appAgendarEnvio(800); return; }
   appEnviando = true;
   try {
-    const dados = await appVerificar();
-    if (!dados) { appAgendarEnvio(3000); return; }
-    const agora = Date.now(), ativo = Object.values(appCel.aparelhos).some((a) => (a.ativoAte || 0) > agora);
-    const resposta = appPend.base != null || appPend.forcar.size > 0 || appPend.resps.length > 0 || Object.keys(appPend.ack).length > 0 || appPend.olas.length > 0;
-    const novidade = ativo && appCel.versao > appCel.enviado;
-    if (!resposta && !novidade) return;
-    if (!appPodeEnviar(resposta)) { appAgendarEnvio(Math.max(60e3, appPausaAte - agora + 1000)); return; }
-    let base = appPend.base != null ? appPend.base : appCel.versao;
-    if (novidade) base = Math.min(base, appCel.enviado);
-    /* cada chave vai com a versão dela no PC (n): o celular manda de volta junto com a mudança que fizer, e assim o PC sabe se mexeu nela depois */
-    const chaves = {};
-    for (const k of SINCRONIZADAS) if ((appCel.vers[k] || 0) > base || appPend.forcar.has(k)) chaves[k] = { v: dados[k] === undefined ? null : dados[k], t: appCel.mods[k] || 0, n: appCel.vers[k] || 0 };
-    /* ack: as mudanças do celular que o PC já viu (com a hora que o celular deu a cada uma), aceitas ou não */
-    /* olas: as perguntas dos celulares que esta carta responde */
-    const carta = { tipo: "dados", base, versao: appCel.versao, chaves, ack: { ...appPend.ack }, olas: appPend.olas.slice(), pc: { nome: os.hostname(), app: app.getVersion() }, resps: appPend.resps.slice() };
-    const guardado = { base: appPend.base, forcar: [...appPend.forcar], resps: appPend.resps.slice(), ack: { ...appPend.ack }, olas: appPend.olas.slice() };
-    appPend.base = null; appPend.forcar.clear(); appPend.resps = []; appPend.ack = {}; appPend.olas = [];
+    const montada = await appEmOrdem(appMontarCarta);
+    if (!montada) return;
+    const { carta, guardado, base, chaves, ativo } = montada;
+    /* grava antes de mandar: a versão que o celular vai ver não pode sumir se o PC desligar de repente (senão o PC
+       repetiria números de versão com outras mudanças, e o celular, que acha que já tem esses números, não as pediria) */
+    gravarAppCel();
     try {
       await appCanal.publicar(carta, "pc");
       appCel.enviado = Math.max(appCel.enviado, carta.versao); appCel.envios.push(Date.now()); appCel.ultimoEnvio = Date.now(); appCel.erro = "";
@@ -714,6 +716,30 @@ async function appEnviar() {
     appGravar(); avisarAppCel();
   } finally { appEnviando = false; }
 }
+/* confere os dados do PC e monta a carta (em ordem com o que vem do celular). null: nada para mandar agora */
+async function appMontarCarta() {
+  const dados = await appVerificarJa();
+  if (!dados) { appAgendarEnvio(3000); return null; }
+  const agora = Date.now(), ativo = Object.values(appCel.aparelhos).some((a) => (a.ativoAte || 0) > agora);
+  const resposta = appPend.base != null || appPend.forcar.size > 0 || appPend.resps.length > 0 || Object.keys(appPend.ack).length > 0 || appPend.olas.length > 0;
+  const novidade = ativo && appCel.versao > appCel.enviado;
+  if (!resposta && !novidade) return null;
+  if (!appPodeEnviar(resposta)) {
+    if (agora >= appPausaAte && resposta) { appCel.erro = "o PC chegou ao teto de mensagens para o app (por hora ou no dia); as respostas saem quando ele liberar"; avisarAppCel(); }
+    appAgendarEnvio(Math.max(60e3, appPausaAte - agora + 1000)); return null;
+  }
+  let base = appPend.base != null ? appPend.base : appCel.versao;
+  if (novidade) base = Math.min(base, appCel.enviado);
+  /* cada chave vai com a versão dela no PC (n): o celular manda de volta junto com a mudança que fizer, e assim o PC sabe se mexeu nela depois */
+  const chaves = {};
+  for (const k of SINCRONIZADAS) if ((appCel.vers[k] || 0) > base || appPend.forcar.has(k)) chaves[k] = { v: dados[k] === undefined ? null : dados[k], t: appCel.mods[k] || 0, n: appCel.vers[k] || 0 };
+  /* ack: as mudanças do celular que o PC já viu (com a hora que o celular deu a cada uma), aceitas ou não */
+  /* olas: as perguntas dos celulares que esta carta responde */
+  const carta = { tipo: "dados", base, versao: appCel.versao, chaves, ack: { ...appPend.ack }, olas: appPend.olas.slice(), pc: { nome: os.hostname(), app: app.getVersion() }, resps: appPend.resps.slice() };
+  const guardado = { base: appPend.base, forcar: [...appPend.forcar], resps: appPend.resps.slice(), ack: { ...appPend.ack }, olas: appPend.olas.slice() };
+  appPend.base = null; appPend.forcar.clear(); appPend.resps = []; appPend.ack = {}; appPend.olas = [];
+  return { carta, guardado, base, chaves, ativo };
+}
 /* o painel do PC gravou uma chave: confere em 2,5 s e, com o app aberto em algum celular, manda */
 function appMudouNoPc() {
   if (!appCanal) return;
@@ -722,33 +748,42 @@ function appMudouNoPc() {
     appVerificar().then((d) => { if (d && appCel.versao > appCel.enviado && Object.values(appCel.aparelhos).some((a) => (a.ativoAte || 0) > Date.now())) appAgendarEnvio(300); }).catch(() => {});
   }, 2500);
 }
-/* mudanças que vieram do celular. Cada uma diz em que versão da chave o celular mexeu (n): se o PC não mexeu nela
-   depois disso, a do celular entra, seja qual for o relógio dele. Se os dois mexeram (conflito), vale a mais nova pela
-   hora (a do celular limitada a 1 minuto à frente da do PC). O PC sempre confirma (ack) com a hora que o celular deu;
-   quando não aceita, manda a chave daqui de volta, e o celular fica com ela. */
-async function appDoCelular(c) {
+/* mudanças que vieram do celular. Cada uma diz em que versão da chave o celular mexeu (n): se ninguém mexeu nela depois
+   disso, a do celular entra, seja qual for o relógio dele. Também entra a continuação: outra mudança do mesmo celular na
+   chave que ele mesmo mudou por último, com número (s) maior (duas edições seguidas, ou feitas com o PC desligado). Se
+   outro mexeu (conflito), vale a mais nova pela hora (a do celular limitada a 1 minuto à frente da do PC). O PC sempre
+   confirma (ack) com a hora que o celular deu; quando não aceita, manda a chave daqui de volta, e o celular fica com ela. */
+const appDoCelular = (c, ap) => appEmOrdem(() => appDoCelularJa(c, ap));
+async function appDoCelularJa(c, ap) {
+  await appVerificarJa();   /* uma mudança feita aqui há menos de 2,5 s ainda não foi vista: vê antes de comparar */
   const aplicar = {}, acks = {};
   for (const [k, x] of Object.entries(c.chaves || {})) {
     if (!SINCRONIZADAS.includes(k) || !x || typeof x !== "object") continue;
     const v = x.v === null ? null : typeof x.v === "string" ? x.v : undefined;
     if (v === undefined) continue;
-    const t = Number(x.t) || 0, n = Number(x.n) || 0;
+    const t = Number(x.t) || 0, sq = Number(x.s) || 0, n = Number(x.n) || 0, autor = appCel.autor[k];
     acks[k] = t;
-    const conflito = (appCel.vers[k] || 0) > n;
-    if (!conflito || Math.min(t, Date.now() + 60e3) > (appCel.mods[k] || 0)) aplicar[k] = v;
+    const continuacao = !!(ap && sq && autor && autor.ap === ap && sq > (autor.s || 0));
+    const conflito = (appCel.vers[k] || 0) > n && !continuacao;
+    if (!conflito || Math.min(t, Date.now() + 60e3) > (appCel.mods[k] || 0)) aplicar[k] = { v, s: sq };
     else { appPend.forcar.add(k); appPend.ack[k] = t; if (TESTE) testeApp.recusadas++; }   /* a daqui é mais nova: o celular recebe a daqui */
   }
   const ks = Object.keys(aplicar);
   if (!ks.length) return;
-  await aplicarNoPc(aplicar);   /* se o painel do PC não aceitar, não confirma: o celular manda de novo */
+  const valores = {};
+  for (const k of ks) valores[k] = aplicar[k].v;
+  await aplicarNoPc(valores);   /* se o painel do PC não aceitar, não confirma: o celular manda de novo */
   const agora = Date.now();
-  for (const k of ks) { appCel.mods[k] = agora; appCel.hashes[k] = await Sincronia.resumo(aplicar[k]); appCel.vers[k] = ++appCel.versao; appPend.ack[k] = acks[k]; }
+  for (const k of ks) {
+    appCel.mods[k] = agora; appCel.hashes[k] = await Sincronia.resumo(aplicar[k].v); appCel.vers[k] = ++appCel.versao;
+    appCel.autor[k] = { ap, s: aplicar[k].s }; appPend.ack[k] = acks[k];
+  }
   appGravar();
   if (eventos.size) avisarMudanca(ks, "app");   /* um celular aberto pelo navegador também fica sabendo */
 }
-async function appPedido(c) {
+async function appPedido(c, quando) {
   const pid = String(c.pid || "").slice(0, 40), nome = String(c.nome || "");
-  if (!pid || Date.now() - (Number(c.t) || 0) > APP_PEDIDO_VALE) return;   /* o PC estava desligado: o pedido ficou velho */
+  if (!pid || Date.now() - quando > APP_PEDIDO_VALE) return;   /* o PC estava desligado: o pedido ficou velho */
   if (!APP_PEDIDOS.includes(nome)) { appPend.resps.push({ pid, estado: "pronto", ok: false, texto: "O PC não conhece esse pedido. Atualize o painel do PC." }); appAgendarEnvio(300); return; }
   if (TESTE) testeApp.pedidos.push(nome);
   if (nome !== "parar") { appPend.resps.push({ pid, estado: "rodando" }); appAgendarEnvio(200); }
@@ -757,16 +792,34 @@ async function appPedido(c) {
   appPend.resps.push({ ...(r && typeof r === "object" ? r : { ok: !!r }), pid, estado: "pronto" });
   appAgendarEnvio(900);   /* espera o painel gravar o resultado, para ir na mesma carta */
 }
-/* uma mensagem chegou do celular */
+/* lê a carta de uma mensagem; anexo que não baixou (sem conexão, ntfy recusou agora): tenta de novo em 5 e 15 s.
+   Se a escuta parar no meio, a mensagem vem de novo na próxima (o último id visto fica no anterior). */
+async function appLerCarta(m, sinal) {
+  const esperas = [5e3, 15e3];
+  for (let i = 0; ; i++) {
+    try { return await appCanal.lerMensagem(m, "cel"); }
+    catch (e) {
+      if (!e || !e.transitorio || i >= esperas.length) throw e;
+      await Sincronia.esperar(esperas[i], sinal);
+      if (!sinal || sinal.aborted || !appCanal) { e.pausado = true; throw e; }
+    }
+  }
+}
+/* uma mensagem chegou do celular (uma de cada vez, na ordem, mesmo quando a escuta recomeça) */
+let appFila = Promise.resolve();
+function appRecebidoEmFila(m) { const p = appFila.then(() => appRecebido(m)); appFila = p.catch(() => {}); return p; }
 async function appRecebido(m) {
-  appCel.ultimoId = m.id; appGravar();
+  if (!appCanal) return;
   let c = null;
-  try { c = await appCanal.lerMensagem(m, "cel"); } catch (e) { return; }
+  try { c = await appLerCarta(m, appAbort && appAbort.signal); }
+  catch (e) { if (!(e && e.pausado)) { appCel.ultimoId = m.id; appGravar(); } return; }   /* uma carta do celular que não deu para ler: as mudanças ele manda de novo */
+  appCel.ultimoId = m.id; appGravar();
   if (!c || !c.id || appCel.vistos.includes(c.id)) return;
   appCel.vistos.push(c.id);
   if (appCel.vistos.length > 300) appCel.vistos.splice(0, appCel.vistos.length - 300);
   if (TESTE) testeApp.recebidas.push({ tipo: c.tipo, versao: c.versao, chaves: Object.keys(c.chaves || {}), nome: c.nome });
-  const agora = Date.now(), quando = Math.min(Number(c.t) || 0, agora);
+  /* a hora da mensagem é a do ntfy.sh (o relógio do celular pode estar errado) */
+  const agora = Date.now(), quando = Math.min(agora, (Number(m.time) || 0) * 1000 || agora);
   const ap = String((c.aparelho && c.aparelho.id) || "").replace(/[^\w-]/g, "").slice(0, 40);
   if (c.tipo === "tchau") { if (ap) delete appCel.aparelhos[ap]; appGravar(); avisarAppCel(); return; }
   if (ap) {
@@ -775,14 +828,18 @@ async function appRecebido(m) {
     if (c.aparelho.nome) a.nome = String(c.aparelho.nome).slice(0, 60);
     if (c.aparelho.app) a.app = String(c.aparelho.app).slice(0, 20);
   }
-  /* "ola" de quando o PC estava desligado não precisa de resposta: o celular manda outro quando abrir o app */
+  /* "ola" de quando o PC estava desligado não precisa de resposta: o celular manda outro quando abrir o app.
+     "ola" silenciosa (o app aberto avisando que continua lá): só tem resposta se o celular ficou para trás */
   if (c.tipo === "ola" && agora - quando < APP_OLA_VALE) {
-    appPendBase(Math.max(0, Number(c.versao) || 0));
-    appPend.olas = [...appPend.olas, c.id].slice(-20);
-    for (const k of [].concat(c.pedir || [])) if (SINCRONIZADAS.includes(k)) appPend.forcar.add(k);
-    appAgendarEnvio(300);
-  } else if (c.tipo === "dados") { await appDoCelular(c); appAgendarEnvio(600); }
-  else if (c.tipo === "pedido") appPedido(c).catch(() => {});
+    const v = Math.max(0, Number(c.versao) || 0);
+    if (!c.silenciosa || v < appCel.versao) {
+      appPendBase(v);
+      if (!c.silenciosa) appPend.olas = [...appPend.olas, c.id].slice(-20);
+      for (const k of [].concat(c.pedir || [])) if (SINCRONIZADAS.includes(k)) appPend.forcar.add(k);
+      appAgendarEnvio(300);
+    }
+  } else if (c.tipo === "dados") { await appDoCelular(c, ap); appAgendarEnvio(600); }
+  else if (c.tipo === "pedido") appPedido(c, quando).catch(() => {});
   appGravar(); avisarAppCel();
 }
 function appPararEscuta() { if (appAbort) { appAbort.abort(); appAbort = null; } appConectado = false; }
@@ -790,7 +847,7 @@ function appEscutar() {
   appPararEscuta();
   if (!appCanal) return;
   const ctrl = new AbortController(); appAbort = ctrl;
-  appCanal.escutar({ de: "cel", desde: appCel.ultimoId || "12h", sinal: ctrl.signal, aoReceber: appRecebido,
+  appCanal.escutar({ de: "cel", desde: appCel.ultimoId || "12h", sinal: ctrl.signal, aoReceber: appRecebidoEmFila,
     aoEstado: (ok) => { if (appConectado !== ok) { appConectado = ok; avisarAppCel(); } } }).catch(() => {});
 }
 const abrirCanalApp = (codigo) => Sincronia.abrirCanal(codigo, { servidor: ntfy(), buscar: (u, o) => net.fetch(u, o) });
@@ -1199,7 +1256,8 @@ if (UNICO) app.whenReady().then(() => {
     acesso: { estado: acessoPublico, config: () => ({ ...acesso }), versao: () => versaoDados },
     appCelular: { estado: () => JSON.parse(JSON.stringify(appCel)), publico: appPublico, registro: testeApp, conectado: () => appConectado,
       ativos: () => Object.values(appCel.aparelhos).filter((a) => (a.ativoAte || 0) > Date.now()).length,
-      esquecerAtivos: () => { for (const a of Object.values(appCel.aparelhos)) a.ativoAte = 0; } } });
+      esquecerAtivos: () => { for (const a of Object.values(appCel.aparelhos)) a.ativoAte = 0; },
+      pararEscuta: () => appPararEscuta(), voltarEscuta: () => appEscutar(), zerarEnvios: () => { appCel.envios = []; appPausaAte = 0; } } });
   else iniciarAtualizacao();
 });
 app.on("window-all-closed", () => app.quit());

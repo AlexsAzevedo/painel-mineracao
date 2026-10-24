@@ -21,8 +21,10 @@
     json(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v && typeof v === "object" ? v : d; } catch (e) { return d; } }
   };
   /* versao: até onde o celular tem os dados do PC; vk: a versão de cada chave no PC (vai junto com a mudança feita aqui);
-     hashes: o último valor conhecido de cada chave (para saber se mudou); pend: mudanças daqui que o PC ainda não confirmou */
-  const vazio = () => ({ versao: 0, vk: {}, hashes: {}, pend: {}, ultimoId: "", ultimaVez: 0, ultimaOla: 0, pc: null, vistos: [], pronto: false, versaoNova: "", conferiuVersao: 0, envios: [] });
+     hashes: o último valor conhecido de cada chave (para saber se mudou); pend: mudanças daqui que o PC ainda não confirmou;
+     seq: o número da última mudança daqui (só cresce, mesmo se o relógio do celular voltar: o PC sabe qual veio depois);
+     ultimoId: a última mensagem do PC já tratada; ultimaVez: a hora (do ntfy.sh) da última carta do PC */
+  const vazio = () => ({ versao: 0, vk: {}, hashes: {}, pend: {}, seq: 0, ultimoId: "", ultimaVez: 0, ultimaOla: 0, pc: null, vistos: [], pronto: false, versaoNova: "", conferiuVersao: 0, envios: [] });
   let codigo = S.lerCodigo(L.get("pm-codigo"));
   let est = Object.assign(vazio(), L.json("pm-sinc", {}));
   let aparelho = L.get("pm-aparelho");
@@ -30,6 +32,9 @@
   let nomeAparelho = "";
   let canal = null, abort = null, conectado = false, caiuDesde = 0, olaEsperando = 0, olaId = "", receberFn = null, estadoFn = null;
   let mudT = null, salvarT = null, olaT = null, reenviarT = null, lacunaT = null, esperaEnvio = 5000, enviando = false, tentativasOla = 0;
+  /* problemaEnvio: o limite do ntfy.sh ou o teto daqui (aparece na faixa até a próxima mensagem sair);
+     falhasLeitura: respostas do PC seguidas que não deu para ler (anexo); tentandoAnexo: tentando baixar um anexo agora */
+  let problemaEnvio = "", falhasLeitura = 0, ultimaFalhaLeitura = 0, tentandoAnexo = false, deNovoEm = 0;
   const mudados = new Set(), pedidos = new Map();
   const $ = (id) => document.getElementById(id);
 
@@ -51,9 +56,11 @@
     if (!estadoFn || !codigo) return;
     const dados = est.ultimaVez ? ` Mostrando os dados do PC de ${quandoTxt(est.ultimaVez)}.` : "";
     const caiu = !conectado && caiuDesde && Date.now() - caiuDesde > 8000;
-    const semPc = olaEsperando && Date.now() - olaEsperando > 25000;
+    const semPc = olaEsperando && !tentandoAnexo && Date.now() - olaEsperando > 25000;
     let s;
     if (caiu) s = { ok: false, texto: "Sem internet", aviso: (navigator.onLine === false ? "Sem internet agora." : "Sem conexão com o ntfy.sh agora. Tentando de novo…") + dados };
+    else if (problemaEnvio) s = { ok: false, texto: "Limite de mensagens", aviso: `Não deu para mandar ao PC: ${problemaEnvio}.` + dados };
+    else if (falhasLeitura) s = { ok: false, texto: "Dados incompletos", aviso: "Uma resposta do PC não chegou inteira (o anexo do ntfy.sh não baixou). " + (falhasLeitura > 6 ? "Toque em Atualizar para tentar de novo." : "Pedindo de novo…") + dados };
     else if (semPc) s = { ok: false, texto: "O PC não respondeu", aviso: "O PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet." + dados };
     else s = { ok: true, texto: est.ultimaVez ? `Dados do PC · ${hora(est.ultimaVez)}` : "Ligando ao PC…" };
     try { estadoFn(s); } catch (e) {}
@@ -61,73 +68,150 @@
 
   /* ---------- falar com o PC ---------- */
   const quem = () => ({ id: aparelho, nome: nomeAparelho || "Celular Android", app: VERSAO });
-  /* teto de mensagens do app: 40 por hora e 100 por dia (o ntfy.sh aceita 250 por dia de cada internet, e em casa o
-     celular divide a conta com o PC). Uso normal fica bem abaixo; o teto só segura um defeito. */
-  async function publicar(c) {
+  /* teto de mensagens do app: 30 por hora e 60 por dia. O ntfy.sh aceita 250 por dia de cada internet e, em casa, o
+     celular divide a conta com o PC (sinal de vida, avisos e as respostas para cá). Uso normal fica bem abaixo; o teto só
+     segura um defeito. O "ola" silencioso (o app aberto avisando que continua lá) para em 40 no dia, para sobrar para o resto. */
+  const TETO_HORA = 30, TETO_DIA = 60, TETO_SILENCIOSA = 40;
+  function contarEnvios() {
     const agora = Date.now();
     est.envios = (est.envios || []).filter((t) => agora - t < 864e5 && t <= agora + 60e3);
-    if (est.envios.filter((t) => agora - t < 3600e3).length >= 40 || est.envios.length >= 100) {
-      const e = new Error("o app mandou mensagens demais nas últimas horas; espere um pouco"); e.teto = true; throw e;
+    return { hora: est.envios.filter((t) => agora - t < 3600e3).length, dia: est.envios.length };
+  }
+  async function publicar(c) {
+    const n = contarEnvios();
+    if (n.hora >= TETO_HORA || n.dia >= TETO_DIA) {
+      const e = new Error("o app mandou mensagens demais nas últimas horas; espere um pouco"); e.teto = true;
+      problema(e); throw e;
     }
-    const r = await canal.publicar({ aparelho: { id: aparelho }, ...c }, "cel");
+    let r;
+    try { r = await canal.publicar({ aparelho: { id: aparelho }, ...c }, "cel"); }
+    catch (e) { problema(e); throw e; }
     est.envios.push(Date.now()); salvar();
+    if (problemaEnvio) { problemaEnvio = ""; avisar(); }
     return r;
   }
+  /* limite do ntfy.sh (429) ou o teto daqui: aparece na faixa de aviso até a próxima mensagem sair */
+  function problema(e) { if (e && (e.teto || e.status === 429)) { problemaEnvio = e.message; avisar(); } }
   /* "ola": diz ao PC qual versão dos dados este celular tem; o PC responde com o que mudou (e passa a mandar
      as mudanças na hora pelos próximos 20 minutos) e devolve o id da pergunta. Sem forçar, no máximo um a cada 10 minutos.
+     Silenciosa (o app aberto avisando que continua lá): o PC só responde se este celular ficou para trás.
      Devolve o id (vazio se não deu para mandar). */
-  function ola(forcar, pedir) {
+  function ola(forcar, pedir, silenciosa) {
     if (!canal) return Promise.resolve("");
     if (!forcar && est.pronto && Date.now() - est.ultimaOla < 10 * 60e3) return Promise.resolve("");
-    const id = S.novoId();
-    est.ultimaOla = Date.now(); olaEsperando = Date.now(); olaId = id; salvar();
-    clearTimeout(olaT); olaT = setTimeout(avisar, 26000);
-    return publicar({ id, tipo: "ola", versao: est.pronto ? est.versao : 0, aparelho: quem(), ...(pedir && pedir.length ? { pedir } : {}) })
+    if (silenciosa && contarEnvios().dia >= TETO_SILENCIOSA) return Promise.resolve("");
+    const id = S.novoId(), antes = est.ultimaOla, agora = Date.now();
+    est.ultimaOla = agora; salvar();
+    if (!silenciosa) { olaEsperando = agora; olaId = id; clearTimeout(olaT); olaT = setTimeout(avisar, 26000); }
+    return publicar({ id, tipo: "ola", versao: est.pronto ? est.versao : 0, aparelho: quem(), ...(silenciosa ? { silenciosa: true } : {}), ...(pedir && pedir.length ? { pedir } : {}) })
       .then(() => id)
-      .catch((e) => { if (olaId === id) { olaId = ""; olaEsperando = 0; } if (!(e && e.teto)) caiuDesde = caiuDesde || Date.now() - 9000; avisar(); return ""; });
+      .catch((e) => {
+        if (est.ultimaOla === agora) est.ultimaOla = antes;   /* não saiu: não conta (a próxima não precisa esperar 10 minutos) */
+        if (olaId === id) { olaId = ""; olaEsperando = 0; }
+        if (!(e && (e.teto || e.status === 429))) caiuDesde = caiuDesde || Date.now() - 9000;
+        avisar(); return "";
+      });
   }
-  /* faltou alguma carta (anexo que expirou, celular desligado por muito tempo): pede de novo o que mudou */
-  function pedirDeNovo() { clearTimeout(lacunaT); lacunaT = setTimeout(() => ola(true), 1500); }
+  /* faltou alguma carta (anexo que expirou ou não baixou, celular desligado por muito tempo): pede de novo o que mudou.
+     Cada pedido são duas mensagens no ntfy.sh, então no máximo um a cada 2 minutos; depois de respostas que não deu para
+     ler, 2, 4, 8… até 60 minutos, e depois de 6 seguidas para (volta quando o app abrir de novo ou no Atualizar). */
+  function pedirDeNovo() {
+    if (falhasLeitura > 6) return;
+    const intervalo = (falhasLeitura ? Math.min(60, 2 ** falhasLeitura) : 2) * 60e3;
+    clearTimeout(lacunaT);
+    lacunaT = setTimeout(() => { deNovoEm = Date.now(); ola(true); }, Math.max(1500, deNovoEm + intervalo - Date.now()));
+  }
 
+  /* lê a carta de uma mensagem; anexo que não baixou (sem conexão, ntfy recusou agora): tenta de novo em 5, 15 e 45 s.
+     Se o app for para o fundo no meio, para (e.pausado): a mensagem vem de novo quando ele voltar. */
+  async function lerCarta(m) {
+    const esperas = [5e3, 15e3, 45e3], sinal = abort && abort.signal;
+    try {
+      for (let i = 0; ; i++) {
+        try { return await canal.lerMensagem(m, "pc"); }
+        catch (e) {
+          if (!e || !e.transitorio || i >= esperas.length) throw e;
+          tentandoAnexo = true;
+          await S.esperar(esperas[i], sinal);
+          if (!sinal || sinal.aborted || !canal) { e.pausado = true; throw e; }
+        }
+      }
+    } finally { tentandoAnexo = false; }
+  }
+  /* uma mensagem do PC de cada vez, na ordem, mesmo quando a escuta recomeça (app que volta, internet que volta) */
+  let fila = Promise.resolve();
+  function receberEmFila(m) { const p = fila.then(() => receber(m)); fila = p.catch(() => {}); return p; }
   async function receber(m) {
-    est.ultimoId = m.id; salvar();
+    if (!canal) return;
     let c = null;
-    try { c = await canal.lerMensagem(m, "pc"); } catch (e) { if (e && e.anexoPerdido && est.pronto) pedirDeNovo(); return; }
+    try { c = await lerCarta(m); }
+    catch (e) {
+      if (e && e.pausado) return;
+      est.ultimoId = m.id; salvar();
+      /* uma resposta do PC que não deu para ler (o anexo sumiu ou não baixou): pede de novo, com calma */
+      if (e && (e.anexoPerdido || e.transitorio) && est.pronto) { falhasLeitura++; ultimaFalhaLeitura = Date.now(); avisar(); pedirDeNovo(); }
+      return;
+    }
+    est.ultimoId = m.id; salvar();
     if (!c || !c.id || est.vistos.includes(c.id)) return;
     est.vistos.push(c.id);
     if (est.vistos.length > 200) est.vistos.splice(0, est.vistos.length - 200);
     if (c.tipo === "tchau") { desvinculado("O PC desvinculou este celular. Para usar de novo, vincule outra vez."); return; }
     if (c.tipo !== "dados") return;
+    /* mudanças feitas aqui que ainda esperavam a juntada viram pendentes antes: o que vem do PC não passa por cima delas */
+    if (mudados.size) { clearTimeout(mudT); await juntarMudancas(); }
     /* a resposta à última pergunta: o PC está aí */
     if (olaId && [].concat(c.olas || []).includes(olaId)) { olaId = ""; olaEsperando = 0; clearTimeout(olaT); }
     /* "dados do PC de": quando o PC mandou (a hora do ntfy.sh), não quando o app abriu e leu */
     const quando = Math.min(Date.now(), (Number(m.time) || 0) * 1000 || Date.now());
-    est.ultimaVez = Math.max(est.ultimaVez || 0, quando);
     if (c.pc) est.pc = { nome: String(c.pc.nome || "PC").slice(0, 60), app: String(c.pc.app || "").slice(0, 20) };
-    const lacuna = Number(c.base) > est.versao;
     /* o PC confirma as mudanças daqui que já viu (aceitas ou não): a partir daí, vale o que ele mandar */
     const ack = c.ack || {};
     for (const k of Object.keys(est.pend)) if (Number(ack[k]) === est.pend[k].t) delete est.pend[k];
-    await aplicar(c.chaves || {});
-    if (!lacuna && Number(c.versao) > est.versao) est.versao = Number(c.versao);
-    if (!est.pronto && !lacuna) { est.pronto = true; esconderVincular(); }
+    const versao = Number(c.versao) || 0, lacuna = Number(c.base) > est.versao;
+    if (est.pronto && versao < est.versao) {
+      /* carta mais velha que o que o celular já tem: repetida (fica de fora) ou, se é nova, o PC voltou atrás (backup
+         restaurado no PC): esquece as versões e pede tudo de novo */
+      if (quando > (est.ultimaVez || 0)) { est.versao = 0; est.vk = {}; est.ultimaVez = quando; pedirDeNovo(); }
+    } else {
+      est.ultimaVez = Math.max(est.ultimaVez || 0, quando);
+      await aplicar(c.chaves || {});
+      if (!lacuna) {
+        if (versao > est.versao) est.versao = versao;
+        if (falhasLeitura) { falhasLeitura = 0; clearTimeout(lacunaT); }
+        if (!est.pronto) { est.pronto = true; esconderVincular(); }
+      } else if (est.pronto) pedirDeNovo();
+    }
     conferirPendentes();
     responder(c.resps);
-    salvar(); avisar();
-    if (lacuna && est.pronto) pedirDeNovo();
+    salvarJa(); avisar();   /* já: os dados que entraram e as versões deles ficam gravados juntos */
   }
-  /* o que vem do PC entra, menos as chaves com mudança daqui ainda sem confirmação: essas o PC decide quando receber */
+  /* o que vem do PC entra, menos: as chaves com mudança daqui ainda sem confirmação (o PC decide quando receber), as que
+     mudaram aqui sem passar pela juntada (viram mudança daqui) e valores mais velhos do que o celular já tem */
   async function aplicar(chaves) {
     const valores = {};
+    let novas = 0;
     for (const k of Object.keys(chaves)) {
       const x = chaves[k];
       if (!SINC.includes(k) || !x || typeof x !== "object") continue;
       const v = x.v === null ? null : typeof x.v === "string" ? x.v : undefined;
-      if (v === undefined || est.pend[k]) continue;
-      valores[k] = v; est.hashes[k] = await S.resumo(v);
-      if (Number(x.n) > 0) est.vk[k] = Number(x.n);
+      const n = Number(x.n) || 0;
+      if (v === undefined || est.pend[k] || (n && n < (est.vk[k] || 0))) continue;
+      if (est.pronto && est.hashes[k] !== undefined) {
+        const h = await S.resumo(L.get(k));
+        if (h !== est.hashes[k]) { novaPendente(k, h); novas++; continue; }
+      }
+      valores[k] = { v, h: await S.resumo(v), n };
     }
-    if (Object.keys(valores).length) entregar(valores);
+    /* uma mudança feita aqui enquanto comparava: fica a daqui */
+    const entra = {};
+    for (const k of Object.keys(valores)) {
+      if (mudados.has(k)) continue;
+      entra[k] = valores[k].v; est.hashes[k] = valores[k].h;
+      if (valores[k].n > 0) est.vk[k] = valores[k].n;
+    }
+    if (Object.keys(entra).length) entregar(entra);
+    if (novas) { salvar(); enviarPendentes(); }
   }
   function entregar(valores) {
     if (receberFn) { try { receberFn(valores); } catch (e) {} return; }
@@ -135,10 +219,12 @@
   }
   /* o PC respondeu e uma mudança daqui mandada há mais de 2 minutos continua sem confirmação: a carta se perdeu
      (o PC ficou desligado mais de 12 horas, por exemplo) e vai de novo. Pelo relógio daqui, sem depender do do PC. */
+  /* sem confirmação, manda de novo depois de 2 minutos, depois 4, 8, 16 e 32 (cada vez é uma mensagem no ntfy.sh) */
   const REENVIO = 2 * 60e3;
+  const vence = (p, agora) => !p.enviado || agora - p.enviado > REENVIO * 2 ** Math.min(4, Math.max(0, (p.vezes || 1) - 1));
   function conferirPendentes() {
     const agora = Date.now();
-    if (Object.values(est.pend).some((p) => !p.enviado || agora - p.enviado > REENVIO)) agendarEnvio(2000);
+    if (Object.values(est.pend).some((p) => vence(p, agora))) agendarEnvio(2000);
   }
   function responder(resps) {
     for (const r of [].concat(resps || [])) {
@@ -162,28 +248,44 @@
     for (const k of ks) {
       const h = await S.resumo(L.get(k));
       if (h === est.hashes[k]) continue;
-      /* a hora de cada mudança é única (dá para o PC confirmar exatamente esta) */
-      const t = Math.max(Date.now(), est.pend[k] ? est.pend[k].t + 1 : 0);
-      est.hashes[k] = h; est.pend[k] = { t, enviado: 0 }; novas++;
+      novaPendente(k, h); novas++;
     }
     if (!novas) return;
-    salvar(); avisar(); enviarPendentes();
+    salvarJa(); avisar(); enviarPendentes();
+  }
+  /* uma mudança daqui para mandar ao PC: a hora (t) é única para a chave (o PC confirma exatamente esta) e o número (s)
+     só cresce (o PC sabe que ela veio depois da anterior deste celular, mesmo que o relógio daqui volte) */
+  function novaPendente(k, h) {
+    const t = Math.max(Date.now(), est.pend[k] ? est.pend[k].t + 1 : 0);
+    est.seq = (est.seq || 0) + 1;
+    est.hashes[k] = h; est.pend[k] = { t, s: est.seq, enviado: 0 };
+  }
+  /* mudanças daqui que não chegaram a sair (o app fechou durante a juntada, ou o painel gravou sem avisar): viram pendentes */
+  async function conferirLocais() {
+    if (!est.pronto) return;
+    let novas = 0;
+    for (const k of SINC) {
+      if (est.hashes[k] === undefined || est.pend[k] || mudados.has(k)) continue;
+      const h = await S.resumo(L.get(k));
+      if (h !== est.hashes[k]) { novaPendente(k, h); novas++; }
+    }
+    if (novas) { salvar(); avisar(); }
   }
   function agendarEnvio(ms) { clearTimeout(reenviarT); reenviarT = setTimeout(() => { enviarPendentes(); }, ms); }
   /* manda as mudanças sem confirmação que ainda não foram, ou que foram há mais de 2 minutos */
   async function enviarPendentes() {
     const agora0 = Date.now();
-    const ks = Object.keys(est.pend).filter((k) => !est.pend[k].enviado || agora0 - est.pend[k].enviado > REENVIO);
+    const ks = Object.keys(est.pend).filter((k) => vence(est.pend[k], agora0));
     if (!ks.length || !canal) return;
     if (enviando) { agendarEnvio(1000); return; }
     enviando = true;
     const chaves = {};
-    for (const k of ks) chaves[k] = { v: L.get(k), t: est.pend[k].t, n: est.vk[k] || 0 };
+    for (const k of ks) chaves[k] = { v: L.get(k), t: est.pend[k].t, s: est.pend[k].s || 0, n: est.vk[k] || 0 };
     try {
       await publicar({ tipo: "dados", versao: est.versao, chaves });
       const agora = Date.now();
       /* só marca como mandada a mudança que foi mesmo (outra pode ter chegado enquanto mandava) */
-      for (const k of ks) if (est.pend[k] && est.pend[k].t === chaves[k].t) est.pend[k].enviado = agora;
+      for (const k of ks) if (est.pend[k] && est.pend[k].t === chaves[k].t) { est.pend[k].enviado = agora; est.pend[k].vezes = (est.pend[k].vezes || 0) + 1; }
       esperaEnvio = 5000; salvar();
       if (Object.values(est.pend).some((p) => !p.enviado)) agendarEnvio(1000);
     } catch (e) {
@@ -205,16 +307,17 @@
         .catch((e) => desistir(e && (e.status === 429 || e.teto) ? e.message : "sem conexão com a internet agora"));
     });
   }
-  /* Atualizar agora: pergunta ao PC e espera a resposta (até 30 s) */
+  /* Atualizar agora: pergunta ao PC e espera a resposta (até 30 s; mais, se ela está chegando num anexo que demora) */
   function atualizar() {
     return new Promise((ok, nao) => {
       if (!canal) { nao(new Error("Este celular não está vinculado a um PC.")); return; }
       ola(true).then((id) => {
-        if (!id) { nao(new Error("Sem conexão com a internet agora.")); return; }
+        if (!id) { nao(new Error(problemaEnvio ? `Não deu para mandar ao PC: ${problemaEnvio}.` : "Sem conexão com a internet agora.")); return; }
         const t0 = Date.now();
         const iv = setInterval(() => {
           if (olaId !== id) { clearInterval(iv); ok(); }   /* respondida */
-          else if (Date.now() - t0 > 30000) { clearInterval(iv); nao(new Error("O PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet.")); }
+          else if (ultimaFalhaLeitura > t0) { clearInterval(iv); nao(new Error("O PC respondeu, mas a resposta não chegou inteira (o anexo do ntfy.sh não baixou). Tente de novo daqui a pouco.")); }
+          else if (Date.now() - t0 > (tentandoAnexo ? 120000 : 30000)) { clearInterval(iv); nao(new Error("O PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet.")); }
         }, 300);
       });
     });
@@ -226,7 +329,7 @@
     if (!canal) return;
     const ctrl = new AbortController(); abort = ctrl;
     const desde = est.ultimoId || String(Math.floor(Date.now() / 1000) - 120);
-    canal.escutar({ de: "pc", desde, sinal: ctrl.signal, aoReceber: receber,
+    canal.escutar({ de: "pc", desde, sinal: ctrl.signal, aoReceber: receberEmFila,
       aoEstado: (ok) => {
         conectado = ok;
         if (ok) { caiuDesde = 0; if (Object.keys(est.pend).length) agendarEnvio(500); }
@@ -466,14 +569,19 @@ html.pm-vinculando .app{visibility:hidden}
     if (!codigo) return;
     try { canal = await S.abrirCanal(codigo, { servidor: SERVIDOR }); }
     catch (e) { desvincular(false, "O código guardado não vale mais. Vincule de novo."); return; }
+    await conferirLocais();
     escutar();
     if (!est.pronto) { ola(true); esperarPc(); }
     else { ola(false); if (Object.keys(est.pend).length) agendarEnvio(1500); }
     conferirVersaoApp();
     avisar();
   }
-  /* com o app aberto, a cada 10 minutos diz ao PC que continua aqui (assim as mudanças continuam chegando na hora) */
-  setInterval(() => { if (codigo && canal && est.pronto && document.visibilityState === "visible") { ola(false); avisar(); } }, 60e3);
+  /* com o app aberto, a cada 14 minutos diz ao PC que continua aqui (o PC manda as mudanças na hora para quem falou com
+     ele nos últimos 20 minutos). Pergunta silenciosa: o PC só responde se este celular ficou para trás. */
+  setInterval(() => {
+    if (codigo && canal && est.pronto && document.visibilityState === "visible" && Date.now() - est.ultimaOla >= 14 * 60e3) ola(true, null, true);
+    avisar();
+  }, 60e3);
   if (AppP) {
     try {
       AppP.addListener("pause", () => pausar());

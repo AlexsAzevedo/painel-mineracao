@@ -1326,6 +1326,7 @@ const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-di
 var aplicandoRemoto = false;   /* var: lsSet roda antes da parte do celular, lá embaixo */
 var painelPronto = false;      /* o script inteiro já rodou (as telas que dependem de tudo podem ser desenhadas) */
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
 function dadosMudaram(k){
   if(REMOTO){ if(window.desktop.sync) window.desktop.sync.mudou(k); }
   else if(DESKTOP && window.desktop.dadosMudaram) window.desktop.dadosMudaram(k);
@@ -3701,7 +3702,7 @@ $("of-mods").addEventListener("change", e=>{
   ofSel = [...$("of-mods").querySelectorAll("input:checked")].map(i=>i.value);
   lsSet("min-ofertas-modelos", ofSel); $("of-nmods").textContent = ofSel.length; $("of-sugerir").hidden = false;
 });
-$("of-sugerir").addEventListener("click", ()=>{ ofSel = null; try{ localStorage.removeItem("min-ofertas-modelos"); }catch(e){} renderOfModelos(); $("of-mods").querySelector("input")?.focus(); });
+$("of-sugerir").addEventListener("click", ()=>{ ofSel = null; lsDel("min-ofertas-modelos"); renderOfModelos(); $("of-mods").querySelector("input")?.focus(); });
 $("of-lista").addEventListener("click", e=>{
   const b = e.target.closest("[data-of]"); if(!b) return;
   const k = b.closest(".of")?.dataset.k, x = ofertas && ofertas.itens.find(i=>i.k===k); if(!x) return;

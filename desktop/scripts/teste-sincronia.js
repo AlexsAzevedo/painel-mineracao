@@ -99,6 +99,26 @@ const ok = (nome, cond, info) => { resultados.push({ nome, ok: !!cond, info }); 
   const m2 = falso.ntfy.topicos.get(pc.topico.pc).find((m) => m.attachment);
   let perdido = null; try { await cel.lerMensagem(m2, "pc"); } catch (e) { perdido = e; }
   ok("anexo que expirou avisa", perdido && perdido.anexoPerdido === true, perdido && perdido.message);
+  falso.ntfy.anexosApagados = false;
+  /* anexo que não baixou agora (limite do ntfy, sem conexão, demorou demais): é para tentar de novo, não "perdido" */
+  falso.ntfy.recusar = (req, caminho) => (caminho.startsWith("/file/") ? 429 : 0);
+  let lim = null; try { await cel.lerMensagem(m2, "pc"); } catch (e) { lim = e; }
+  ok("anexo recusado agora (429) é transitório", lim && lim.transitorio === true && !lim.anexoPerdido && lim.status === 429, lim && lim.message);
+  falso.ntfy.recusar = null;
+  ok("e depois baixa normalmente", (await cel.lerMensagem(m2, "pc")).chaves["min-ofertas"].v === grande.chaves["min-ofertas"].v);
+  const semRede = await S.abrirCanal(codigo, { servidor: base, buscar: () => Promise.reject(new TypeError("fetch failed")) });
+  let sr = null; try { await semRede.lerMensagem(m2, "pc"); } catch (e) { sr = e; }
+  ok("anexo sem conexão é transitório", sr && sr.transitorio === true && !sr.anexoPerdido, sr && sr.message);
+  const lento = await S.abrirCanal(codigo, { servidor: base, tempoAnexo: 300,
+    buscar: (u, o) => new Promise((ok2, nao) => { o.signal.addEventListener("abort", () => nao(new Error("abortado"))); }) });
+  const t0 = Date.now(); let tl = null; try { await lento.lerMensagem(m2, "pc"); } catch (e) { tl = e; }
+  ok("anexo que trava desiste sozinho e é transitório", tl && tl.transitorio === true && Date.now() - t0 < 3000, tl && tl.message);
+  /* parar a escuta no meio de várias mensagens que chegaram juntas: as outras não são tratadas (vêm de novo na próxima) */
+  const tp = await S.abrirCanal(S.novoCodigo(), { servidor: base });
+  for (let i = 1; i <= 3; i++) await tp.publicar({ tipo: "dados", n: i }, "pc");
+  const tratadas = [], ctrl2 = new AbortController();
+  await tp.escutar({ de: "pc", desde: "all", sinal: ctrl2.signal, aoReceber: async (m) => { tratadas.push((await tp.lerMensagem(m, "pc")).n); ctrl2.abort(); } });
+  ok("parar a escuta não trata o resto do que já tinha chegado", tratadas.join() === "1", tratadas);
   /* anexo de fora do servidor não é baixado */
   let fora = null; try { await cel.lerMensagem({ ...m2, attachment: { ...m2.attachment, url: "https://example.com/file/x.bin" } }, "pc"); } catch (e) { fora = e; }
   ok("anexo de outro endereço é recusado", fora && /estranho/.test(fora.message));
