@@ -119,6 +119,20 @@ const ok = (nome, cond, info) => { resultados.push({ nome, ok: !!cond, info }); 
   const tratadas = [], ctrl2 = new AbortController();
   await tp.escutar({ de: "pc", desde: "all", sinal: ctrl2.signal, aoReceber: async (m) => { tratadas.push((await tp.lerMensagem(m, "pc")).n); ctrl2.abort(); } });
   ok("parar a escuta não trata o resto do que já tinha chegado", tratadas.join() === "1", tratadas);
+  /* mandar com a conexão travada: desiste sozinho, como "sem conexão" */
+  const travado = await S.abrirCanal(codigo, { servidor: base, tempoEnvio: 300,
+    buscar: (u, o) => new Promise((ok2, nao) => { o.signal.addEventListener("abort", () => nao(new Error("abortado"))); }) });
+  const t1 = Date.now(); let et = null; try { await travado.publicar({ tipo: "ola" }, "cel"); } catch (e) { et = e; }
+  ok("envio que trava desiste sozinho (sem conexão)", et && et.semRede === true && Date.now() - t1 < 3000, et && et.message);
+  /* esperar com o sinal já parado volta na hora */
+  const ab = new AbortController(); ab.abort();
+  const t2 = Date.now(); await S.esperar(5000, ab.signal);
+  ok("esperar com o sinal já parado volta na hora", Date.now() - t2 < 200, Date.now() - t2);
+  /* a escuta passa a hora do ntfy.sh (para acertar o relógio daqui) */
+  const horas = [], ctrl3 = new AbortController();
+  const esc3 = tp.escutar({ de: "pc", desde: "none", sinal: ctrl3.signal, aoReceber: async () => {}, aoHora: (h) => horas.push(h) });
+  await esperar(400); ctrl3.abort(); await esc3;
+  ok("a escuta passa a hora do ntfy.sh", horas.length >= 1 && Math.abs(horas[0] * 1000 - Date.now()) < 5000, horas);
   /* anexo de fora do servidor não é baixado */
   let fora = null; try { await cel.lerMensagem({ ...m2, attachment: { ...m2.attachment, url: "https://example.com/file/x.bin" } }, "pc"); } catch (e) { fora = e; }
   ok("anexo de outro endereço é recusado", fora && /estranho/.test(fora.message));

@@ -3,7 +3,9 @@
    - sincronia com o PC pelo ntfy.sh (sincronia.js), tudo cifrado com a chave do código de vinculação:
      "ola" ao abrir o app (com a versão dos dados que o celular tem), mudanças daqui como "dados", pedidos ao PC;
    - tela de vincular (QR code pela câmera, ou colar o código) enquanto o celular não estiver ligado a um PC.
-   Guarda no localStorage: pm-codigo (o código), pm-sinc (versões, o que falta confirmar, quando o PC mandou), pm-aparelho. */
+   Guarda no localStorage: pm-codigo (o código), pm-sinc (versões, o que falta confirmar, quando o PC mandou), pm-aparelho
+   e pm-seq (o número da última mudança feita aqui: só cresce, nem ao vincular de novo; o PC sabe qual veio depois e
+   reconhece um reenvio, mesmo que o relógio do celular volte). */
 (function () {
   "use strict";
   const VERSAO = "__VERSAO__";
@@ -22,9 +24,10 @@
   };
   /* versao: até onde o celular tem os dados do PC; vk: a versão de cada chave no PC (vai junto com a mudança feita aqui);
      hashes: o último valor conhecido de cada chave (para saber se mudou); pend: mudanças daqui que o PC ainda não confirmou;
-     seq: o número da última mudança daqui (só cresce, mesmo se o relógio do celular voltar: o PC sabe qual veio depois);
-     ultimoId: a última mensagem do PC já tratada; ultimaVez: a hora (do ntfy.sh) da última carta do PC */
-  const vazio = () => ({ versao: 0, vk: {}, hashes: {}, pend: {}, seq: 0, ultimoId: "", ultimaVez: 0, ultimaOla: 0, pc: null, vistos: [], pronto: false, versaoNova: "", conferiuVersao: 0, envios: [] });
+     ultimoId: a última mensagem do PC já tratada; ultimaVez: quando chegou a última carta do PC (para a tela);
+     tCarta: a hora do ntfy.sh da última carta do PC (para saber se uma carta é mais velha que outra, sem depender do relógio daqui);
+     faltam: chaves que o celular não conseguiu guardar (sem espaço): vão no próximo "ola" para o PC mandar de novo */
+  const vazio = () => ({ versao: 0, vk: {}, hashes: {}, pend: {}, faltam: [], ultimoId: "", ultimaVez: 0, tCarta: 0, ultimaOla: 0, pc: null, vistos: [], pronto: false, versaoNova: "", conferiuVersao: 0, envios: [] });
   let codigo = S.lerCodigo(L.get("pm-codigo"));
   let est = Object.assign(vazio(), L.json("pm-sinc", {}));
   let aparelho = L.get("pm-aparelho");
@@ -60,6 +63,7 @@
     let s;
     if (caiu) s = { ok: false, texto: "Sem internet", aviso: (navigator.onLine === false ? "Sem internet agora." : "Sem conexão com o ntfy.sh agora. Tentando de novo…") + dados };
     else if (problemaEnvio) s = { ok: false, texto: "Limite de mensagens", aviso: `Não deu para mandar ao PC: ${problemaEnvio}.` + dados };
+    else if ((est.faltam || []).length) s = { ok: false, texto: "Sem espaço", aviso: "O celular não conseguiu guardar parte dos dados do PC (falta de espaço para o app). Libere espaço no celular e toque em Atualizar." + dados };
     else if (falhasLeitura) s = { ok: false, texto: "Dados incompletos", aviso: "Uma resposta do PC não chegou inteira (o anexo do ntfy.sh não baixou). " + (falhasLeitura > 6 ? "Toque em Atualizar para tentar de novo." : "Pedindo de novo…") + dados };
     else if (semPc) s = { ok: false, texto: "O PC não respondeu", aviso: "O PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet." + dados };
     else s = { ok: true, texto: est.ultimaVez ? `Dados do PC · ${hora(est.ultimaVez)}` : "Ligando ao PC…" };
@@ -103,7 +107,8 @@
     const id = S.novoId(), antes = est.ultimaOla, agora = Date.now();
     est.ultimaOla = agora; salvar();
     if (!silenciosa) { olaEsperando = agora; olaId = id; clearTimeout(olaT); olaT = setTimeout(avisar, 26000); }
-    return publicar({ id, tipo: "ola", versao: est.pronto ? est.versao : 0, aparelho: quem(), ...(silenciosa ? { silenciosa: true } : {}), ...(pedir && pedir.length ? { pedir } : {}) })
+    pedir = [...new Set([...(pedir || []), ...(est.faltam || [])])];   /* e as chaves que não deu para guardar */
+    return publicar({ id, tipo: "ola", versao: est.pronto ? est.versao : 0, aparelho: quem(), ...(silenciosa ? { silenciosa: true } : {}), ...(pedir.length ? { pedir } : {}) })
       .then(() => id)
       .catch((e) => {
         if (est.ultimaOla === agora) est.ultimaOla = antes;   /* não saiu: não conta (a próxima não precisa esperar 10 minutos) */
@@ -158,12 +163,14 @@
     if (est.vistos.length > 200) est.vistos.splice(0, est.vistos.length - 200);
     if (c.tipo === "tchau") { desvinculado("O PC desvinculou este celular. Para usar de novo, vincule outra vez."); return; }
     if (c.tipo !== "dados") return;
-    /* mudanças feitas aqui que ainda esperavam a juntada viram pendentes antes: o que vem do PC não passa por cima delas */
+    /* mudanças feitas aqui que ainda esperavam para ser gravadas (a configuração espera 0,5 s) ou juntadas (1,2 s) viram
+       pendentes antes: o que vem do PC não passa por cima delas */
+    try { if (typeof window.salvarPendentes === "function") window.salvarPendentes(); } catch (e) {}
     if (mudados.size) { clearTimeout(mudT); await juntarMudancas(); }
     /* a resposta à última pergunta: o PC está aí */
     if (olaId && [].concat(c.olas || []).includes(olaId)) { olaId = ""; olaEsperando = 0; clearTimeout(olaT); }
     /* "dados do PC de": quando o PC mandou (a hora do ntfy.sh), não quando o app abriu e leu */
-    const quando = Math.min(Date.now(), (Number(m.time) || 0) * 1000 || Date.now());
+    const tServ = (Number(m.time) || 0) * 1000, quando = tServ ? Math.min(Date.now(), tServ) : Date.now();
     if (c.pc) est.pc = { nome: String(c.pc.nome || "PC").slice(0, 60), app: String(c.pc.app || "").slice(0, 20) };
     /* o PC confirma as mudanças daqui que já viu (aceitas ou não): a partir daí, vale o que ele mandar */
     const ack = c.ack || {};
@@ -172,9 +179,10 @@
     if (est.pronto && versao < est.versao) {
       /* carta mais velha que o que o celular já tem: repetida (fica de fora) ou, se é nova, o PC voltou atrás (backup
          restaurado no PC): esquece as versões e pede tudo de novo */
-      if (quando > (est.ultimaVez || 0)) { est.versao = 0; est.vk = {}; est.ultimaVez = quando; pedirDeNovo(); }
+      if (tServ > (est.tCarta || 0)) { est.versao = 0; est.vk = {}; est.tCarta = tServ; pedirDeNovo(); }
     } else {
       est.ultimaVez = Math.max(est.ultimaVez || 0, quando);
+      est.tCarta = Math.max(est.tCarta || 0, tServ);
       await aplicar(c.chaves || {});
       if (!lacuna) {
         if (versao > est.versao) est.versao = versao;
@@ -205,12 +213,22 @@
     }
     /* uma mudança feita aqui enquanto comparava: fica a daqui */
     const entra = {};
-    for (const k of Object.keys(valores)) {
-      if (mudados.has(k)) continue;
-      entra[k] = valores[k].v; est.hashes[k] = valores[k].h;
-      if (valores[k].n > 0) est.vk[k] = valores[k].n;
+    for (const k of Object.keys(valores)) if (!mudados.has(k)) entra[k] = valores[k].v;
+    const ks = Object.keys(entra);
+    if (ks.length) {
+      entregar(entra);
+      /* confere o que ficou guardado (lido logo em seguida, antes de qualquer espera): sem espaço, o celular fica com o
+         que tinha, e isso não vira mudança daqui para o PC */
+      const lidos = {};
+      for (const k of ks) lidos[k] = L.get(k);
+      const faltam = new Set(est.faltam || []), antes = faltam.size;
+      for (const k of ks) {
+        if (lidos[k] === entra[k]) { est.hashes[k] = valores[k].h; if (valores[k].n > 0) est.vk[k] = valores[k].n; faltam.delete(k); }
+        else { est.hashes[k] = await S.resumo(lidos[k]); faltam.add(k); }
+      }
+      est.faltam = [...faltam];
+      if (faltam.size || antes) avisar();
     }
-    if (Object.keys(entra).length) entregar(entra);
     if (novas) { salvar(); enviarPendentes(); }
   }
   function entregar(valores) {
@@ -257,8 +275,8 @@
      só cresce (o PC sabe que ela veio depois da anterior deste celular, mesmo que o relógio daqui volte) */
   function novaPendente(k, h) {
     const t = Math.max(Date.now(), est.pend[k] ? est.pend[k].t + 1 : 0);
-    est.seq = (est.seq || 0) + 1;
-    est.hashes[k] = h; est.pend[k] = { t, s: est.seq, enviado: 0 };
+    const s = (Number(L.get("pm-seq")) || 0) + 1; L.set("pm-seq", String(s));
+    est.hashes[k] = h; est.pend[k] = { t, s, enviado: 0 };
   }
   /* mudanças daqui que não chegaram a sair (o app fechou durante a juntada, ou o painel gravou sem avisar): viram pendentes */
   async function conferirLocais() {

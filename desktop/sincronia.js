@@ -23,6 +23,8 @@
   const MAX_TEXTO = 3900;           /* mensagem comum do ntfy: até 4096 bytes */
   const MAX_ANEXO = 1900 * 1024;    /* anexo no ntfy.sh: até 2 MB */
   const TEMPO_ANEXO = 60e3;         /* baixar um anexo: desiste depois de 1 minuto (e quem chamou tenta de novo) */
+  const TEMPO_ENVIO = 30e3;         /* mandar: desiste depois de 30 s (2 minutos com anexo), como sem conexão */
+  const TEMPO_ENVIO_ANEXO = 120e3;
   const enc = new TextEncoder();
   const sutil = () => G.crypto.subtle;
 
@@ -78,6 +80,7 @@
   }
 
   const esperar = (ms, sinal) => new Promise((ok) => {
+    if (sinal && sinal.aborted) { ok(); return; }
     const t = setTimeout(ok, ms);
     if (sinal) sinal.addEventListener("abort", () => { clearTimeout(t); ok(); }, { once: true });
   });
@@ -97,6 +100,7 @@
       this.servidor = String((op && op.servidor) || "https://ntfy.sh").replace(/\/+$/, "");
       this.buscar = (op && op.buscar) || ((...a) => G.fetch(...a));
       this.tempoAnexo = (op && op.tempoAnexo) || TEMPO_ANEXO;
+      this.tempoEnvio = (op && op.tempoEnvio) || TEMPO_ENVIO;
       this.topico = { pc: `pm-${id}-pc`, cel: `pm-${id}-cel` };
     }
     aad(de) { return enc.encode("pm1|" + de); }
@@ -150,20 +154,25 @@
       if (!t.startsWith("pm1.")) throw new Error("não é uma carta");
       return this.abrirTexto(t, de);
     }
-    /* cifra e publica no tópico de quem manda; devolve a mensagem que o ntfy criou ({id, time, ...}) */
+    /* cifra e publica no tópico de quem manda; devolve a mensagem que o ntfy criou ({id, time, ...}). Uma conexão que
+       trava (celular trocando de Wi-Fi para 4G, PC voltando do modo de espera) vira "sem conexão" depois de um tempo */
     async publicar(carta, de) {
       const s = await this.selar({ v: VERSAO, de, id: novoId(), t: Date.now(), ...carta }, de);
       const url = `${this.servidor}/${this.topico[de]}`;
+      const ctrl = new AbortController(), tempo = setTimeout(() => ctrl.abort(), s.texto ? this.tempoEnvio : Math.max(this.tempoEnvio, TEMPO_ENVIO_ANEXO));
       let r;
-      /* POST sem cabeçalhos especiais: no celular, o navegador não precisa perguntar antes ao ntfy (CORS) */
-      try { r = s.texto ? await this.buscar(url, { method: "POST", body: s.texto }) : await this.buscar(`${url}?filename=pm.bin&message=pm1`, { method: "POST", body: s.binario }); }
-      catch (e) { const x = new Error("sem conexão com o ntfy.sh agora"); x.semRede = true; throw x; }
-      if (!r.ok) throw erroHttp(r.status);
-      try { return await r.json(); } catch (e) { return {}; }
+      try {
+        /* POST sem cabeçalhos especiais: no celular, o navegador não precisa perguntar antes ao ntfy (CORS) */
+        try { r = s.texto ? await this.buscar(url, { method: "POST", body: s.texto, signal: ctrl.signal }) : await this.buscar(`${url}?filename=pm.bin&message=pm1`, { method: "POST", body: s.binario, signal: ctrl.signal }); }
+        catch (e) { const x = new Error("sem conexão com o ntfy.sh agora"); x.semRede = true; throw x; }
+        if (!r.ok) throw erroHttp(r.status);
+        try { return await r.json(); } catch (e) { return {}; }
+      } finally { clearTimeout(tempo); }
     }
     /* escuta o tópico de quem escreve (de) até o sinal ser abortado. Reconecta sozinho e continua do último id visto.
-       aoReceber(mensagem do ntfy) roda uma de cada vez, na ordem; aoEstado(true/false) diz se a conexão está de pé. */
-    async escutar({ de, desde, aoReceber, aoEstado, sinal, vigia }) {
+       aoReceber(mensagem do ntfy) roda uma de cada vez, na ordem; aoEstado(true/false) diz se a conexão está de pé;
+       aoHora(segundos) recebe a hora do ntfy.sh a cada sinal dele (para acertar a diferença do relógio daqui). */
+    async escutar({ de, desde, aoReceber, aoEstado, aoHora, sinal, vigia }) {
       let ultimo = desde || "12h", espera = 2000;
       const limite = vigia || 100000;   /* o ntfy.sh manda um "keepalive" a cada 45 s: 100 s em silêncio = conexão morta */
       while (!sinal.aborted) {
@@ -190,6 +199,7 @@
               const linha = resto.slice(0, i).trim(); resto = resto.slice(i + 1);
               if (!linha) continue;
               let m = null; try { m = JSON.parse(linha); } catch (e) { continue; }
+              if (m && aoHora && Number(m.time) > 0 && (m.event === "open" || m.event === "keepalive")) { try { aoHora(Number(m.time)); } catch (e) {} }
               if (!m || m.event !== "message" || !m.id) continue;
               try { await aoReceber(m); } catch (e) {}
               ultimo = m.id;

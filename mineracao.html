@@ -1331,13 +1331,21 @@ function dadosMudaram(k){
   if(REMOTO){ if(window.desktop.sync) window.desktop.sync.mudou(k); }
   else if(DESKTOP && window.desktop.dadosMudaram) window.desktop.dadosMudaram(k);
 }
-let saveT;
+let saveT = null;
 function salvarCfg(){
   clearTimeout(saveT);
-  saveT = setTimeout(async()=>{
-    lsSet("min-cfg",cfg);
-    if(db){try{await db.doc("config/geral").set(JSON.parse(JSON.stringify(cfg)))}catch(e){setSync(false,"Não salvou na nuvem")}}
-  },500);
+  saveT = setTimeout(gravarCfg, 500);
+}
+async function gravarCfg(){
+  saveT = null;
+  lsSet("min-cfg",cfg);
+  if(db){try{await db.doc("config/geral").set(JSON.parse(JSON.stringify(cfg)))}catch(e){setSync(false,"Não salvou na nuvem")}}
+}
+/* grava já o que estava esperando para ser gravado (a configuração e o setup esperam meio segundo): o PC e o celular
+   chamam antes de comparar os dados com os do outro lado, para não passar por cima do que acabou de ser digitado */
+function salvarPendentes(){
+  if(saveT){ clearTimeout(saveT); gravarCfg(); }
+  try{ if(setupT){ clearTimeout(setupT); gravarSetup(); } }catch(e){}   /* setupT é declarado mais abaixo */
 }
 async function addPlaca(p){
   if(db){try{await db.collection("placas").add(p);return}catch(e){setSync(false,"Não salvou na nuvem")}}
@@ -2117,17 +2125,18 @@ let setup = migrarSetup(lsGet("min-setup"));
 let setupT = null, setupJson = canon(setup), salvandoSetup = false;
 function salvarSetup(forcar){
   clearTimeout(setupT);
-  setupT = setTimeout(async()=>{
-    setupT = null;
-    const json = canon(setup);
-    lsSet("min-setup", setup);
-    if(!forcar && json===setupJson) return;
-    setupJson = json;
-    if(!db) return;
-    salvandoSetup = true;
-    try{ await db.doc("setup/principal").set(JSON.parse(JSON.stringify(setup))); }catch(e){ setSync(false,"Não salvou na nuvem"); }
-    salvandoSetup = false;
-  }, forcar ? 30 : 600);
+  setupT = setTimeout(()=>gravarSetup(forcar), forcar ? 30 : 600);
+}
+async function gravarSetup(forcar){
+  setupT = null;
+  const json = canon(setup);
+  lsSet("min-setup", setup);
+  if(!forcar && json===setupJson) return;
+  setupJson = json;
+  if(!db) return;
+  salvandoSetup = true;
+  try{ await db.doc("setup/principal").set(JSON.parse(JSON.stringify(setup))); }catch(e){ setSync(false,"Não salvou na nuvem"); }
+  salvandoSetup = false;
 }
 
 const maqsReais = () => setup.maquinas.filter(m=>!m.nova);
@@ -4003,8 +4012,12 @@ function aplicarDadosRemotos(chaves){
     for(const [k, v] of Object.entries(chaves||{})){
       if(!SINCRONIZADAS.includes(k)) continue;
       let atual = null; try{ atual = localStorage.getItem(k); }catch(e){}
-      if(v===null || v===undefined){ if(atual!==null){ try{ localStorage.removeItem(k); }catch(e){} mudou.push(k); } }
-      else if(atual!==v){ try{ localStorage.setItem(k, String(v)); }catch(e){} mudou.push(k); }
+      const novo = v===null || v===undefined ? null : String(v);
+      if(atual===novo) continue;
+      try{ if(novo===null) localStorage.removeItem(k); else localStorage.setItem(k, novo); }catch(e){}
+      /* só conta o que ficou gravado (sem espaço, o setItem falha e o valor antigo continua) */
+      let gravado = atual; try{ gravado = localStorage.getItem(k); }catch(e){}
+      if(gravado===novo) mudou.push(k);
     }
     if(mudou.length) recarregarDados(mudou);
   }finally{ aplicandoRemoto = false; }

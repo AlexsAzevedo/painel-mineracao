@@ -622,17 +622,65 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.app.pcParado = { enquantoParado: cdiParado, diferentes: await ateIguais(), noPc: await js(`cfg.cdi`), noCelular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec0 };
         await esperar(1500);
         r.app.pcParado.pendentes = await ja(`window.desktop.sync.info().pendentes`);
-        /* corrida: o celular muda a margem e, antes de a mudança sair (ela espera 1,2 s), chega uma mudança do PC na mesma chave
-           (as horas). A do celular é a mais nova: não se perde */
+        appMain.zerarEnvios();   /* os testes abaixo mandam muitas mudanças: começam como numa hora nova (o teto é testado depois) */
+        /* corrida: o celular muda a margem e, antes de a mudança ser gravada (a configuração espera 0,5 s) e sair (mais
+           1,2 s), chega uma mudança do PC na mesma chave (as horas). A do celular é a mais nova: não se perde */
         const margem0 = await js(`cfg.margem`), horas0 = await js(`cfg.horas`);
         calarCelular(); await esperar(300);
         const nC = appMain.registro.cartas.length;
         await js(`cfg.horas = 21; lsSet("min-cfg", cfg); true`);
         for (let i = 0; i < 40 && appMain.registro.cartas.length === nC; i++) await esperar(250);   /* o PC mandou (o celular ainda não ouviu) */
-        await ja(`cfg.margem = 11; lsSet("min-cfg", cfg); true`);
+        await ja(`cfg.margem = 11; salvarCfg(); true`);
         await ouvirCelular();
         r.app.corrida = { pcMandou: appMain.registro.cartas.length > nC, diferentes: await ateIguais(), antes: { margem: margem0, horas: horas0 },
           pc: await js(`({margem:cfg.margem, horas:cfg.horas})`), celular: await ja(`({margem:cfg.margem, horas:cfg.horas})`) };
+        /* cartas "de um celular" montadas pelo teste, com o código de vinculação (outro aparelho, para não mexer na conta do de verdade) */
+        const canalTeste = await Sincronia.abrirCanal(ap.codigo, { servidor: base + "/ntfy" });
+        const apCel = await ja(`localStorage.getItem("pm-aparelho")`);
+        const outroCel = { id: "celular-de-teste", nome: "Outro celular", app: "1.4.0" };
+        const cfgCom = async (mudar) => JSON.stringify(Object.assign(JSON.parse(await ja(`localStorage.getItem("min-cfg")`)), mudar));
+        /* no PC: alguém digita (a configuração espera 0,5 s para gravar) e chega uma mudança do celular na mesma chave, feita
+           antes: o PC grava o que foi digitado antes de comparar, e isso não se perde */
+        let rec1 = appMain.registro.recusadas;
+        const vCdi = await cfgCom({ cdi: 9.9 });
+        await js(`cfg.cdi = 11.1; salvarCfg(); true`);
+        await canalTeste.publicar({ tipo: "dados", aparelho: outroCel, chaves: { "min-cfg": { v: vCdi, t: Date.now() - 5000, s: 1, n: appMain.estado().vers["min-cfg"] } } }, "cel");
+        r.app.corridaPc = { diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1 };
+        /* reenvio: o celular manda de novo uma mudança que o PC já tinha aplicado (a confirmação se perdeu), depois que o PC
+           mudou a mesma chave e dizendo uma hora mais nova que a do PC: é a mesma mudança (mesmo número), o PC só confirma */
+        calarCelular(); await esperar(300);
+        await ja(`cfg.horas = 22; lsSet("min-cfg", cfg); true`);
+        for (let i = 0; i < 40 && (await js(`cfg.horas`)) !== 22; i++) await esperar(250);
+        const pendCel = await ja(`(()=>{ const e = JSON.parse(localStorage.getItem("pm-sinc")); return { p: e.pend["min-cfg"] || null, n: e.vk["min-cfg"] || 0, v: localStorage.getItem("min-cfg") }; })()`);
+        await js(`cfg.horas = 20; lsSet("min-cfg", cfg); true`); await esperar(3500);
+        rec1 = appMain.registro.recusadas;
+        if (pendCel.p) await canalTeste.publicar({ tipo: "dados", aparelho: { id: apCel }, chaves: { "min-cfg": { v: pendCel.v, t: pendCel.p.t + 3600e3, s: pendCel.p.s, n: pendCel.n } } }, "cel");
+        await esperar(2500);
+        const pcDepoisDoReenvio = await js(`cfg.horas`);
+        await ouvirCelular();
+        r.app.reenvio = { tinhaPendente: !!pendCel.p, pcDepoisDoReenvio, diferentes: await ateIguais(), pc: await js(`cfg.horas`), celular: await ja(`cfg.horas`), recusadas: appMain.registro.recusadas - rec1 };
+        await esperar(1500);
+        r.app.reenvio.pendentes = await ja(`window.desktop.sync.info().pendentes`);
+        /* conflito com o relógio do celular 1 hora adiantado: a mudança dele foi feita antes da do PC (pela hora do ntfy.sh);
+           o PC acerta a hora do celular e fica com a dele */
+        rec1 = appMain.registro.recusadas;
+        await js(`cfg.horas = 19; lsSet("min-cfg", cfg); true`); await esperar(3500);
+        const vHoras = await cfgCom({ horas: 17 });
+        await canalTeste.publicar({ tipo: "dados", t: Date.now() + 3600e3, aparelho: outroCel, chaves: { "min-cfg": { v: vHoras, t: Date.now() - 10e3 + 3600e3, s: 2, n: 1 } } }, "cel");
+        await esperar(1500);
+        r.app.relogioConflito = { diferentes: await ateIguais(), pc: await js(`cfg.horas`), celular: await ja(`cfg.horas`), recusadas: appMain.registro.recusadas - rec1 };
+        /* celular sem espaço para guardar: o que veio do PC não fica guardado, o celular avisa e não manda o valor velho
+           de volta ao PC; com espaço de novo, o Atualizar pede a chave outra vez */
+        const encheu = await ja(`(()=>{ let i = 0; for (const t of [1e6, 1e5, 1e4, 1e3, 100, 10, 1]) { try { for (;;) localStorage.setItem("lixo-" + (i++), "x".repeat(t)); } catch (e) {} } return i; })()`);
+        await js(`cfg.tarifa = 0.89; lsSet("min-cfg", cfg); true`);
+        let avisoEspaco = "";
+        for (let i = 0; i < 40 && !/espaço/.test(avisoEspaco); i++) { await esperar(250); avisoEspaco = await ja(`(document.getElementById("remoto-aviso")||{}).textContent||""`); }
+        await esperar(2500);
+        r.app.semEspaco = { encheu, avisou: /espaço/.test(avisoEspaco), pc: await js(`cfg.tarifa`), celularGuardou: await ja(`JSON.parse(localStorage.getItem("min-cfg")).tarifa`), pendentes: await ja(`window.desktop.sync.info().pendentes`) };
+        await ja(`(()=>{ for (const k of Object.keys(localStorage)) if (k.startsWith("lixo-")) localStorage.removeItem(k); return true; })()`);
+        await ja(`window.desktop.sync.atualizar().then(()=>true, (e)=>String(e.message))`);
+        r.app.semEspaco.depois = { diferentes: await ateIguais(), pc: await js(`cfg.tarifa`), celular: await ja(`JSON.parse(localStorage.getItem("min-cfg")).tarifa`),
+          avisoSumiu: await ja(`!document.getElementById("remoto-aviso") || document.getElementById("remoto-aviso").hidden`) };
         /* conflito de verdade: o celular sem internet muda a tarifa, o PC muda as horas (a mesma chave, min-cfg);
            quando a internet volta, vale a mudança mais nova (a do PC) e os dois ficam iguais */
         falso.ntfy.recusar = (req, caminho) => (req.method === "POST" && /-cel$/.test(caminho) ? 503 : 0);
@@ -651,6 +699,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         /* teto do PC: com 20 mensagens ou mais na última hora, as mudanças do PC não vão sozinhas para o celular; a resposta
            ao Atualizar, sim */
         const naHora = () => appMain.estado().envios.filter((t) => Date.now() - t < 3600e3).length;
+        appMain.encherEnvios(20);
         const h0 = naHora(), p3 = msgsPc();
         await js(`cfg.bandeira = 0.01; salvarCfg(); render(); true`); await esperar(5000);
         const sozinho = msgsPc() - p3;
