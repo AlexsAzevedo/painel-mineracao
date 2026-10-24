@@ -623,6 +623,10 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await esperar(1500);
         r.app.pcParado.pendentes = await ja(`window.desktop.sync.info().pendentes`);
         appMain.zerarEnvios();   /* os testes abaixo mandam muitas mudanças: começam como numa hora nova (o teto é testado depois) */
+        /* diagnóstico: o que o app entrega ao painel do celular, e o estado da sincronia no celular */
+        await ja(`(()=>{ const o = aplicarDadosRemotos; window.__entregas = []; aplicarDadosRemotos = function(ch){ window.__entregas.push({ t: Date.now(), ks: Object.keys(ch||{}), cdi: (()=>{ try { return JSON.parse(ch["min-cfg"]).cdi; } catch (e) { return undefined; } })() }); return o(ch); }; return true; })()`);
+        const estadoCel = () => ja(`(()=>{ const e = JSON.parse(localStorage.getItem("pm-sinc")); return { versao: e.versao, pend: e.pend, vk: e.vk["min-cfg"], ultimoId: e.ultimoId, info: window.desktop.sync.info(), entregas: (window.__entregas||[]).slice(-6) }; })()`);
+        const escutasPc = () => ntfy.escutas.filter((e) => /-pc$/.test(e.topico)).length;
         /* corrida: o celular muda a margem e, antes de a mudança ser gravada (a configuração espera 0,5 s) e sair (mais
            1,2 s), chega uma mudança do PC na mesma chave (as horas). A do celular é a mais nova: não se perde */
         const margem0 = await js(`cfg.margem`), horas0 = await js(`cfg.horas`);
@@ -634,6 +638,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await ouvirCelular();
         r.app.corrida = { pcMandou: appMain.registro.cartas.length > nC, diferentes: await ateIguais(), antes: { margem: margem0, horas: horas0 },
           pc: await js(`({margem:cfg.margem, horas:cfg.horas})`), celular: await ja(`({margem:cfg.margem, horas:cfg.horas})`) };
+        await esperar(2000);
+        r.app.corrida.depois = { estado: await estadoCel(), escutasPc: escutasPc(), pedidosPc: ntfy.pedidos.filter((x) => /^GET \/pm-[\w]+-pc\/json/.test(x)).slice(-3), cartasPc: appMain.registro.cartas.length };
         /* cartas "de um celular" montadas pelo teste, com o código de vinculação (outro aparelho, para não mexer na conta do de verdade) */
         const canalTeste = await Sincronia.abrirCanal(ap.codigo, { servidor: base + "/ntfy" });
         const apCel = await ja(`localStorage.getItem("pm-aparelho")`);
@@ -648,7 +654,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await canalTeste.publicar({ tipo: "dados", aparelho: outroCel, chaves: { "min-cfg": { v: vCdi, t: Date.now() - 5000, s: 1, n: appMain.estado().vers["min-cfg"] } } }, "cel");
         for (let i = 0; i < 40 && appMain.registro.recebidas.length === nRecPc; i++) await esperar(100);
         await esperar(3500);
-        r.app.corridaPc = { chegou: appMain.registro.recebidas.length > nRecPc, diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1 };
+        r.app.corridaPc = { chegou: appMain.registro.recebidas.length > nRecPc, diferentes: await ateIguais(), pc: await js(`cfg.cdi`), celular: await ja(`cfg.cdi`), recusadas: appMain.registro.recusadas - rec1,
+          estado: await estadoCel(), escutasPc: escutasPc(), msgsNoTopicoPc: msgsPc(), cartasPc: appMain.registro.cartas.length, errosApp: errosApp.slice(-5) };
         /* reenvio: o celular manda de novo uma mudança que o PC já tinha aplicado (a confirmação se perdeu), depois que o PC
            mudou a mesma chave e dizendo uma hora mais nova que a do PC: é a mesma mudança (mesmo número), o PC só confirma */
         calarCelular(); await esperar(300);
