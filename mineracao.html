@@ -317,7 +317,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 #tabcat th:first-child,#tabcat td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--line)}
 #tabcat th{z-index:2}
 #tabcat th:first-child{z-index:3;background:var(--sunk)}
-#tabcat tbody tr:hover td:first-child{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}
+@media (hover:hover){#tabcat tbody tr:hover td:first-child{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}}
 #tabcat tr.flash td:first-child{background:var(--accent-soft)}
 .destaques{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .dest{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -350,7 +350,7 @@ tr.flash td{background:var(--accent-soft)}
 td small.sub{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
 .parc{width:46px;padding:1px 4px;font:inherit;font-size:.75rem;text-align:right;margin-right:2px}
 .tile{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:8px;background:var(--sunk)}
-.tile b{font-size:clamp(1.05rem,14cqi,1.25rem);font-weight:600}
+.tile b{font-size:clamp(1.05rem,15cqi,1.25rem);font-weight:600}   /* no PC fica no tamanho de sempre; só diminui em cartão estreito */
 .tile.hl{background:var(--accent-soft)}
 .tile.hl b{color:var(--accent)}
 .addform{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.6fr) minmax(0,1fr) auto;gap:12px 10px;align-items:end;
@@ -395,7 +395,7 @@ th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white
 th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);position:sticky;top:0}
 th.n,td.n{text-align:right}
 tbody tr:last-child td{border-bottom:0}
-tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}
+@media (hover:hover){tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}}
 td.name{font-weight:600}
 td.name small{display:block;font-weight:400;color:var(--muted);font-size:.75rem}
 td.limit{color:var(--accent);font-weight:600}
@@ -694,8 +694,8 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .hist-d td.obs{white-space:normal;min-width:160px;max-width:300px;color:var(--muted);font-size:.85rem}
 /* relatório do ano para o contador */
 .rel-h{flex-wrap:wrap;align-items:center}
-.rel-ano{display:flex;align-items:center;gap:8px}
-.rel-ano select{width:auto}
+.rel-ano{display:flex;align-items:center;gap:8px;max-width:100%;min-width:0}
+.rel-ano select{width:auto;max-width:100%;min-width:0}   /* o nome comprido da placa não passa da largura da tela */
 #rel-res{display:flex;flex-direction:column;gap:14px;min-width:0}
 .rel-tab table{min-width:640px}
 .rel-tab td.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -711,7 +711,7 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 
 /* ofertas */
 .of-barra{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}
-.of-barra > label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.of-barra > label,.of-ajustes > label{display:flex;flex-direction:column;gap:4px;min-width:0}
 .of-barra select{width:auto}
 .of-barra input[type=number]{width:130px;font-family:var(--mono)}
 .of-onde{display:flex;flex-direction:column;gap:2px;margin-right:auto;min-width:0}
@@ -722,7 +722,7 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .of-resumo,.folha-ok{display:none}
 @media (min-width:900px){
   .of-ajustes{display:contents}
-  .of-ajustes > .of-mods-d{order:10;flex-basis:100%}
+  .of-ajustes > .of-mods-d{order:10;flex-basis:100%;margin-top:4px}   /* 12 px da barra + 4 = os 16 px de antes */
 }
 .of-mods{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .of-mod{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;font-size:.84rem;cursor:pointer;background:var(--surface);font-weight:500}
@@ -943,6 +943,8 @@ details.saiba > :not(summary){margin-bottom:14px}
   .hist-d tr > td.empty{grid-column:1/-1}
   /* Relatório: um cartão por mês (e por placa), com o total no fim */
   .rel-tab tfoot{margin-top:10px}
+  .rel-tab table{min-width:0!important}   /* a tabela do retorno tem min-width no style (para o PC) */
+  .rel-tab tfoot td{background:none}
   .rel-tab tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--sunk)}
   .rel-tab td:first-child{grid-column:1/-1;font-weight:700}
   .rel-tab tfoot tr{background:var(--accent-soft);border-color:transparent}
@@ -963,6 +965,7 @@ details.saiba > :not(summary){margin-bottom:14px}
   #cat td small{white-space:normal}
   #cat tr > td.empty{grid-column:1/-1}
   #tabcat:not(.todas) #cat tr:nth-child(n+21){display:none}
+  #cat tr.flash{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent)}
   .cat-mais:not([hidden]){display:block;width:100%}
   /* filtros de Todas as placas: a busca à vista; o resto atrás do botão Filtros */
   .filtros-cat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end}
@@ -1032,6 +1035,7 @@ details.saiba > :not(summary){margin-bottom:14px}
   fieldset.grupo.sec:not(.aberta){padding-bottom:16px}
   .grupos{gap:14px}
   #branca-p{margin-top:0}
+  .main [id]{scroll-margin-top:72px}
   /* Minhas placas: a placa em cima; lucro, bruto e luz; investido e quando se paga; quanto já pagou; remover */
   .rig-tab{border:0;background:none;overflow:visible}
   .rig-tab table{display:block;min-width:0!important}
@@ -3220,6 +3224,13 @@ function avisoDiario(msg, tipo, acao){
   status2("d-status", msg, tipo);
   if(CELULAR() && folhaAberta!==$("d-folha")) toast(msg, acao);
 }
+/* o formulário do Diário para anotar hoje (o botão Anotar o dia, no celular) */
+function novoDiaNoForm(){
+  const hoje = hojeISO();
+  $("d-data").value = hoje; $("d-valor").value = ""; $("d-obs").value = ""; $("d-horas").value = cfg.horas;
+  $("d-btn").textContent = diario.some(x=>x.data===hoje) ? "Atualizar" : "Salvar";
+  status2("d-status", ""); dicaEst();
+}
 function refazerDia(){
   if(!ultimoDiaApagado) return;
   const ent = {...ultimoDiaApagado}; delete ent._id; salvarDia(ent); ultimoDiaApagado = null; avisoDiario("Dia de volta.", "ok");
@@ -3581,7 +3592,7 @@ function desenharRetorno(R){
     const fimMes = m===x1 ? x1 : somaDiasIso(somaMesesIso(m, 1), -1); if(fimMes<x0) continue;
     const real = fimMes<=hoje ? (R.n ? brl0(realEm(fimMes)) : "—") : temProj ? `${brl0(Math.min(projEm(fimMes), Math.max(R.custo, R.acum)))} <small class="sub">no ritmo real</small>` : "—";
     if(linhasTab.length && linhasTab[linhasTab.length-1].includes(`>${mesAnoIso(fimMes)}<`)) continue;
-    linhasTab.push(`<tr><td>${mesAnoIso(fimMes)}</td><td class="n">${brl0(prevEm(fimMes))}</td><td class="n">${real}</td></tr>`);
+    linhasTab.push(`<tr><td>${mesAnoIso(fimMes)}</td><td class="n" data-l="Previsto">${brl0(prevEm(fimMes))}</td><td class="n" data-l="Real">${real}</td></tr>`);
   }
   tabEl.innerHTML = `<div class="tw rel-tab"><table style="min-width:360px"><thead><tr><th>Fim do mês</th><th class="n">Previsto</th><th class="n">Real</th></tr></thead><tbody>${linhasTab.join("")}</tbody></table></div><p class="nota-mini">Custo a recuperar: ${brl0(R.custo)}.</p>`;
 }
@@ -4830,14 +4841,24 @@ $("br-res").addEventListener("click", e=>{
     const v = brancaVals(), c = cenarioBranca(totaisSetup({horas:24}), v, {"24h":0, ponta:3, "ponta-inter":5}[usar.dataset.k] ?? 0);
     cfg.branca = {...(cfg.branca||{}), conv:v.conv, aplicado:usar.dataset.k};
     cfg.tarifa = Math.round(c.tarifaMedia*1000)/1000; cfg.horas = Math.round(c.horasDia*10)/10;
-    salvarCfg(); render(); $("tarifa").focus();
+    salvarCfg(); render(); mostrarTarifa();
   }
   if(voltar){
     const v = brancaVals();
     cfg.tarifa = v.conv; cfg.horas = 24; cfg.branca = {...(cfg.branca||{}), aplicado:null};
-    salvarCfg(); render(); $("tarifa").focus();
+    salvarCfg(); render(); mostrarTarifa();
   }
 });
+/* depois de mudar a tarifa pela tarifa branca: no PC, o foco vai para o campo; no celular, abre o quadro Energia e o foco vai
+   para o título dele (focar o campo abriria o teclado), com um recado do que mudou */
+function mostrarTarifa(){
+  if(!CELULAR()){ $("tarifa").focus(); return; }
+  const q = $("tarifa").closest(".sec"), b = q && q.querySelector(".sec-bt");
+  abrirSecao($("tarifa"));
+  if(q) q.scrollIntoView({block:"start", behavior:suave()});
+  if(b) b.focus({preventScroll:true});
+  toast(`Contas com luz a ${brl(cfg.tarifa)}/kWh e ${n1(+cfg.horas)} h por dia.`);
+}
 
 /* ---------- alerta de ofertas: busca sozinha de tempos em tempos e avisa no Windows (app do computador) ---------- */
 /* vistos: todo anúncio que já apareceu numa busca (com o último preço), para saber o que é novo de verdade;
@@ -6433,13 +6454,14 @@ function fecharFolha(){
   $("folha-fundo").hidden = true;
   document.querySelectorAll(`[data-folha="${f.id}"]`).forEach(b=>b.setAttribute("aria-expanded", "false"));
   const v = folhaVoltar; folhaVoltar = null;
-  if(v && document.contains(v) && v.getClientRects().length) try{ v.focus({preventScroll:true}); }catch(e){}
+  const alvo = v && document.contains(v) && v.getClientRects().length ? v : [...document.querySelectorAll(`[data-folha="${f.id}"]`)].find(x=>x.getClientRects().length);
+  if(alvo) try{ alvo.focus({preventScroll:true}); }catch(e){}
   return true;
 }
 window.fecharFolha = fecharFolha;
 document.addEventListener("click", e=>{
   const b = e.target.closest("[data-folha]");
-  if(b){ abrirFolha(b.dataset.folha, b.dataset.foco); return; }
+  if(b){ if(b.dataset.folha==="d-folha" && CELULAR()) novoDiaNoForm(); abrirFolha(b.dataset.folha, b.dataset.foco); return; }
   if(folhaAberta && (e.target.closest("[data-fechar-folha]") || e.target===$("folha-fundo"))) fecharFolha();
 });
 document.addEventListener("keydown", e=>{
