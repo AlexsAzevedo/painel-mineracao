@@ -55,18 +55,19 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .vh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
 .vh h1{font-size:clamp(1.6rem,2.6vw,2.05rem);font-weight:700;outline:none}
 .vh .sub{max-width:76ch}
-.painel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.painel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .painel-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .painel-h h2{font-size:1.08rem}
 .grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .kpi b{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:600;letter-spacing:-.02em}
 .kpi small{color:var(--muted);font-size:.8rem}
 .kpi.hl{background:var(--accent-soft);border-color:transparent}
 .kpi.hl b{color:var(--accent)}
 .kpi b.neg{color:var(--bad)}
 .grid2:has(> [hidden]) > :not([hidden]){grid-column:1/-1}
+.grid2:not(:has(> :not([hidden]))){display:none}
 /* Resumo: Agora, aviso de dias para anotar, ofertas e avisos */
 .faixa-sug{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--fg)}
 .faixa-sug .link{margin-left:auto}
@@ -252,7 +253,8 @@ h2{font-size:1.25rem;font-weight:600}
 .sub{color:var(--muted);margin:4px 0 0;max-width:70ch}
 .lbl{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
 
-input,select{font:inherit;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
+input,select{font:inherit;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:8px 11px;min-width:0;width:100%;min-height:40px}
+input[type=checkbox],input[type=radio]{min-height:0}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .tw.scroll{max-height:72vh;overflow:auto}
 .filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -267,7 +269,8 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .barra input[type=number]{width:140px}
 .checks{display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
 .check{display:flex;align-items:center;gap:8px;font-size:.86rem;cursor:pointer}
-.check input{width:auto;margin:0;accent-color:var(--accent)}
+.check input{width:auto;margin:0;accent-color:var(--accent);flex:none}
+.check:has(> span), .check{line-height:1.4}
 .cab{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
 #tabcat th{white-space:normal;vertical-align:bottom;line-height:1.25}
 #tabcat{font-size:.9rem}
@@ -337,8 +340,10 @@ td small.sub{display:block;color:var(--muted);font-size:.75rem;font-weight:400}
 .combo li.vazio{color:var(--muted);cursor:default}
 .combo input[aria-invalid="true"]{border-color:var(--bad)}
 .addform .erro{grid-column:1/-1;margin:0;color:var(--bad);font-size:.85rem}
-button{font:inherit;font-weight:600;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:7px 14px}
-button.pri{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:8px 16px;min-height:40px}
+button:hover{background:var(--sunk)}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+button.pri:hover{background:var(--accent);filter:brightness(1.06)}
 button.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:4px 8px}
 button.ghost:hover{color:var(--bad)}
 .empty{border:1px dashed var(--line);border-radius:8px;padding:18px;color:var(--muted);text-align:center}
@@ -346,7 +351,7 @@ button.ghost:hover{color:var(--bad)}
 .bar span{display:block;height:100%;background:var(--good)}
 
 /* tabelas */
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 table{border-collapse:collapse;width:100%;min-width:980px}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
 th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);position:sticky;top:0}
@@ -358,7 +363,10 @@ td.name small{display:block;font-weight:400;color:var(--muted);font-size:.75rem}
 td.limit{color:var(--accent);font-weight:600}
 td .pin{width:96px;padding:5px 8px;text-align:right;font-family:var(--mono)}
 td .ein{width:90px;text-align:right;font-family:var(--mono);padding:4px 6px}
-.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:600}
+.pill.g::before{content:"";width:7px;height:4px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg) translateY(-1px);flex:none}
+.pill.w::before{content:"!";font-weight:800;font-size:.95em;line-height:1}
+.pill.b::before{content:"×";font-weight:800;font-size:1.05em;line-height:1}
 .pill.g{background:var(--good-soft);color:var(--good)}
 .pill.w{background:var(--warn-soft);color:var(--warn)}
 .pill.b{background:var(--bad-soft);color:var(--bad)}
@@ -430,7 +438,8 @@ a.botao-link{display:inline-flex;align-items:center;font-weight:600;font-size:.9
 .oferta{display:block;font-size:.72rem;margin-top:3px;white-space:nowrap}
 .acoes{display:flex;flex-wrap:wrap;gap:8px}
 button:disabled{opacity:.5;cursor:not-allowed}
-button.link{border-color:transparent;background:transparent;color:var(--accent);padding:4px 8px}
+button.link{border-color:transparent;background:transparent;color:var(--accent);padding:4px 8px;min-height:0}
+button.link:hover{background:transparent}
 button.link:hover{text-decoration:underline}
 .hist td.name{white-space:normal;min-width:240px;max-width:380px}
 .hist tr.sel td{background:var(--accent-soft)}
@@ -703,6 +712,7 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .of-salvar[aria-pressed="true"]{color:var(--accent)}
 .of-salvar[aria-pressed="true"] svg{fill:currentColor}
 .of-salvar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.of-salvar:hover{background:var(--scrim);filter:brightness(1.15)}
 .of-c{display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px;min-width:0;flex:1}
 .of-l1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .of-modelo{padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:.76rem;font-weight:700}
@@ -961,7 +971,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     </section>
 
     <section class="view" id="v-anuncio" aria-labelledby="t-anuncio" hidden>
-      <header class="vh"><div><h1 id="t-anuncio" tabindex="-1">Analisar anúncio</h1><p class="sub">Cole o link de um anúncio do Facebook Marketplace (OLX e Mercado Livre também servem). O painel identifica a placa e o preço e compara com o seu preço limite e com o preço típico da região.</p></div></header>
+      <header class="vh"><div><h1 id="t-anuncio" tabindex="-1">Analisar anúncio</h1><p class="sub">Cole o link de um anúncio (Marketplace, OLX ou Mercado Livre) e veja se o preço compensa.</p></div></header>
       <div class="painel">
     <form class="anaform" id="anaform" autocomplete="off" novalidate>
       <input id="a-link" type="text" placeholder="Cole o link ou o texto do anúncio" aria-label="Link ou texto do anúncio" aria-describedby="a-dica" spellcheck="false">
@@ -979,7 +989,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     </section>
 
     <section class="view" id="v-minhas" aria-labelledby="t-minhas" hidden>
-      <header class="vh"><div><h1 id="t-minhas" tabindex="-1">Minhas placas</h1><p class="sub">Cadastre o que você comprou para acompanhar a conta de luz e o retorno. Diga como pagou: no cartão parcelado sem juros, o que o dinheiro guardado rende até a última parcela (já com IR) sai do custo da placa no cálculo do retorno.</p></div></header>
+      <header class="vh"><div><h1 id="t-minhas" tabindex="-1">Minhas placas</h1><p class="sub">As placas que você comprou: a luz de cada uma e quanto ela já se pagou.</p></div></header>
       <div class="tiles" id="tiles"></div>
       <div class="painel">
     <form class="addform" id="addform" autocomplete="off">
@@ -1001,6 +1011,7 @@ details.saiba > :not(summary){margin-bottom:14px}
       <button class="pri af-btn" type="submit">Adicionar</button>
       <p class="erro" id="f-erro" role="alert" hidden>Escolha uma placa da lista antes de adicionar.</p>
     </form>
+    <p class="hint">No cartão parcelado sem juros, o que o dinheiro guardado rende até a última parcela (já com IR) sai do custo da placa no cálculo do retorno.</p>
       </div>
       <div id="riglist"></div>
       <article class="painel" id="ret-p" aria-labelledby="t-ret" hidden>
@@ -1013,7 +1024,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     </section>
 
     <section class="view" id="v-placas" aria-labelledby="t-placas" hidden>
-      <header class="vh"><div><h1 id="t-placas" tabindex="-1">Todas as placas</h1><p class="sub">Filtre e ordene para ver qual ganha mais e qual se paga mais rápido. Clique no título de uma coluna para ordenar por ela. Digite o preço que encontrou para ver se compensa.</p></div><button type="button" id="editar">Editar dados das placas</button></header>
+      <header class="vh"><div><h1 id="t-placas" tabindex="-1">Todas as placas</h1><p class="sub">Qual placa ganha mais e qual se paga mais rápido. Digite o preço que encontrou para ver se compensa.</p></div><button type="button" id="editar">Editar dados das placas</button></header>
       <div class="chips-cen" id="chips-cen"></div>
       <article class="painel"><div class="painel-h"><h2>Melhores compras hoje</h2></div><ol class="rank" id="r-compras"></ol><p class="nota-mini" id="r-compras-nota"></p></article>
     <div class="barra" role="group" aria-label="Filtros da lista">
@@ -1058,12 +1069,15 @@ details.saiba > :not(summary){margin-bottom:14px}
       <p class="nota-mini" id="hist-txt"></p>
       <details class="hist-tab"><summary>Ver os números</summary><div id="hist-tab"></div></details>
     </article>
-    <div class="note">
-      <span><b>Como ler:</b> o ganho bruto é a receita da Kryptex em US$ (moeda mais lucrativa do dia) × dólar, menos a margem de segurança, antes de pagar a luz. Lucro = ganho bruto − energia. Energia = watts × horas × 30 ÷ 1000 × tarifa. “Compensa?” é <b>Sim</b> quando o seu preço fica até o limite, <b>Apertado</b> até 20% acima, e <b>Não</b> além disso. Lucro por W é o lucro do mês dividido pelo consumo: mostra quem aproveita melhor a luz.</span>
-      <span><b>Retorno:</b> usa o seu preço; sem ele, o preço no Brasil (usado ou novo, conforme o “Preço base”); sem os dois, o menor preço dos anúncios que você analisou; por último, o preço de referência da Kryptex nos EUA convertido em real, que costuma ser mais baixo que o daqui.</span>
-      <span><b>Preços no Brasil:</b> pesquisa de 22/10/2026, que dá para atualizar em Premissas › Dados de fora (novas pelo Promotech, usadas pelo Marketplace) ou buscando em Ofertas. Usado é a mediana dos anúncios de placa avulsa perto da sua cidade, sem PCs, notebooks, placas com defeito e lotes; até você atualizar, vale a pesquisa inicial, feita na região de Itajaí (SC). Modelos com só 1 ou 2 anúncios têm preço menos confiável. Novo é o menor preço à vista encontrado em loja; o link “nova ↗” embaixo do campo “Seu preço” abre essa oferta (muitas vezes pelo comparador Promotech, que lista as lojas), e “procurar nova ↗” abre a busca no Google Shopping. Confira preço, estado de nova e estoque na loja antes de comprar. Placas marcadas “notebook” (RTX 4050, RTX 2050 e 860M) não se vendem avulsas.</span>
-      <span><b>Atenção:</b> a receita muda todo dia com o preço da moeda e a dificuldade da rede. Para trazer os números de hoje, use Premissas › Dados de fora › Receitas da Kryptex. “Editar dados das placas” serve para pôr um número seu (o consumo medido da sua placa, por exemplo), que passa na frente do da Kryptex.</span>
-    </div>
+    <details class="saiba">
+      <summary>Saiba mais: de onde vêm os preços</summary>
+      <div class="note">
+        <span><b>Como ler:</b> o ganho bruto é a receita da Kryptex em US$ (moeda mais lucrativa do dia) × dólar, menos a margem de segurança, antes de pagar a luz. Lucro = ganho bruto − energia. Energia = watts × horas × 30 ÷ 1000 × tarifa. “Compensa?” é <b>Sim</b> quando o seu preço fica até o limite, <b>Apertado</b> até 20% acima, e <b>Não</b> além disso. Lucro por W é o lucro do mês dividido pelo consumo: mostra quem aproveita melhor a luz.</span>
+        <span><b>Retorno:</b> usa o seu preço; sem ele, o preço no Brasil (usado ou novo, conforme o “Preço base”); sem os dois, o menor preço dos anúncios que você analisou; por último, o preço de referência da Kryptex nos EUA convertido em real, que costuma ser mais baixo que o daqui.</span>
+        <span><b>Preços no Brasil:</b> pesquisa de 22/10/2026, que dá para atualizar em Premissas › Dados de fora (novas pelo Promotech, usadas pelo Marketplace) ou buscando em Ofertas. Usado é a mediana dos anúncios de placa avulsa perto da sua cidade, sem PCs, notebooks, placas com defeito e lotes; até você atualizar, vale a pesquisa inicial, feita na região de Itajaí (SC). Modelos com só 1 ou 2 anúncios têm preço menos confiável. Novo é o menor preço à vista encontrado em loja; o link “nova ↗” embaixo do campo “Seu preço” abre essa oferta (muitas vezes pelo comparador Promotech, que lista as lojas), e “procurar nova ↗” abre a busca no Google Shopping. Confira preço, estado de nova e estoque na loja antes de comprar. Placas marcadas “notebook” (RTX 4050, RTX 2050 e 860M) não se vendem avulsas.</span>
+        <span><b>Atenção:</b> a receita muda todo dia com o preço da moeda e a dificuldade da rede. Para trazer os números de hoje, use Premissas › Dados de fora › Receitas da Kryptex. “Editar dados das placas” serve para pôr um número seu (o consumo medido da sua placa, por exemplo), que passa na frente do da Kryptex.</span>
+      </div>
+    </details>
     </section>
 
     <section class="view" id="v-premissas" aria-labelledby="t-premissas" hidden>
@@ -1264,7 +1278,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     </section>
 
     <section class="view" id="v-setup" aria-labelledby="t-setup" hidden>
-      <header class="vh"><div><h1 id="t-setup" tabindex="-1">Montar setup</h1><p class="sub">A conta do PC inteiro, não só da placa: o consumo de tudo na tomada com a perda da fonte, o processador minerando junto, as vagas que sobram na placa-mãe e o que falta comprar em cada máquina.</p></div></header>
+      <header class="vh"><div><h1 id="t-setup" tabindex="-1">Montar setup</h1><p class="sub">A conta do PC inteiro na tomada: placas, processador, fonte e o que falta comprar em cada máquina.</p></div></header>
       <div class="kpis" id="s-kpis"></div>
       <div class="barra s-barra" role="group" aria-label="Opções do setup">
         <label><span class="lbl">Tomada</span><select id="s-tensao"><option value="220">220 V</option><option value="127">127 V</option></select></label>
@@ -1280,17 +1294,20 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div class="tw scroll"><table id="tabcpu"><thead><tr><th>Processador</th><th class="n">Hashrate</th><th class="n">Consumo</th><th class="n">Ganho bruto/mês</th><th class="n">Lucro: PC já ligado</th><th class="n">Lucro: só para isso</th></tr></thead><tbody id="tabcpu-b"></tbody></table></div>
       </article>
       <details class="painel" id="s-pecas-ref"><summary>Preços de peças no Brasil (22/10/2026)</summary><div id="s-pecas-tab"></div></details>
-      <div class="note">
-        <span><b>Consumo na tomada:</b> placas (watts da Kryptex) + processador (minerando, ou 10 W parado) + resto do PC (placa-mãe, memória, SSD e ventoinhas; 30 W de partida), dividido pela eficiência da fonte. A fonte perde a diferença em calor, e essa perda também entra na conta de luz.</span>
-        <span><b>Eficiência da fonte:</b> o mínimo exigido pelo selo 80 Plus em cada faixa de carga (Bronze: 82% com 20% de carga, 85% com 50% e 82% com 100%; Gold: 87/90/87; Platinum: 90/92/89), com 2 pontos a mais na tomada de 220 V. Abaixo de 20% de carga o selo não garante nada e o painel assume uns 5 pontos a menos. Fonte sem selo é estimativa (75 a 78%). Fontes boas costumam ficar 1 a 3 pontos acima do mínimo.</span>
-        <span><b>Carga ideal:</b> entre 40% e 70% da capacidade. Acima de 80% a fonte esquenta e dura menos; abaixo de 20% a eficiência cai.</span>
-        <span><b>Retorno das compras:</b> o lucro que a máquina passa a dar a mais, já com a luz do PC inteiro, paga o que falta comprar. Máquina parada que volta a minerar passa a pagar a luz do PC todo, e isso entra na conta. Parcelado sem juros, o rendimento do dinheiro guardado (seu % do CDI, já com IR) sai do custo.</span>
-        <span><b>Processadores fora da lista da Kryptex:</b> o i7 13700 usa os números do 13700F (o mesmo chip, sem vídeo integrado). O i5-13400 e o i7 8700 usam testes publicados no site do XMRig, com a receita proporcional à da Kryptex. Os dois aparecem como estimativa.</span>
-      </div>
+      <details class="saiba">
+        <summary>Saiba mais: como as contas do setup são feitas</summary>
+        <div class="note">
+          <span><b>Consumo na tomada:</b> placas (watts da Kryptex) + processador (minerando, ou 10 W parado) + resto do PC (placa-mãe, memória, SSD e ventoinhas; 30 W de partida), dividido pela eficiência da fonte. A fonte perde a diferença em calor, e essa perda também entra na conta de luz.</span>
+          <span><b>Eficiência da fonte:</b> o mínimo exigido pelo selo 80 Plus em cada faixa de carga (Bronze: 82% com 20% de carga, 85% com 50% e 82% com 100%; Gold: 87/90/87; Platinum: 90/92/89), com 2 pontos a mais na tomada de 220 V. Abaixo de 20% de carga o selo não garante nada e o painel assume uns 5 pontos a menos. Fonte sem selo é estimativa (75 a 78%). Fontes boas costumam ficar 1 a 3 pontos acima do mínimo.</span>
+          <span><b>Carga ideal:</b> entre 40% e 70% da capacidade. Acima de 80% a fonte esquenta e dura menos; abaixo de 20% a eficiência cai.</span>
+          <span><b>Retorno das compras:</b> o lucro que a máquina passa a dar a mais, já com a luz do PC inteiro, paga o que falta comprar. Máquina parada que volta a minerar passa a pagar a luz do PC todo, e isso entra na conta. Parcelado sem juros, o rendimento do dinheiro guardado (seu % do CDI, já com IR) sai do custo.</span>
+          <span><b>Processadores fora da lista da Kryptex:</b> o i7 13700 usa os números do 13700F (o mesmo chip, sem vídeo integrado). O i5-13400 e o i7 8700 usam testes publicados no site do XMRig, com a receita proporcional à da Kryptex. Os dois aparecem como estimativa.</span>
+        </div>
+      </details>
     </section>
 
     <section class="view" id="v-diario" aria-labelledby="t-diario" hidden>
-      <header class="vh"><div><h1 id="t-diario" tabindex="-1">Diário de ganhos</h1><p class="sub">Anote quanto entrou de verdade em cada dia (o valor do painel da Kryptex) e compare com a estimativa. Com uma semana anotada já dá para ver se a margem de segurança está certa.</p></div></header>
+      <header class="vh"><div><h1 id="t-diario" tabindex="-1">Diário de ganhos</h1><p class="sub">Anote quanto entrou de verdade em cada dia e compare com a estimativa da Kryptex.</p></div></header>
       <div class="painel">
         <form class="dform" id="dform" autocomplete="off" novalidate>
           <label><span class="lbl">Dia</span><input id="d-data" type="date" required></label>
@@ -1316,12 +1333,15 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div class="acoes"><button type="button" class="pri" data-rel="pdf" hidden>Salvar PDF</button><button type="button" data-rel="csv" hidden>Salvar planilha (CSV)</button><button type="button" data-rel="copiar">Copiar a tabela</button></div>
         <p class="status" id="rel-status" role="status" aria-live="polite"></p>
       </article>
-      <div class="note">
-        <span><b>Estimado:</b> a receita da Kryptex (22/10/2026) das placas que já estavam minerando naquele dia, mais o processador se ele estiver minerando, proporcional às horas informadas. Fica sem a margem de segurança, para comparar com o que entrou de verdade.</span>
-        <span><b>Lucro real:</b> o que entrou menos a luz estimada do PC inteiro na tomada nesse dia.</span>
-        <span><b>Margem real:</b> quanto o real ficou abaixo do estimado. Com 5 dias ou mais anotados, o painel sugere usar esse número como margem de segurança, que vale para todas as contas.</span>
-        <span><b>Dólar:</b> valor em US$ é convertido pelo dólar das premissas no dia em que você anotou.</span>
-      </div>
+      <details class="saiba">
+        <summary>Saiba mais: estimado, margem e luz</summary>
+        <div class="note">
+          <span><b>Estimado:</b> a receita da Kryptex (22/10/2026) das placas que já estavam minerando naquele dia, mais o processador se ele estiver minerando, proporcional às horas informadas. Fica sem a margem de segurança, para comparar com o que entrou de verdade.</span>
+          <span><b>Lucro real:</b> o que entrou menos a luz estimada do PC inteiro na tomada nesse dia.</span>
+          <span><b>Margem real:</b> quanto o real ficou abaixo do estimado. Com 5 dias ou mais anotados, o painel sugere usar esse número como margem de segurança, que vale para todas as contas.</span>
+          <span><b>Dólar:</b> valor em US$ é convertido pelo dólar das premissas no dia em que você anotou.</span>
+        </div>
+      </details>
     </section>
   </main>
   <nav class="abas" aria-label="Telas">

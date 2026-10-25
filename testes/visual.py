@@ -116,9 +116,61 @@ def ofertas(p):
     checa("sem erros (ofertas)", not erros(pg2), erros(pg2)[:3])
 
 
+CONTRASTE_JS = """() => {
+  const ler = c => { const m = /rgba?\\(([^)]+)\\)/.exec(c || ""); if (!m) return null; const p = m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number); return {r:p[0], g:p[1], b:p[2], a: p.length > 3 ? p[3] : 1}; };
+  const lum = ({r, g, b}) => { const f = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const mix = (t, b) => ({r: t.r * t.a + b.r * (1 - t.a), g: t.g * t.a + b.g * (1 - t.a), b: t.b * t.a + b.b * (1 - t.a), a: 1});
+  const fundo = el => { const pilha = []; for (let e = el; e; e = e.parentElement) { const c = ler(getComputedStyle(e).backgroundColor); if (c && c.a > 0) { pilha.push(c); if (c.a >= 1) break; } }
+    let base = {r: 255, g: 255, b: 255, a: 1}; for (let i = pilha.length - 1; i >= 0; i--) base = pilha[i].a >= 1 ? pilha[i] : mix(pilha[i], base); return base; };
+  const view = document.querySelector(".view:not([hidden])"); if (!view) return [["sem tela", "", 0]];
+  const els = [...view.querySelectorAll(".sub, .lbl, .hint, .pill, .nota-mini, small, .status")].filter(e => e.offsetParent && e.textContent.trim() && !e.closest(".desc")).slice(0, 120);
+  const ruins = [];
+  for (const e of els) {
+    const fg = ler(getComputedStyle(e).color); if (!fg) continue;
+    const bg = fundo(e), f = fg.a < 1 ? mix(fg, bg) : fg, a = lum(f), b = lum(bg), r = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    if (r < 4.5) ruins.push([e.className, e.textContent.trim().slice(0, 40), +r.toFixed(2)]);
+  }
+  return ruins;
+}"""
+
+
+FOTOS = sys.argv[sys.argv.index("--fotos") + 1] if "--fotos" in sys.argv else ""   # pasta para as fotos de cada tela
+
+
+def telas(p):
+    import re as _re
+    if FOTOS:
+        os.makedirs(FOTOS, exist_ok=True)
+    css = open(PAGINA, encoding="utf-8").read()
+    css = css[css.index("<style>"):css.index("</style>")]
+    css = _re.sub(r":root(\[data-tema=\"claro\"\])?\{[^}]*\}", "", css)
+    fixas = [c for c in _re.findall(r"[^{}\n]*\{[^}]*#[0-9a-fA-F]{3,6}\b[^}]*\}", css) if not c.strip().startswith(".appcel-codigo")]
+    checa("nenhuma cor fixa fora das variáveis", not fixas, [f[:80] for f in fixas[:3]])
+    for largura, modo in ((1366, "pc"), (390, "celular")):
+        pg = abrir(p, largura=largura, altura=900, dados=DADOS, pc=(modo == "pc"), celular=(modo == "celular"))
+        pg.wait_for_timeout(400)
+        for tema in ("escuro", "claro"):
+            pg.evaluate(f"aplicarTema('{tema}')")
+            for v in pg.evaluate("VIEWS"):
+                pg.evaluate(f"irPara('{v}')"); pg.wait_for_timeout(120)
+                onde = f"{modo} {tema} {v}"
+                checa(f"{onde}: sem rolagem lateral", pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), pg.evaluate("document.documentElement.scrollWidth"))
+                sub = pg.evaluate("(() => { const e = document.querySelector('.view:not([hidden]) .vh .sub'); return e ? e.textContent.trim() : ''; })()")
+                checa(f"{onde}: subtítulo curto", len(sub) <= 160, f"{len(sub)}: {sub[:60]}")
+                ruins = pg.evaluate(CONTRASTE_JS)
+                checa(f"{onde}: contraste", not ruins, ruins[:3])
+                if FOTOS:
+                    pg.screenshot(path=os.path.join(FOTOS, f"{modo}_{tema}_{v}.png"), full_page=True)
+        checa(f"{modo}: sem erros", not erros(pg), erros(pg)[:3])
+    pg = abrir(p, dados=DADOS, hash="placas")
+    checa("Saiba mais em Todas as placas", pg.evaluate("!!document.querySelector('#v-placas details.saiba')"))
+    checa("selo com ícone além da cor", pg.evaluate("getComputedStyle(document.querySelector('.pill.g') || document.body, '::before').content") not in ("none", "normal", ""))
+
+
 with sync_playwright() as p:
     tema(p)
     menu(p)
     resumo(p)
     ofertas(p)
+    telas(p)
 fim()
