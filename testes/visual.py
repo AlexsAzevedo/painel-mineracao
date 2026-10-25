@@ -115,6 +115,12 @@ def ofertas(p):
     checa("filtros numa linha (fichas)", pgc.evaluate("getComputedStyle(document.getElementById('of-filtros')).flexWrap") == "nowrap")
     checa("explicação no Saiba mais", pgc.evaluate("!!document.querySelector('#v-ofertas details.saiba')"))
     checa("sem rolagem lateral", pgc.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+    # Ver detalhes (no menu ⋯ do cartão): a lista é desenhada de novo e o foco continua no mesmo cartão
+    k = pgc.evaluate("document.querySelector('#of-lista .of').dataset.k")
+    pgc.evaluate("document.querySelector('#of-lista .of details.of-mais').open = true")
+    pgc.click("#of-lista .of [data-of='det']"); pgc.wait_for_timeout(300)
+    checa("ver detalhes: o foco fica no cartão", pgc.evaluate("(k) => { const a = document.activeElement, c = a && a.closest('#of-lista .of'); return !!c && c.dataset.k === k; }", k),
+          pgc.evaluate("document.activeElement && document.activeElement.outerHTML.slice(0, 120)"))
     # foto que carrega
     import copy
     d2 = copy.deepcopy(DADOS); d2["min-ofertas"]["itens"][1]["foto"] = OLX + "ok.jpg"

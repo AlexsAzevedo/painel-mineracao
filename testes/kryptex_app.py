@@ -93,6 +93,10 @@ def kryptex_app(p):
     checa("voltar pelo botão", pg.evaluate("window.__acoes") == [["voltar"]])
     pg.evaluate("window.__leituras = [FALHA]; kxa.ultimaOk = Date.now() - 10*60e3; lerKryptexApp()"); pg.wait_for_timeout(200)
     checa("app fechado na tela", "App da Kryptex fechado" in pg.inner_text("#agora"))
+    checa("recado velho some quando o estado muda", pg.inner_text("#ag-status").strip() == "", pg.inner_text("#ag-status"))
+    t = pg.inner_text("#agora")
+    checa("app fechado: o menu não diz 'agora'", "App da Kryptex fechado" in pg.inner_text("#vivo") and "hoje até agora" not in pg.inner_text("#vivo"), pg.inner_text("#vivo"))
+    checa("app fechado: números da última leitura", pg.evaluate("!!document.querySelector('#agora .ag-nums.velho')") and "última leitura" in t and "Hoje até agora" not in t, t[:300])
     # Premissas › App da Kryptex
     pg.evaluate("irPara('premissas')")
     checa("painel em Premissas", pg.is_visible("#kxa-p") and pg.is_checked("#kxa-ligado") and pg.is_checked("#kxa-protecao") and pg.input_value("#kxa-limtemp") == "85")
@@ -106,6 +110,10 @@ def kryptex_app(p):
     pg.click("#kxa-copiar"); pg.wait_for_timeout(200)
     c = pg.evaluate("window.__copiado") or ""
     checa("copiar o que leu", "srbminer" in c and "PC-TESTE" not in c, c[:200])
+    pg.evaluate("status2('ag-status', 'Pronto: o app da Kryptex voltou a minerar.', 'ok')")
+    pg.uncheck("#kxa-ligado")
+    checa("desligar a leitura: estimativa, sem recado velho", pg.evaluate("kxaCfg().ligado") is False and pg.inner_text("#ag-status").strip() == "" and "Sem leitura ao vivo" in pg.inner_text("#agora"),
+          [pg.inner_text("#ag-status"), pg.inner_text("#agora")[:120]])
     checa("sem erros no console", not erros(pg), erros(pg)[:3])
 
 
@@ -128,6 +136,7 @@ def celular(p):
     t = pgc.inner_text("#agora")
     checa("retrato_velho", "Última leitura há" in t and "Minerando" not in t, t[:200])
     checa("retrato velho: dia da leitura", "24/10" in t, t[:300])
+    checa("retrato velho: números apagados", pgc.evaluate("!!document.querySelector('#agora .ag-nums.velho')"))
     pgc.evaluate("irPara('diario'); irPara('resumo')")
     checa("não repete antes de 10 min", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 1)
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
@@ -142,6 +151,7 @@ def celular(p):
     checa("pausar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-pausar", {"minutos": 180}])
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO_PAUSADO)); recarregarDados(['min-kx-app'])")
     checa("pausada no celular", "Pausada até 17:00" in pgc.inner_text("#agora"))
+    checa("recado some quando o retrato muda de estado", pgc.inner_text("#ag-status").strip() == "", pgc.inner_text("#ag-status"))
     pgc.click("[data-voltar]"); pgc.wait_for_timeout(200)
     checa("voltar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-voltar", {}])
     checa("sem erros no celular", not erros(pgc), erros(pgc)[:3])

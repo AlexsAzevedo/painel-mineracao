@@ -161,6 +161,11 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
     if (p === "/kryptex/site/dashboard") { res.writeHead(200, cab); res.end(paginaKx("Dashboard", `<div>Balance</div><div>${kxf.saldo} BTC</div><div>≈ ${kxf.fiat}</div><div>Withdraw</div><div>Wallet bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</div>`)); return; }
     res.writeHead(404, cab); res.end("nada");
   }
+  /* app da Kryptex deste PC de mentira (o serviço do app do Windows, que responde em localhost:8107), no mesmo servidor,
+     em /kxapp. Começa "fechado" (não responde), como num PC com o app da Kryptex fechado: até a parte do app da Kryptex,
+     o teste segue como na 1.5.0 */
+  const kxApp = require("./kryptex-falso.js")(); kxApp.estado.modo = "fechado";
+  const putsKxApp = () => kxApp.pedidos.filter((x) => x.metodo === "PUT").map((x) => x.corpo);
   /* ntfy de mentira (avisos no celular e app do celular): guarda o que o painel publicou, agenda/substitui/cancela o "sinal de vida"
      como o ntfy.sh faz (mesmo sequence_id substitui o agendado), guarda as cartas da sincronia e os anexos e entrega a quem escuta */
   let baseNtfy = "";
@@ -171,6 +176,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
   const srv = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), p = u.pathname;
     if (p === "/ntfy" || p.startsWith("/ntfy/")) { falso.tratar(req, res, u, p.slice(5)); return; }
+    if (p.startsWith("/kxapp/")) { kxApp.tratar(req, res, p.slice(6)); return; }
     pedidos.push(p + u.search);
     let corpo = null, tipo = "text/html; charset=utf-8";
     /* releases (a atualização usa o próprio identificador, "electron-builder"; o navegador escondido não passa por aqui) */
@@ -197,6 +203,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
     const base = `http://127.0.0.1:${srv.address().port}`;
     process.env.PAINEL_REDIRECIONAR = base;
     process.env.PAINEL_NTFY = base + "/ntfy";
+    process.env.PAINEL_KRYPTEX_LOCAL = base + "/kxapp";
     baseNtfy = base + "/ntfy";
     principal.webContents.once("did-finish-load", async () => {
       const r = { erros: [], passos: {} };
@@ -259,14 +266,16 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
             tambem:Object.fromEntries(it.filter(x=>x.tambem).map(x=>[x.k, x.tambem.map(t=>t.url)])),
             ordemTela:[...document.querySelectorAll("#of-lista .of")].slice(0,6).map(e=>e.dataset.k+" "+e.querySelector(".of-ret .pill").textContent),
             vendedor:[...document.querySelectorAll("#of-lista .of")].map(e=>{ const v = e.querySelector('[data-of="vendedor"]'), t = e.querySelector(".of-tit"); return {k:e.dataset.k, href:v && v.getAttribute("href"), igualTitulo:!!(v && t && v.getAttribute("href")===t.getAttribute("href")), alvo:v && v.target}; }),
-            cont:document.getElementById("of-cont").textContent, badge:document.getElementById("b-ofertas").textContent, usadas:Object.keys(cfg.precosAtual||{}).length}; })()`);
+            cont:document.getElementById("of-cont").textContent, badge:document.getElementById("b-ofertas").textContent, usadas:Object.keys(cfg.precosAtual||{}).length,
+            fotos:{fb:it.filter(x=>x.site==="fb" && fotoValida(x.foto)).length, olx:it.filter(x=>x.site==="olx" && fotoValida(x.foto)).length, semFoto:it.filter(x=>!x.foto).length, invalidas:it.filter(x=>x.foto && !fotoValida(x.foto)).length,
+              naTela:document.querySelectorAll("#of-lista .of img.of-foto").length}}; })()`);
         r.pedidos = pedidos.filter((p) => /^\/(fb|olx)\//.test(p));
         await foto("ofertas");
 
         /* detalhes de um anúncio do Marketplace e de um da OLX */
         await js(`document.querySelector('#of-lista .of[data-k="fb:1000000000000007"] [data-of="det"]').click()`);
         for (let i = 0; i < 60; i++) { await esperar(300); if (!(await js(`ofEst.lendo.size`))) break; }
-        r.detalheFb = await js(`(()=>{ const d = document.querySelector('#of-lista .of[data-k="fb:1000000000000007"] .of-det'); return {texto:d && d.innerText, det:ofertas.itens.find(x=>x.k==="fb:1000000000000007").det, foco:document.activeElement && document.activeElement.dataset.of}; })()`);
+        r.detalheFb = await js(`(()=>{ const d = document.querySelector('#of-lista .of[data-k="fb:1000000000000007"] .of-det'); const a = document.activeElement; return {texto:d && d.innerText, det:ofertas.itens.find(x=>x.k==="fb:1000000000000007").det, foco:a && (a.dataset.of || (a.closest(".of-mais") ? "menu" : a.tagName)), noCartao:!!(a && a.closest('.of[data-k="fb:1000000000000007"]'))}; })()`);
         await js(`document.getElementById("of-so-compensa").checked = false; document.getElementById("of-so-compensa").dispatchEvent(new Event("change"))`);
         await js(`document.querySelector('#of-lista .of[data-k="olx:1543531037"] [data-of="det"]').click()`);
         for (let i = 0; i < 60; i++) { await esperar(300); if (!(await js(`ofEst.lendo.size`))) break; }
@@ -424,7 +433,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         });
         const form = { "Content-Type": "application/x-www-form-urlencoded" };
         const outroPin = ac.pin === "000000" ? "111111" : "000000";
-        r.acesso.semSenha = { pedeSenha: (await pedir("/")).corpo.includes('name="pin"'), api: (await pedir("/api/dados")).status, fonte: (await pedir("/fonts/public-sans-latin-400-normal.woff2")).status, manifesto: (await pedir("/manifest.webmanifest")).status };
+        r.acesso.semSenha = { pedeSenha: (await pedir("/")).corpo.includes('name="pin"'), api: (await pedir("/api/dados")).status, fonte: (await pedir("/fonts/inter-latin-400-normal.woff2")).status, manifesto: (await pedir("/manifest.webmanifest")).status };
         const errada = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + outroPin });
         r.acesso.senhaErrada = { status: errada.status, avisa: /Senha errada/.test(errada.corpo), cookie: !!errada.headers["set-cookie"] };
         const certa = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + ac.pin });
@@ -508,6 +517,62 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         const bloq = await pedir("/entrar", { method: "POST", headers: form, body: "pin=" + ac.pin });
         r.acesso.bloqueio = { status: bloq.status, avisa: /Muitas tentativas/.test(bloq.corpo), cookie: !!bloq.headers["set-cookie"] };
         await foto("acesso");
+
+        /* app da Kryptex deste PC (o de mentira): o Resumo mostra a mineração ao vivo; pausar 1 hora e voltar pelo Resumo; a placa
+           esquenta (2 leituras quentes: pausa 15 minutos e avisa), para sozinha (3 leituras: avisa e depois avisa que voltou) e o
+           app fecha (5 minutos sem responder: avisa). O painel nunca pede /user (o nome de usuário da Kryptex) */
+        r.kxApp = {};
+        const kxN0 = testeSegundoPlano.notificacoes.length, kxP0 = ntfy.publicados.length;
+        const avisosDesde = (n) => testeSegundoPlano.notificacoes.slice(n).map((x) => x.titulo);
+        const lerKxApp = async () => { for (let i = 0; i < 60 && (await js("kxa.lendo")); i++) await esperar(250); await js(`lerKryptexApp("manual").then(()=>true)`); };
+        const textoAgora = `document.getElementById("agora").innerText.replace(/\\s+/g, " ")`;
+        r.kxApp.antes = await js(`({estado:kxa.estado, jaRespondeu:kxa.jaRespondeu, agora:${textoAgora}.slice(0, 160), lidas:${kxApp.pedidos.length}})`);
+        kxApp.estado.modo = "minerando";
+        await js(`irPara("resumo")`);
+        await lerKxApp(); await esperar(400);
+        r.kxApp.leu = await js(`({estado:kxa.estado, jaRespondeu:kxa.jaRespondeu, agora:${textoAgora}, vivo:document.getElementById("vivo").innerText.replace(/\\s+/g, " "),
+          retrato:(s=>s && {estado:s.estado, placas:s.placas.map(p=>p.nome), temp:s.placas[0] && s.placas[0].temp, watts:s.placas[0] && s.placas[0].watts})(JSON.parse(localStorage.getItem("min-kx-app")||"null"))})`);
+        r.kxApp.leu.segundoPlano = segundoPlano();
+        await foto("kxapp");
+        /* pausar 1 hora pelo Resumo e voltar */
+        await js(`(()=>{ const d = document.querySelector("#agora details.pausar"); d.open = true; d.querySelector('[data-pausa="60"]').click(); return true; })()`);
+        for (let i = 0; i < 40 && (await js(`kxa.estado`)) !== "pausada"; i++) await esperar(250);
+        r.kxApp.pausou = { put: putsKxApp(), estado: await js(`kxa.estado`), agora: await js(textoAgora), status: await js(`document.getElementById("ag-status").textContent`) };
+        await foto("kxapp_pausada");
+        await js(`document.querySelector("#agora [data-voltar]").click()`);
+        for (let i = 0; i < 40 && (await js(`kxa.estado`)) !== "minerando"; i++) await esperar(250);
+        r.kxApp.voltou = { put: putsKxApp().slice(1), estado: await js(`kxa.estado`), status: await js(`document.getElementById("ag-status").textContent`) };
+        /* a placa esquenta: duas leituras a 86 °C pausam por 15 minutos e avisam */
+        const kxQ = testeSegundoPlano.notificacoes.length;
+        kxApp.estado.modo = "quente";
+        await lerKxApp(); await lerKxApp(); await esperar(400);
+        r.kxApp.quente = { put: putsKxApp().slice(2), estado: await js(`kxa.estado`), protecao: await js(`kxa.protecao && kxa.protecao.motivo`), avisos: avisosDesde(kxQ), agora: await js(textoAgora) };
+        await foto("kxapp_quente");
+        await js(`voltarKryptex()`);   /* a placa esfriou: volta a minerar pelo painel */
+        /* a placa para sozinha (sem pausa): avisa na terceira leitura; quando volta, avisa de novo */
+        const kxP = testeSegundoPlano.notificacoes.length;
+        kxApp.estado.modo = "parado";
+        for (let i = 0; i < 3; i++) await lerKxApp();
+        r.kxApp.parou = { estado: await js(`kxa.estado`), avisos: avisosDesde(kxP) };
+        kxApp.estado.modo = "minerando"; await lerKxApp();
+        r.kxApp.voltouSozinha = { estado: await js(`kxa.estado`), avisos: avisosDesde(kxP) };
+        /* o app da Kryptex fecha: na hora, nada; 5 minutos sem responder, um aviso */
+        const kxF = testeSegundoPlano.notificacoes.length;
+        kxApp.estado.modo = "fechado";
+        await lerKxApp();
+        r.kxApp.fechou = { estado: await js(`kxa.estado`), avisos: avisosDesde(kxF) };
+        await js(`kxa.ultimaOk -= 5*60e3; true`);   /* passaram 5 minutos */
+        await lerKxApp();
+        r.kxApp.fechado = { estado: await js(`kxa.estado`), avisos: avisosDesde(kxF), agora: await js(textoAgora) };
+        await foto("kxapp_fechado");
+        kxApp.estado.modo = "minerando"; await lerKxApp(); await esperar(300);
+        r.kxApp.depois = { estado: await js(`kxa.estado`), leituras: await js(`kxaHist.amostras.length`), avisosNoResumo: await js(`document.getElementById("r-avisos").innerText.replace(/\\s+/g, " ").slice(0, 600)`),
+          retrato: await js(`(s=>s && {estado:s.estado, pausaAte:s.pausaAte})(JSON.parse(localStorage.getItem("min-kx-app")||"null"))`) };
+        r.kxApp.avisos = avisosDesde(kxN0);
+        r.kxApp.celular = ntfy.publicados.slice(kxP0).filter((m) => m.sequence_id !== "pc-sinal" && m.title).map((m) => m.title);
+        r.kxApp.puts = putsKxApp();
+        r.kxApp.semUsuario = !kxApp.pedidos.some((x) => x.caminho === "/user");
+        r.kxApp.caminhos = [...new Set(kxApp.pedidos.map((x) => x.metodo + " " + x.caminho))].sort();
 
         /* app do celular: vincula pelo QR code (câmera de mentira), sincroniza nos dois sentidos pelo ntfy, pedidos ao PC e desvincular */
         r.app = {};
@@ -795,6 +860,19 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await esperar(2000);
         r.app.anexoNoPc.pendentes = await ja(`window.desktop.sync.info().pendentes`);
         falso.ntfy.recusar = null;
+        /* app da Kryptex pelo celular: o retrato do PC está lá; pausar 3 horas e voltar a minerar, pedindo ao PC */
+        r.kxApp.noCelular = {};
+        await ja(`irPara("resumo")`); await esperar(500);
+        r.kxApp.noCelular.antes = await ja(`({estado:kxaSnap && kxaSnap.estado, agora:${textoAgora}, vivo:document.getElementById("vivo").innerText.replace(/\\s+/g, " ")})`);
+        const kxPut0 = putsKxApp().length;
+        r.kxApp.noCelular.pausar = await ja(`pausarKryptex(180)`);
+        for (let i = 0; i < 40 && (await ja(`kxaSnap && kxaSnap.estado`)) !== "pausada"; i++) await esperar(250);
+        r.kxApp.noCelular.pausada = { put: putsKxApp().slice(kxPut0), estado: await ja(`kxaSnap && kxaSnap.estado`), agora: await ja(textoAgora), status: await ja(`document.getElementById("ag-status").textContent`) };
+        await fotoApp("kryptex_pausada");
+        r.kxApp.noCelular.voltar = await ja(`voltarKryptex()`);
+        for (let i = 0; i < 40 && (await ja(`kxaSnap && kxaSnap.estado`)) !== "minerando"; i++) await esperar(250);
+        r.kxApp.noCelular.depois = { put: putsKxApp().slice(kxPut0), estado: await ja(`kxaSnap && kxaSnap.estado`), noPc: await js(`kxa.estado`), diferentes: await ateIguais() };
+        await fotoApp("kryptex");
         await ja(`irPara("premissas")`); await fotoApp("premissas");
         r.app.esteCelular = await ja(`({tela:!document.getElementById("v-premissas").hidden, cartao:!document.getElementById("estecel-p").hidden, info:document.getElementById("estecel-info").innerText.replace(/\\n/g," | ")})`);
         /* quantas mensagens o teste gastou no ntfy (o ntfy.sh aceita 250 por dia de cada internet) e se tudo foi cifrado */
@@ -821,6 +899,15 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await fotoApp("desvinculado");
         r.app.erros = errosApp;
         celApp.destroy(); srvApp.close();
+
+        /* Premissas › App da Kryptex neste PC: desligar a leitura. O painel para de ler e o resto do teste segue como na 1.5.0 */
+        await js(`irPara("premissas"); document.getElementById("kxa-p").scrollIntoView(); true`); await esperar(300);
+        await foto("kxapp_premissas");
+        await js(`(()=>{ const c = document.getElementById("kxa-ligado"); c.checked = false; c.dispatchEvent(new Event("change", {bubbles:true})); return true; })()`); await esperar(500);
+        const kxLidas = kxApp.pedidos.length;
+        await js(`lerKryptexApp().then(()=>true)`);   /* a leitura de cada minuto: desligada, não pede nada */
+        await js(`irPara("resumo")`); await esperar(300);
+        r.kxApp.desligado = { ligado: await js(`kxaCfg().ligado`), pedidos: kxApp.pedidos.length - kxLidas, segundoPlano: segundoPlano(), agora: await js(`${textoAgora}.slice(0, 200)`) };
 
         /* alerta de ofertas: liga, força a hora da busca automática e confere os avisos do Windows */
         r.alerta = {};
@@ -907,7 +994,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         /* conta da Kryptex: sem login → entrar (janela) → verificação contra robôs → máquinas e saldo; máquina para, volta,
            rende menos; o ganho de um dia pelo saldo vira sugestão no Diário; copiar o que o painel leu (sem e-mail) */
         r.kryptex = {};
-        await js(`irPara("resumo")`); await esperar(300);
+        await js(`irPara("premissas"); document.getElementById("kx-p").scrollIntoView(); true`); await esperar(300);
         const kxEstado = `({estado:kx.estado, msg:kx.msg, maquinas:kx.maquinas.map(m=>({nome:m.nome, online:m.online, estado:m.estado, h30:m.h30, base:m.base})), saldo:kx.saldo && {btc:kx.saldo.btc, fiat:kx.saldo.fiat, moeda:kx.saldo.moeda, preco:kx.saldo.preco},
           alertas:kx.alertas.map(a=>a.tipo), card:document.getElementById("kx-corpo").innerText.slice(0,500), visivel:!document.getElementById("kx-p").hidden})`;
         r.kryptex.antes = await js(`({visivel:!document.getElementById("kx-p").hidden, botao:!!document.querySelector('#kx-acoes [data-kx="ligar"]'), entrarNoPc:!document.querySelector('[data-pc="kryptex"]').hidden})`);
@@ -924,7 +1011,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.kryptex.entrou = await js(`({...${kxEstado}, status:document.getElementById("kx-status").textContent})`);
         r.kryptex.janelas = testeKryptex.entrou;
         r.kryptex.pedidos = kxf.pedidos.slice();
-        await foto("kryptex");
+        await js(`document.getElementById("kx-p").scrollIntoView(); true`); await foto("kryptex");
         /* a máquina para (a Kryptex marca offline): aviso no Windows e no celular; depois volta */
         const nAntes = testeSegundoPlano.notificacoes.length, pubAntes = ntfy.publicados.length;
         kxf.maquinas[0].is_online = false;
@@ -954,7 +1041,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
           const e = diario.find(x=>x.data===iso);
           return {iso, dia:kx.dias[iso], sugestao:sug.slice(0,300), anotado:e && {valor:e.valor, moeda:e.moeda, btc:e.btc, obs:e.obs, fonte:e.fonte}, sumiu:document.getElementById("kx-sug").hidden}; })()`);
         await foto("kryptex_diario");
-        await js(`irPara("resumo")`); await esperar(300);
+        await js(`irPara("premissas")`); await esperar(300);
         await js(`document.querySelector('#kx-acoes [data-kx="copiar"]').click()`); await esperar(500);
         const diag = testeArquivos.copiado;
         r.kryptex.diag = { tamanho: diag.length, semEmail: !/alex\.teste@example\.com/.test(diag), semCarteira: !/bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh/.test(diag), semCodigo: !/7f3a9c2e1b4d5f60718293a4b5c6d7e8f9/.test(diag), temDataset: /workerDataset/.test(diag), oculto: /e-mail@oculto/.test(diag) };
