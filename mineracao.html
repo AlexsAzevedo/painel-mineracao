@@ -886,6 +886,85 @@ details.saiba > :not(summary){margin-bottom:14px}
 .novid .v{font-family:var(--mono);font-size:.78rem;color:var(--muted);margin-left:2px}
 @media (max-width:620px){.aviso-atu{right:16px;left:16px;bottom:16px;width:auto}}
 
+/* ---------- celular (menos de 900 px): folhas que sobem de baixo e listas em cartões ----------
+   Folha: um painel da tela (o formulário do Diário, a busca das Ofertas…) fica guardado e sobe de baixo pelo botão
+   redondo (.fab, data-folha). No PC, o mesmo painel fica no lugar de sempre e o botão não aparece. */
+.fab,.folha-topo,.folha-fundo,.cat-mais,.filtros-mais{display:none}
+.toast-acao{all:unset;cursor:pointer;margin-left:14px;padding:4px 2px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px}
+.toast-acao:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:4px}
+@keyframes folha-sobe{from{transform:translateY(28px);opacity:.5}}
+@media (max-width:899px){
+  .fab{display:inline-flex;align-items:center;gap:8px;position:fixed;z-index:35;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(80px + env(safe-area-inset-bottom,0px));
+    min-height:54px;padding:0 20px 0 16px;border:0;border-radius:18px;background:var(--accent);color:var(--onaccent);font-weight:700;font-size:.95rem;box-shadow:0 14px 30px -12px var(--shadow)}
+  .fab svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+  .fab[aria-expanded="true"]{visibility:hidden}
+  .view:has(> .fab){padding-bottom:64px}   /* o último cartão não fica embaixo do botão */
+  .folha-m:not(.aberta){display:none}
+  .folha-m.aberta{position:fixed;z-index:46;left:0;right:0;bottom:0;margin:0;max-height:calc(100dvh - 72px - env(safe-area-inset-top,0px));overflow-y:auto;overscroll-behavior:contain;
+    border-radius:20px 20px 0 0;border-bottom:0;padding-top:8px;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+    box-shadow:0 -20px 50px -16px var(--shadow);animation:folha-sobe .22s ease-out}
+  .folha-m.aberta::before{content:"";align-self:center;width:36px;height:4px;border-radius:2px;background:var(--line);flex:none}
+  .folha-m.aberta .folha-topo{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .folha-topo h2{font-size:1.1rem}
+  .folha-x{all:unset;box-sizing:border-box;display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:50%;font-size:1.6rem;line-height:1;color:var(--muted);cursor:pointer}
+  .folha-x:hover{background:var(--sunk)}
+  .folha-x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .folha-fundo:not([hidden]){display:block;position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.5)}
+
+  /* Resumo: no retorno das placas, o nome em cima e a previsão embaixo */
+  .rig-l{grid-template-columns:minmax(0,1fr)}
+  .rig-l .v{text-align:left;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;font-size:.88rem}
+  .rig-l .v small{display:inline}
+
+  /* tabelas que viram cartões: cada célula com o nome da coluna (data-l) em cima do valor */
+  .hist-d .tw,.rel-tab,#tw-cat{border:0;background:none;overflow:visible;max-height:none;border-radius:0}
+  .hist-d table,.rel-tab table,#tabcat{display:block;min-width:0}
+  .hist-d thead,.rel-tab thead,#tabcat thead{display:none}
+  .hist-d tbody,.rel-tab tbody,.rel-tab tfoot,#cat{display:flex;flex-direction:column;gap:10px}
+  .hist-d td,.rel-tab td,#tabcat #cat td{display:block;padding:0;border:0;white-space:normal;text-align:left;min-width:0;max-width:none;position:static;box-shadow:none;background:none}
+  .hist-d td[data-l]::before,.rel-tab td[data-l]::before,#cat td[data-l]::before{content:attr(data-l);display:block;margin-bottom:2px;font-family:var(--body);font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  /* Diário: o dia e o recebido em cima; estimado, diferença e lucro embaixo; a observação e os botões no fim */
+  .hist-d tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"dia dia real" "est dif luc";gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+  .hist-d td:nth-child(1){grid-area:dia;font-size:1rem}
+  .hist-d td:nth-child(2){grid-area:real;text-align:right;font-weight:600;font-size:1.05rem}
+  .hist-d td:nth-child(3){grid-area:est}
+  .hist-d td:nth-child(4){grid-area:dif}
+  .hist-d td:nth-child(5){grid-area:luc}
+  .hist-d td:nth-child(6){grid-column:1/-1;font-size:.85rem}
+  .hist-d td:nth-child(6):empty{display:none}
+  .hist-d td:nth-child(7){grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:8px}
+  .hist-d tr > td.empty{grid-column:1/-1}
+  /* Relatório: um cartão por mês (e por placa), com o total no fim */
+  .rel-tab tfoot{margin-top:10px}
+  .rel-tab tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--sunk)}
+  .rel-tab td:first-child{grid-column:1/-1;font-weight:700}
+  .rel-tab tfoot tr{background:var(--accent-soft);border-color:transparent}
+  /* Todas as placas: nome e veredito em cima; lucro, retorno e limite; consumo, bruto e luz; e o seu preço */
+  #cat tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"nome nome pill" "lucro ret lim" "w bruto luz" "preco preco preco";gap:12px 10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+  #tabcat #cat td:nth-child(1){grid-area:nome;font-size:1rem}
+  #tabcat #cat td:nth-child(2){grid-area:w}
+  #tabcat #cat td:nth-child(3){grid-area:bruto}
+  #tabcat #cat td:nth-child(4){grid-area:luz}
+  #tabcat #cat td:nth-child(5){grid-area:lucro;font-weight:600}
+  #tabcat #cat td:nth-child(6){grid-area:lim}
+  #tabcat #cat td:nth-child(7){grid-area:preco;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;border-top:1px solid var(--line);padding-top:12px}
+  #tabcat #cat td:nth-child(7)::before{flex-basis:100%;margin:0}
+  #tabcat #cat td:nth-child(7) .pin{width:150px;flex:none}
+  #tabcat #cat td:nth-child(7) .oferta{margin:0}
+  #tabcat #cat td:nth-child(8){grid-area:ret;font-weight:600}
+  #tabcat #cat td:nth-child(9){grid-area:pill;justify-self:end;align-self:start}
+  #cat td small{white-space:normal}
+  #cat tr > td.empty{grid-column:1/-1}
+  #tabcat:not(.todas) #cat tr:nth-child(n+21){display:none}
+  .cat-mais:not([hidden]){display:block;width:100%}
+  /* filtros de Todas as placas: a busca à vista; o resto atrás do botão Filtros */
+  .filtros-cat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end}
+  .filtros-cat > .busca{grid-column:1}
+  .filtros-mais{display:inline-flex;align-items:center;gap:6px;grid-column:2;min-height:40px}
+  .filtros-cat:not(.aberta) > :not(.busca):not(.filtros-mais){display:none}
+  .filtros-cat.aberta > :not(.busca):not(.filtros-mais){grid-column:1/-1}
+}
+@media (max-width:899px) and (prefers-reduced-motion:reduce){.folha-m.aberta{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -1069,8 +1148,9 @@ details.saiba > :not(summary){margin-bottom:14px}
       <header class="vh"><div><h1 id="t-placas" tabindex="-1">Todas as placas</h1><p class="sub">Qual placa ganha mais e qual se paga mais rápido. Digite o preço que encontrou para ver se compensa.</p></div><button type="button" id="editar">Editar dados das placas</button></header>
       <div class="chips-cen" id="chips-cen"></div>
       <article class="painel"><div class="painel-h"><h2>Melhores compras hoje</h2></div><ol class="rank" id="r-compras"></ol><p class="nota-mini" id="r-compras-nota"></p></article>
-    <div class="barra" role="group" aria-label="Filtros da lista">
+    <div class="barra filtros-cat" id="filtros-cat" role="group" aria-label="Filtros da lista">
       <label class="busca"><span class="lbl">Buscar</span><input id="busca" type="search" placeholder="Ex.: 4070, rx 6600"></label>
+      <button type="button" class="filtros-mais" id="filtros-mais" aria-expanded="false" aria-controls="filtros-cat"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Filtros<span class="filtros-n" id="filtros-n"></span></button>
       <label><span class="lbl">Marca</span><select id="marca"><option value="">Todas</option><option>NVIDIA</option><option>AMD</option><option>Intel</option></select></label>
       <label><span class="lbl">Preço até (R$)</span><input id="teto" type="number" min="0" step="100" placeholder="Sem limite"></label>
       <label><span class="lbl">Preço base</span><select id="base"><option value="usado">Usado (Marketplace)</option><option value="novo">Novo (loja)</option></select></label>
@@ -1104,6 +1184,7 @@ details.saiba > :not(summary){margin-bottom:14px}
       </tr></thead>
       <tbody id="cat"></tbody>
     </table></div>
+    <button type="button" class="cat-mais" id="cat-mais" hidden></button>
     <article class="painel hist-p" id="hist-p" aria-labelledby="t-hist">
       <div class="painel-h" style="flex-wrap:wrap"><h2 id="t-hist">Preço de usada ao longo do tempo</h2>
         <label class="hist-sel"><span class="sr">Modelo do gráfico</span><select id="hist-modelo"></select></label></div>
@@ -1350,7 +1431,9 @@ details.saiba > :not(summary){margin-bottom:14px}
 
     <section class="view" id="v-diario" aria-labelledby="t-diario" hidden>
       <header class="vh"><div><h1 id="t-diario" tabindex="-1">Diário de ganhos</h1><p class="sub">Anote quanto entrou de verdade em cada dia e compare com a estimativa da Kryptex.</p></div></header>
-      <div class="painel">
+      <button type="button" class="fab" id="d-fab" data-folha="d-folha" data-foco="d-valor" aria-controls="d-folha" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Anotar o dia</span></button>
+      <div class="painel folha-m" id="d-folha">
+        <div class="folha-topo"><h2 id="d-folha-t">Anotar um dia</h2><button type="button" class="folha-x" data-fechar-folha aria-label="Fechar">×</button></div>
         <form class="dform" id="dform" autocomplete="off" novalidate>
           <label><span class="lbl">Dia</span><input id="d-data" type="date" required></label>
           <label><span class="lbl">Quanto rendeu</span><input id="d-valor" type="number" min="0" step="any" inputmode="decimal" placeholder="0,00" required></label>
@@ -1394,6 +1477,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     <button type="button" class="aba" id="aba-mais" aria-expanded="false" aria-controls="mais" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Mais</span></button>
   </nav>
   <div class="mais-fundo" id="mais-fundo" hidden></div>
+  <div class="folha-fundo" id="folha-fundo" hidden></div>
   <div class="mais" id="mais" role="dialog" aria-modal="true" aria-label="Mais telas" hidden>
     <button type="button" class="mais-item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span></button>
     <button type="button" class="mais-item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span></button>
@@ -1538,6 +1622,7 @@ const brl = v => (v<0?"−":"")+"R$ "+Math.abs(v).toLocaleString("pt-BR",{minimu
 const brl0 = v => (v<0?"−":"")+"R$ "+Math.abs(v).toLocaleString("pt-BR",{maximumFractionDigits:0});
 const n1 = v => v.toLocaleString("pt-BR",{maximumFractionDigits:1});
 const $ = id => document.getElementById(id);
+const CELULAR = () => matchMedia("(max-width:899px)").matches;   /* tela de celular: barra embaixo, folhas, listas em cartões */
 /* tema: escuro (padrão) ou claro, escolhido em cada aparelho (min-tema, fora da sincronia) */
 function temaAtual(){ return document.documentElement.dataset.tema==="claro" ? "claro" : "escuro"; }
 function marcarTema(){ const t = temaAtual(); document.querySelectorAll("[data-tema-op]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.temaOp===t))); }
@@ -1783,17 +1868,24 @@ function renderCat(){
     const wCell = editMode ? `<input class="ein" data-ov="w" data-id="${r.id}" type="number" value="${r.w}">` : r.w+" W";
     const sub = editMode ? `<small>Receita US$/ano <input class="ein" data-ov="rec" data-id="${r.id}" type="number" step="0.01" value="${r.rec}"></small>`
                          : `<small>${r.coin}${etiqueta(r)?" · "+etiqueta(r):""}</small>`;
+    /* data-l: o nome da coluna, que aparece em cima do valor quando a tabela vira cartões (celular) */
     return `<tr id="row-${r.id}">
       <td class="name" title="${r.nome}">${r.curto}${sub}</td>
-      <td class="n">${wCell}<small class="sub">${n1(r.kwh)} kWh/mês</small></td>
-      <td class="n">${brl0(r.receita)}</td>
-      <td class="n">${brl0(r.energia)}</td>
-      <td class="n ${r.lucro<0?"neg":""}">${brl0(r.lucro)}<small class="sub">${brl(r.porW)} por W</small></td>
-      <td class="n limit">${r.lucro>0?brl0(r.limite):"—"}${cfg.revenda && r.lucro>0 && r.revendaBase>0 ? `<small class="sub">com revenda de ≈ ${brl0(r.revenda)}</small>` : ""}</td>
-      <td class="n"><input class="pin" id="p-${r.id}" data-cot="${r.id}" type="number" min="0" step="1" placeholder="R$" value="${seu>0?seu:""}">${linkNova(r)}</td>
-      <td class="n">${r.meses!=null ? n1(r.meses)+" meses"+`<small class="fonte">${fonteTxt(r.preco)}</small>` : "—"}</td>
+      <td class="n" data-l="Consumo">${wCell}<small class="sub">${n1(r.kwh)} kWh/mês</small></td>
+      <td class="n" data-l="Bruto/mês">${brl0(r.receita)}</td>
+      <td class="n" data-l="Luz/mês">${brl0(r.energia)}</td>
+      <td class="n ${r.lucro<0?"neg":""}" data-l="Lucro/mês">${brl0(r.lucro)}<small class="sub">${brl(r.porW)} por W</small></td>
+      <td class="n limit" data-l="Preço limite">${r.lucro>0?brl0(r.limite):"—"}${cfg.revenda && r.lucro>0 && r.revendaBase>0 ? `<small class="sub">com revenda de ≈ ${brl0(r.revenda)}</small>` : ""}</td>
+      <td class="n" data-l="Seu preço"><input class="pin" id="p-${r.id}" data-cot="${r.id}" type="number" min="0" step="1" placeholder="R$" value="${seu>0?seu:""}" aria-label="Seu preço da ${r.curto}">${linkNova(r)}</td>
+      <td class="n" data-l="Retorno">${r.meses!=null ? n1(r.meses)+" meses"+`<small class="fonte">${fonteTxt(r.preco)}</small>` : "—"}</td>
       <td>${pill}</td></tr>`;
   }).join("") : `<tr><td colspan="9" class="empty">Nenhuma placa com esses filtros.</td></tr>`;
+  /* no celular, a lista mostra as 20 primeiras; o botão mostra o resto */
+  const todas = $("tabcat").classList.contains("todas");
+  $("cat-mais").hidden = todas || rows.length <= 20;
+  $("cat-mais").textContent = `Mostrar todas as ${rows.length} placas`;
+  const nf = [$("marca").value, $("teto").value, $("solucro").checked, $("semcmp").checked].filter(Boolean).length;
+  $("filtros-n").textContent = nf ? ` (${nf})` : "";
   renderHistorico();
 }
 
@@ -1908,12 +2000,15 @@ $("base").addEventListener("change",()=>{ salvarUI(); renderCat(); renderAnalise
 $("teto").addEventListener("input",()=>{ salvarUI(); renderCat(); });
 $("busca").addEventListener("input",renderCat);
 $("tabcat").querySelector("thead").addEventListener("click",e=>{ const b = e.target.closest(".ord"); if(!b) return; $("ordem").value = b.dataset.ord; salvarUI(); renderCat(); });
+function mostrarTodasPlacas(){ $("tabcat").classList.add("todas"); $("cat-mais").hidden = true; }
+$("cat-mais").addEventListener("click", ()=>{ mostrarTodasPlacas(); const tr = $("cat").children[20]; if(tr){ tr.tabIndex = -1; tr.focus({preventScroll:true}); } });   /* o foco vai para a primeira das que apareceram */
+$("filtros-mais").addEventListener("click", e=>{ const a = $("filtros-cat").classList.toggle("aberta"); e.currentTarget.setAttribute("aria-expanded", String(a)); });
 $("destaques").addEventListener("click",e=>{
   const b = e.target.closest("[data-row]"); if(!b) return;
   const tr = $("row-"+b.dataset.row); if(!tr) return;
   const box = $("tw-cat");
-  box.scrollTop = tr.offsetTop - box.clientHeight/2;
-  box.scrollIntoView({behavior:suave(), block:"nearest"});
+  if(CELULAR()){ if(!tr.getClientRects().length) mostrarTodasPlacas(); tr.scrollIntoView({behavior:suave(), block:"center"}); }   /* no celular a lista não rola por dentro */
+  else { box.scrollTop = tr.offsetTop - box.clientHeight/2; box.scrollIntoView({behavior:suave(), block:"nearest"}); }
   tr.classList.add("flash"); setTimeout(()=>tr.classList.remove("flash"), 1600);
 });
 $("editar").addEventListener("click",e=>{ editMode=!editMode; e.target.textContent=editMode?"Concluir edição":"Editar dados das placas"; renderCat(); });
@@ -2916,9 +3011,9 @@ function renderDiario(){
       const dif = l.pct!=null ? l.pct-1 : null;
       return `<tr><td class="name">${dataBR(l.e.data)}<small>${new Date(l.e.data+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"})}${+l.e.horas<24?` · ${n1(+l.e.horas)} h`:""}</small></td>
         <td class="n">${brl(l.rBrl)}<small class="sub">${l.e.moeda==="BRL"?"anotado em R$":usd2(l.e.valor)}</small></td>
-        <td class="n">${l.eUsd>0?brl(l.eBrl):"—"}<small class="sub">${l.eUsd>0?usd2(l.eUsd):"nada minerando"}</small></td>
-        <td class="n ${dif!=null&&dif<0?"neg":dif>0?"dif-pos":""}">${dif==null?"—":(dif>0?"+":dif<0?"−":"")+Math.abs(Math.round(dif*1000)/10).toLocaleString("pt-BR")+"%"}</td>
-        <td class="n ${l.rBrl-l.luz<0?"neg":""}">${brl(l.rBrl-l.luz)}</td>
+        <td class="n" data-l="Estimado">${l.eUsd>0?brl(l.eBrl):"—"}<small class="sub">${l.eUsd>0?usd2(l.eUsd):"nada minerando"}</small></td>
+        <td class="n ${dif!=null&&dif<0?"neg":dif>0?"dif-pos":""}" data-l="Diferença">${dif==null?"—":(dif>0?"+":dif<0?"−":"")+Math.abs(Math.round(dif*1000)/10).toLocaleString("pt-BR")+"%"}</td>
+        <td class="n ${l.rBrl-l.luz<0?"neg":""}" data-l="Lucro real">${brl(l.rBrl-l.luz)}</td>
         <td class="obs">${esc(l.e.obs||"")}</td>
         <td><button type="button" class="link" data-acao="editar-dia" data-d="${l.e.data}">Editar</button><button type="button" class="ghost" data-acao="apagar-dia" data-d="${l.e.data}" aria-label="Apagar ${dataBR(l.e.data)}">Apagar</button></td></tr>`; }).join("")}</tbody></table></div>`
     : `<div class="empty">${diario.length ? "Nenhum dia anotado neste período." : "Nenhum dia anotado ainda. Quando a RX 9070 XT começar a minerar, anote aqui o que a Kryptex mostrar de ganho de cada dia."}</div>`;
@@ -3008,17 +3103,39 @@ $("dform").addEventListener("submit", async e=>{
   lsSet("min-dmoeda", moeda);
   await salvarDia(ent);
   const l = linhaDia(ent);
-  status2("d-status", `Salvo ${dataBR(data)}: ${moeda==="BRL"?brl(valor):usd2(valor)}${l.pct!=null?` · ${Math.round(l.pct*100)}% do estimado`:""}.`, "ok");
+  const msg = `Salvo ${dataBR(data)}: ${moeda==="BRL"?brl(valor):usd2(valor)}${l.pct!=null?` · ${Math.round(l.pct*100)}% do estimado`:""}.`;
+  status2("d-status", msg, "ok");
   $("d-valor").value = ""; $("d-obs").value = ""; $("d-btn").textContent = "Atualizar";
+  if(folhaAberta===$("d-folha")){ fecharFolha(); toast(msg); }
 });
+/* recado do Diário: no recado de baixo do formulário e, no celular com o formulário guardado, também embaixo da tela */
+function avisoDiario(msg, tipo, acao){
+  status2("d-status", msg, tipo);
+  if(CELULAR() && folhaAberta!==$("d-folha")) toast(msg, acao);
+}
+function refazerDia(){
+  if(!ultimoDiaApagado) return;
+  const ent = {...ultimoDiaApagado}; delete ent._id; salvarDia(ent); ultimoDiaApagado = null; avisoDiario("Dia de volta.", "ok");
+}
 $("v-diario").addEventListener("click", e=>{
   const b = e.target.closest("[data-per],[data-acao]"); if(!b) return;
   if(b.dataset.per!=null){ dPer = +b.dataset.per; lsSet("min-dper", dPer); renderDiario(); return; }
   const acao = b.dataset.acao;
-  if(acao==="usar-margem"){ const v = Math.max(0, Math.min(90, +b.dataset.v)); cfg.margem = v; salvarCfg(); render(); status2("d-status", `Margem de segurança agora em ${v}%. Todas as contas foram refeitas.`, "ok"); return; }
-  if(acao==="editar-dia"){ const ex = diario.find(x=>x.data===b.dataset.d); if(!ex) return; $("d-data").value = ex.data; $("d-valor").value = ex.valor; $("d-moeda").value = ex.moeda==="BRL"?"BRL":"USD"; $("d-horas").value = ex.horas ?? cfg.horas; $("d-obs").value = ex.obs||""; $("d-btn").textContent = "Atualizar"; dicaEst(); status2("d-status", `Editando ${dataBR(ex.data)}. Mude o que precisar e clique em Atualizar.`); $("d-valor").focus(); window.scrollTo({top:0, behavior:suave()}); return; }
-  if(acao==="apagar-dia"){ const d = b.dataset.d, ex = diario.find(x=>x.data===d); apagarDia(d); $("d-status").innerHTML = `${dataBR(d)} apagado. <button type="button" class="link" data-acao="refazer-dia" data-d="${d}">Desfazer</button>`; $("d-status").className = "status"; ultimoDiaApagado = ex || null; return; }
-  if(acao==="refazer-dia"){ if(ultimoDiaApagado){ const ent = {...ultimoDiaApagado}; delete ent._id; salvarDia(ent); ultimoDiaApagado = null; status2("d-status", "Dia de volta.", "ok"); } return; }
+  if(acao==="usar-margem"){ const v = Math.max(0, Math.min(90, +b.dataset.v)); cfg.margem = v; salvarCfg(); render(); avisoDiario(`Margem de segurança agora em ${v}%. Todas as contas foram refeitas.`, "ok"); return; }
+  if(acao==="editar-dia"){
+    const ex = diario.find(x=>x.data===b.dataset.d); if(!ex) return;
+    $("d-data").value = ex.data; $("d-valor").value = ex.valor; $("d-moeda").value = ex.moeda==="BRL"?"BRL":"USD"; $("d-horas").value = ex.horas ?? cfg.horas; $("d-obs").value = ex.obs||""; $("d-btn").textContent = "Atualizar"; dicaEst();
+    status2("d-status", `Editando ${dataBR(ex.data)}. Mude o que precisar e clique em Atualizar.`);
+    if(!abrirFolha("d-folha", "d-valor")){ $("d-valor").focus(); window.scrollTo({top:0, behavior:suave()}); }   /* no celular, o formulário sobe numa folha */
+    return;
+  }
+  if(acao==="apagar-dia"){
+    const d = b.dataset.d, ex = diario.find(x=>x.data===d); apagarDia(d); ultimoDiaApagado = ex || null;
+    $("d-status").innerHTML = `${dataBR(d)} apagado. <button type="button" class="link" data-acao="refazer-dia" data-d="${d}">Desfazer</button>`; $("d-status").className = "status";
+    if(CELULAR()) toast(`${dataBR(d)} apagado.`, {txt:"Desfazer", fn:refazerDia});
+    return;
+  }
+  if(acao==="refazer-dia"){ refazerDia(); return; }
 });
 let ultimoDiaApagado = null;
 
@@ -3088,10 +3205,10 @@ function renderRelatorio(){
   ].map(([l,v,sub])=>`<div class="kpi"><span class="lbl">${l}</span><b>${v}</b><small>${esc(sub)}</small></div>`).join("");
   const ms = linhasMesRel(r, false);
   const tabMes = ms.length ? `<div class="tw rel-tab"><table><thead><tr><th>Mês</th><th class="n">Dias</th><th class="n">Recebido (US$)</th><th class="n">Recebido (R$)</th>${comBtc ? '<th class="n">BTC</th>' : ""}<th class="n">Luz estimada</th><th class="n">Lucro</th></tr></thead>
-    <tbody>${ms.map(m=>`<tr><td>${m.nome}</td><td class="n">${m.dias}</td><td class="n">${usd2(m.usd)}</td><td class="n">${brl(m.brl)}</td>${comBtc ? `<td class="n">${m.nBtc ? btc8(m.btc) : "—"}</td>` : ""}<td class="n">${brl(m.luz)}</td><td class="n ${m.lucro<0?"neg":""}">${brl(m.lucro)}</td></tr>`).join("")}</tbody>
-    <tfoot><tr><td>Total</td><td class="n">${t.dias}</td><td class="n">${usd2(t.usd)}</td><td class="n">${brl(t.brl)}</td>${comBtc ? `<td class="n">${btc8(t.btc)}</td>` : ""}<td class="n">${brl(t.luz)}</td><td class="n ${t.brl-t.luz<0?"neg":""}">${brl(t.brl-t.luz)}</td></tr></tfoot></table></div>` : "";
+    <tbody>${ms.map(m=>`<tr><td>${m.nome}</td><td class="n" data-l="Dias">${m.dias}</td><td class="n" data-l="Recebido (US$)">${usd2(m.usd)}</td><td class="n" data-l="Recebido (R$)">${brl(m.brl)}</td>${comBtc ? `<td class="n" data-l="BTC">${m.nBtc ? btc8(m.btc) : "—"}</td>` : ""}<td class="n" data-l="Luz estimada">${brl(m.luz)}</td><td class="n ${m.lucro<0?"neg":""}" data-l="Lucro">${brl(m.lucro)}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td>Total</td><td class="n" data-l="Dias">${t.dias}</td><td class="n" data-l="Recebido (US$)">${usd2(t.usd)}</td><td class="n" data-l="Recebido (R$)">${brl(t.brl)}</td>${comBtc ? `<td class="n" data-l="BTC">${btc8(t.btc)}</td>` : ""}<td class="n" data-l="Luz estimada">${brl(t.luz)}</td><td class="n ${t.brl-t.luz<0?"neg":""}" data-l="Lucro">${brl(t.brl-t.luz)}</td></tr></tfoot></table></div>` : "";
   const tabPl = r.placas.length ? `<div class="tw rel-tab"><table><thead><tr><th>Placa</th><th class="n">Qtd.</th><th class="n">Valor pago</th><th>Pagamento</th><th>Começou a minerar</th></tr></thead>
-    <tbody>${r.placas.map(p=>`<tr><td>${esc(p.nome)}</td><td class="n">${p.q}</td><td class="n">${brl(p.total)}${p.q>1 ? `<small class="sub">${brl(p.un)} cada</small>` : ""}</td><td>${p.pag}</td><td>${p.inicio ? dataBR(p.inicio) : "—"}</td></tr>`).join("")}</tbody></table></div>` : "";
+    <tbody>${r.placas.map(p=>`<tr><td>${esc(p.nome)}</td><td class="n" data-l="Qtd.">${p.q}</td><td class="n" data-l="Valor pago">${brl(p.total)}${p.q>1 ? `<small class="sub">${brl(p.un)} cada</small>` : ""}</td><td data-l="Pagamento">${p.pag}</td><td data-l="Começou a minerar">${p.inicio ? dataBR(p.inicio) : "—"}</td></tr>`).join("")}</tbody></table></div>` : "";
   $("rel-res").innerHTML = `<div class="kpis">${kpis}</div>${tabMes}${tabPl}${r.pecas.length ? `<p class="nota-mini">Também vão no PDF e na planilha ${r.pecas.length} ${plural(r.pecas.length,"peça")} das máquinas marcadas como “já tenho”, com o valor que você informou.</p>` : ""}`;
 }
 /* planilha: uma seção embaixo da outra, os 12 meses sempre */
@@ -3289,8 +3406,19 @@ function desenharRetorno(R){
   const yC = Y(R.custo), xP = X(R.prazo), xH = X(hoje);
   let ref = `<line x1="${mL}" x2="${W-mR}" y1="${yC.toFixed(1)}" y2="${yC.toFixed(1)}" stroke="var(--muted)" stroke-width="1.5"/>`
     + `<text class="ref" x="${mL+6}" y="${(yC-6).toFixed(1)}">custo ${brl0(R.custo)}</text>`;
-  if(R.prazo<=x1) ref += `<line x1="${xP.toFixed(1)}" x2="${xP.toFixed(1)}" y1="${mT}" y2="${mT+ph}" stroke="var(--muted)" stroke-width="1.5"/><text class="ref" x="${(xP-5).toFixed(1)}" y="${mT-8}" text-anchor="end">prazo de ${Math.round(+cfg.meses||12)} meses</text>`;
-  if(!R.futuro && Math.abs(xH-xP)>4) ref += `<line x1="${xH.toFixed(1)}" x2="${xH.toFixed(1)}" y1="${mT}" y2="${mT+ph}" stroke="var(--viz-axis)" stroke-width="1"/><text x="${(xH+5).toFixed(1)}" y="${mT-8}">hoje</text>`;
+  /* os rótulos de cima: "prazo de N meses" fica à esquerda da linha do prazo e "hoje" à direita da de hoje. Num gráfico
+     estreito, com hoje pouco antes do prazo, os dois se encostam: aí o do prazo passa para a direita da linha (ou encurta) */
+  const largTxt = t => t.length*6.4, mostraHoje = !R.futuro && Math.abs(xH-xP)>4;
+  let tPrazo = `prazo de ${Math.round(+cfg.meses||12)} meses`, xT = xP-5, ancora = "end";
+  if(mostraHoje && xH<xP){
+    const fimHoje = xH + 5 + largTxt("hoje") + 8;
+    if(xP - 5 - largTxt(tPrazo) < fimHoje){
+      if(xP + 5 + largTxt(tPrazo) <= W - mR){ xT = xP+5; ancora = "start"; }
+      else { tPrazo = "prazo"; if(xP - 5 - largTxt(tPrazo) < fimHoje){ xT = xP+5; ancora = "start"; } }
+    }
+  }
+  if(R.prazo<=x1) ref += `<line x1="${xP.toFixed(1)}" x2="${xP.toFixed(1)}" y1="${mT}" y2="${mT+ph}" stroke="var(--muted)" stroke-width="1.5"/><text class="ref" x="${xT.toFixed(1)}" y="${mT-8}" text-anchor="${ancora}">${tPrazo}</text>`;
+  if(mostraHoje) ref += `<line x1="${xH.toFixed(1)}" x2="${xH.toFixed(1)}" y1="${mT}" y2="${mT+ph}" stroke="var(--viz-axis)" stroke-width="1"/><text x="${(xH+5).toFixed(1)}" y="${mT-8}">hoje</text>`;
   /* previsto: reta do começo até o fim do gráfico (cortada no topo) */
   const xFimPrev = R.prevDia>0 ? (prevEm(x1)>topo ? somaDiasIso(x0, (topo-0)/R.prevDia) : x1) : x1;
   const prev = `<path d="M${X(x0).toFixed(1)},${Y(0).toFixed(1)} L${X(xFimPrev).toFixed(1)},${Y(prevEm(xFimPrev)).toFixed(1)}" fill="none" stroke="var(--viz-est)" stroke-width="2" stroke-linecap="round"/>`;
@@ -5153,7 +5281,7 @@ document.addEventListener("change", e=>{
 });
 $("kx-sug").addEventListener("click", async e=>{
   const a = e.target.closest("[data-kx-anotar]"), r = e.target.closest("[data-kx-recusar]");
-  if(a){ a.disabled = true; const d = a.dataset.kxAnotar; if(await anotarDiaKx(d, false)) status2("d-status", `Anotado ${dataBR(d)}: ${valorKx(kx.dias[d])}, lido da Kryptex.`, "ok"); renderSugestoesKx(); }
+  if(a){ a.disabled = true; const d = a.dataset.kxAnotar; if(await anotarDiaKx(d, false)) avisoDiario(`Anotado ${dataBR(d)}: ${valorKx(kx.dias[d])}, lido da Kryptex.`, "ok"); renderSugestoesKx(); }
   else if(r){ mudarKxCfg({recusados: [...kxCfg().recusados, r.dataset.kxRecusar].slice(-60)}); renderSugestoesKx(); }
 });
 $("kx-p").addEventListener("click", async e=>{
@@ -5514,11 +5642,17 @@ if(REMOTO && window.desktop.sync){
   window.desktop.sync.aoReceber(chaves=>aplicarDadosRemotos(chaves));
   window.desktop.sync.aoEstado(remotoEstado);
 }
-/* recado curto embaixo da tela (some sozinho) */
-function toast(msg, ms){
+/* recado curto embaixo da tela (some sozinho); acao = {txt, fn}: um botão no recado (Desfazer), que fica mais tempo */
+function toast(msg, acao){
   const t = $("toast"); if(!t) return;
-  t.textContent = msg; clearTimeout(toast.t);
-  toast.t = setTimeout(()=>{ t.textContent = ""; }, ms || 4500);
+  clearTimeout(toast.t);
+  t.textContent = msg;
+  if(acao && acao.txt){
+    const b = document.createElement("button"); b.type = "button"; b.className = "toast-acao"; b.textContent = acao.txt;
+    b.addEventListener("click", ()=>{ clearTimeout(toast.t); t.textContent = ""; acao.fn(); });
+    t.append(b);
+  }
+  toast.t = setTimeout(()=>{ t.textContent = ""; }, acao ? 8000 : 4500);
 }
 /* celular: atualizar os dados do PC pelo botão da barra de cima (e, no app, puxando a tela para baixo).
    Cada vez é uma mensagem para o PC e a resposta: no máximo uma vez a cada 30 segundos. */
@@ -5951,7 +6085,7 @@ function textoPausa(ate, agora){
 }
 /* a linha do ganho de hoje (da meia-noite até agora) */
 function svgLinhaDia(linha, agora){
-  if(!linha || linha.length<2) return "";
+  if(!linha || linha.length<2 || !(Math.max(...linha.map(x=>+x[1]||0)) > 0.005)) return "";   /* sem ganho ainda: nada a desenhar */
   const d = new Date(agora); d.setHours(0,0,0,0); const ini = d.getTime(), fim = Math.max(agora, linha[linha.length-1][0]);
   const maxV = Math.max(0.01, ...linha.map(x=>x[1])), W = 300, H = 56;
   const pts = linha.map(([t,v])=>[(t-ini)/(fim-ini)*W, H-2 - v/maxV*(H-6)]);
@@ -6153,12 +6287,56 @@ function fecharMais(){
   return true;
 }
 window.fecharMais = fecharMais;
+/* ---------- folhas do celular: um painel da tela sobe de baixo (o formulário do Diário…) ---------- */
+let folhaAberta = null, folhaVoltar = null;
+function abrirFolha(id, foco){
+  const f = $(id); if(!f || !CELULAR()) return false;
+  fecharFolha();
+  f.classList.add("aberta"); f.setAttribute("role", "dialog"); f.setAttribute("aria-modal", "true");
+  const t = f.querySelector(".folha-topo h2"); if(t && t.id) f.setAttribute("aria-labelledby", t.id);
+  $("folha-fundo").hidden = false;
+  document.querySelectorAll(`[data-folha="${id}"]`).forEach(b=>b.setAttribute("aria-expanded", "true"));
+  const ativo = document.activeElement;
+  folhaAberta = f; folhaVoltar = ativo && ativo!==document.body ? ativo : document.querySelector(`[data-folha="${id}"]`);   /* ao fechar, o foco volta para quem abriu */
+  const alvo = (foco && $(foco)) || f.querySelector("input:not([type=hidden]):not([type=checkbox]),select,textarea") || f.querySelector(".folha-x");
+  if(alvo) try{ alvo.focus({preventScroll:true}); }catch(e){}
+  return true;
+}
+/* fecha a folha aberta (ou a "Mais"); devolve true se havia uma */
+function fecharFolha(){
+  if(fecharMais()) return true;
+  if(!folhaAberta) return false;
+  const f = folhaAberta; folhaAberta = null;
+  f.classList.remove("aberta"); f.removeAttribute("role"); f.removeAttribute("aria-modal"); f.removeAttribute("aria-labelledby");
+  $("folha-fundo").hidden = true;
+  document.querySelectorAll(`[data-folha="${f.id}"]`).forEach(b=>b.setAttribute("aria-expanded", "false"));
+  const v = folhaVoltar; folhaVoltar = null;
+  if(v && document.contains(v) && v.getClientRects().length) try{ v.focus({preventScroll:true}); }catch(e){}
+  return true;
+}
+window.fecharFolha = fecharFolha;
+document.addEventListener("click", e=>{
+  const b = e.target.closest("[data-folha]");
+  if(b){ abrirFolha(b.dataset.folha, b.dataset.foco); return; }
+  if(folhaAberta && (e.target.closest("[data-fechar-folha]") || e.target===$("folha-fundo"))) fecharFolha();
+});
+document.addEventListener("keydown", e=>{
+  if(!folhaAberta) return;
+  if(e.key==="Escape"){ e.preventDefault(); fecharFolha(); return; }
+  if(e.key!=="Tab") return;
+  const fs = [...folhaAberta.querySelectorAll("button,input,select,textarea,a[href],summary,[tabindex]:not([tabindex='-1'])")].filter(x=>!x.disabled && x.getClientRects().length);
+  if(!fs.length) return;
+  const i = fs.indexOf(document.activeElement);
+  if(e.shiftKey && i<=0){ e.preventDefault(); fs[fs.length-1].focus(); }
+  else if(!e.shiftKey && (i<0 || i===fs.length-1)){ e.preventDefault(); fs[0].focus(); }
+});
+matchMedia("(max-width:899px)").addEventListener("change", e=>{ if(!e.matches) fecharFolha(); });   /* a janela ficou larga: o painel volta ao lugar */
 $("aba-mais").addEventListener("click", ()=>{ if($("mais").hidden) abrirMais(); else fecharMais(); });
 $("mais-fundo").addEventListener("click", fecharMais);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("mais").hidden){ e.preventDefault(); fecharMais(); } });
 function irPara(v, foco){
   if(!VIEWS.includes(v) || (v==="ofertas" && !OF_PODE())) v = "resumo";
-  fecharMais();
+  fecharFolha();
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
   document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
   $("aba-mais").setAttribute("aria-current", NA_FOLHA.includes(v) ? "page" : "false");
