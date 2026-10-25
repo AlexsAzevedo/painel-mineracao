@@ -94,7 +94,7 @@ html = html[:i] + ponte + html[i:]
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; "
        "img-src 'self' data: https://*.fbcdn.net https://*.olx.com.br; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'")
 pagina = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
-          '<meta name="viewport" content="width=device-width,initial-scale=1">'
+          '<meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content">'
           f'<meta http-equiv="Content-Security-Policy" content="{CSP}">' + html + "</html>")
 (RAIZ / "app" / "index.html").write_text(pagina, encoding="utf-8")
 print(f"app/index.html: {len(pagina)//1024} KB · " + ("dados iniciais: " + ", ".join(f"{k} ({len(v) if isinstance(v, list) else 'ok'})" for k, v in iniciais.items()) if iniciais else "sem dados pessoais (começa pela configuração inicial)"))

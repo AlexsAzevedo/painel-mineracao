@@ -55,7 +55,7 @@ CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 
        f"img-src 'self' data: blob: https://*.fbcdn.net https://*.olx.com.br; media-src 'self' blob: mediastream:; connect-src {conexoes}; "
        "object-src 'none'; base-uri 'none'; form-action 'none'")
 pagina = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
-          '<meta name="viewport" content="width=device-width,initial-scale=1">'
+          '<meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content">'
           '<meta name="theme-color" content="#0C1016">'
           '<meta name="format-detection" content="telephone=no">'
           f'<meta http-equiv="Content-Security-Policy" content="{CSP}">' + html + "</html>")

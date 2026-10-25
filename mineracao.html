@@ -243,6 +243,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .main{padding-block:14px calc(96px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .aviso-atu{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
   .toast{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
+  body:has(.view:not([hidden]) > .fab[aria-expanded="false"]) .toast{bottom:calc(146px + env(safe-area-inset-bottom,0px))}   /* acima do botão redondo */
   /* o título da tela já está na barra de cima: o h1 fica só para o leitor de tela e o subtítulo some */
   .vh,.vh > div:first-child{display:contents}
   .vh h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;margin:-1px;padding:0}

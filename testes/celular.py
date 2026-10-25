@@ -137,6 +137,8 @@ def diario(p):
     clica(pg, "#d-fab"); pg.wait_for_timeout(200)
     preenche(pg, "#d-valor", "3.5"); clica(pg, "#d-btn"); pg.wait_for_timeout(400)
     checa("salvar fecha a folha e avisa", not visivel(pg, "#d-folha") and "Salvo" in texto(pg, "#toast"), texto(pg, "#toast"))
+    sob = pg.evaluate("(() => { const t = document.getElementById('toast').getBoundingClientRect(), f = document.getElementById('d-fab').getBoundingClientRect(); return [Math.round(t.bottom), Math.round(f.top)]; })()")
+    checa("o recado fica acima do botão Anotar", sob[0] <= sob[1], sob)
     c = pg.evaluate(CARTOES, "#d-tab table")
     checa("Diário: dias em cartões", c and c["larg"] and c["cab"] == "none" and c["cartao"] == "grid" and "Estimado" in c["rot"], c)
     clica(pg, "#d-tab [data-acao=editar-dia]"); pg.wait_for_timeout(300)
