@@ -512,9 +512,32 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .hist-tab summary{cursor:pointer;font-size:.86rem;color:var(--accent)}
 .hist-tab table{margin-top:8px;max-width:420px;min-width:0}
 .legenda{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+/* retorno real × previsto */
+.k-lin.k-real{height:3px;background:var(--viz-real)}
+.k-lin.k-proj{height:0;background:none;border-top:2px dashed var(--viz-real)}
+.bar.dupla{position:relative}
+.bar.dupla span{position:absolute;left:0;top:0;bottom:0;height:auto}
+.bar.dupla .prev{background:color-mix(in srgb,var(--viz-est) 32%,transparent)}
+.bar.dupla .real{background:var(--good)}
+.rig-l .rig-real{grid-column:1/-1;font-size:.76rem;color:var(--muted)}
+.rig-l .rig-real.w,.ret-txt .w{color:var(--warn)}
+.rig-l .rig-real.w::before,.ret-txt .w::before{content:"!";display:inline-grid;place-items:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:var(--warn-soft);color:var(--warn);font-weight:700;font-size:.7rem;vertical-align:1px}
+.ret-txt{display:flex;flex-direction:column;gap:6px;font-size:.86rem;max-width:90ch}
+.ret-txt p{margin:0}
+.graf text.ref{fill:var(--fg);font-size:11px}
+#ret-graf svg:focus{outline:none}
+#ret-graf svg:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .legenda span{display:inline-flex;align-items:center;gap:6px}
 .hist-d table{min-width:760px}
 .hist-d td.obs{white-space:normal;min-width:160px;max-width:300px;color:var(--muted);font-size:.85rem}
+/* relatório do ano para o contador */
+.rel-h{flex-wrap:wrap;align-items:center}
+.rel-ano{display:flex;align-items:center;gap:8px}
+.rel-ano select{width:auto}
+#rel-res{display:flex;flex-direction:column;gap:14px;min-width:0}
+.rel-tab table{min-width:640px}
+.rel-tab td.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.rel-tab tfoot td{font-weight:600;background:var(--sunk);border-bottom:0}
 .dif-pos{color:var(--good)}
 @media (max-width:900px){.dform{grid-template-columns:1fr 1fr}.dform .obs{grid-column:1/-1}.dform button{grid-column:1/-1}}
 
@@ -824,6 +847,13 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     </form>
       </div>
       <div id="riglist"></div>
+      <article class="painel" id="ret-p" aria-labelledby="t-ret" hidden>
+        <div class="painel-h rel-h"><h2 id="t-ret">Retorno real × previsto</h2><label class="rel-ano" id="ret-qual-l" hidden><span class="lbl">Placa</span><select id="ret-qual" aria-label="Placa do gráfico de retorno"></select></label></div>
+        <div class="legenda" id="ret-leg"><span><i class="k-lin k-real"></i>Real (Diário)</span><span><i class="k-lin k-proj"></i>No ritmo real</span><span><i class="k-lin"></i>Previsto</span></div>
+        <div class="graf" id="ret-graf"></div>
+        <div class="ret-txt" id="ret-txt"></div>
+        <details class="hist-tab" id="ret-tab-d"><summary>Ver em tabela</summary><div id="ret-tab"></div></details>
+      </article>
     </section>
 
     <section class="view" id="v-placas" aria-labelledby="t-placas" hidden>
@@ -1098,6 +1128,13 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       <p class="nota-mini" id="d-margem"></p>
       <article class="painel"><div class="painel-h" style="flex-wrap:wrap"><h2>Real × estimado por dia</h2><div class="legenda"><span><i class="k-bar"></i>Real (anotado)</span><span><i class="k-lin"></i>Estimado (Kryptex, sem margem)</span></div></div><div class="graf" id="d-graf"></div></article>
       <div class="hist-d" id="d-tab"></div>
+      <article class="painel" id="rel-p" aria-labelledby="t-rel">
+        <div class="painel-h rel-h"><h2 id="t-rel">Relatório do ano para o contador</h2><label class="rel-ano"><span class="lbl">Ano</span><select id="rel-ano" aria-label="Ano do relatório"></select></label></div>
+        <p class="sub" style="margin:0">Os ganhos de cada mês (em R$, em US$ e em BTC, quando houver), a luz estimada e as placas que você comprou, para levar ao contador na hora do Imposto de Renda. O relatório só organiza os números do painel: como declarar, quem diz é o contador.</p>
+        <div id="rel-res"></div>
+        <div class="acoes"><button type="button" class="pri" data-rel="pdf" hidden>Salvar PDF</button><button type="button" data-rel="csv" hidden>Salvar planilha (CSV)</button><button type="button" data-rel="copiar">Copiar a tabela</button></div>
+        <p class="status" id="rel-status" role="status" aria-live="polite"></p>
+      </article>
       <div class="note">
         <span><b>Estimado:</b> a receita da Kryptex (22/10/2026) das placas que já estavam minerando naquele dia, mais o processador se ele estiver minerando, proporcional às horas informadas. Fica sem a margem de segurança, para comparar com o que entrou de verdade.</span>
         <span><b>Lucro real:</b> o que entrou menos a luz estimada do PC inteiro na tomada nesse dia.</span>
@@ -1579,6 +1616,7 @@ function renderRig(){
   $("b-minhas").textContent = qtd || "";
   $("riglist").innerHTML = placas.length ? `<div class="tw"><table style="min-width:980px"><thead><tr><th>Placa</th><th class="n">Qtd.</th><th class="n">Investido</th><th class="n">Ganho bruto/mês</th><th class="n">Luz/mês</th><th class="n">Lucro/mês</th><th class="n">Recuperado</th><th>Pago</th><th class="n">ROI previsto</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`
     : `<div class="empty">Nenhuma placa cadastrada ainda. Busque o modelo acima, informe quanto pagou e quando ela começa a minerar.</div>`;
+  renderRetornos();
 }
 function render(){ syncInputs(); renderCat(); renderRig(); renderAnalise(); renderSetup(); renderDiario(); renderResumo(); renderCenario(); renderDadosFora(); renderMarca(); renderPerfil(); renderOfModelos(); renderOfertas(); }
 /* placas cadastradas mudaram: tudo que depende delas */
@@ -2602,6 +2640,7 @@ function renderDiario(){
     : margemReal===+cfg.margem ? `A margem de segurança de ${cfg.margem}% bate com o que você está recebendo.`
     : `Nos dias anotados você recebeu ${pctTxt} do estimado. <button type="button" class="link" data-acao="usar-margem" data-v="${margemReal}">Usar ${margemReal}% como margem de segurança</button> (hoje: ${cfg.margem}%).`;
   renderGraf(linhas);
+  if(MESES) renderRelatorio();
   $("d-tab").innerHTML = linhas.length ? `<div class="tw"><table><thead><tr><th>Dia</th><th class="n">Real</th><th class="n">Estimado</th><th class="n">Diferença</th><th class="n">Lucro real</th><th>Observação</th><th></th></tr></thead><tbody>${linhas.map(l=>{
       const dif = l.pct!=null ? l.pct-1 : null;
       return `<tr><td class="name">${dataBR(l.e.data)}<small>${new Date(l.e.data+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"})}${+l.e.horas<24?` · ${n1(+l.e.horas)} h`:""}</small></td>
@@ -2698,6 +2737,360 @@ $("v-diario").addEventListener("click", e=>{
   if(acao==="refazer-dia"){ if(ultimoDiaApagado){ const ent = {...ultimoDiaApagado}; delete ent._id; salvarDia(ent); ultimoDiaApagado = null; status2("d-status", "Dia de volta.", "ok"); } return; }
 });
 let ultimoDiaApagado = null;
+
+/* ---------- relatório do ano para o contador ----------
+   O Diário de um ano somado por mês (R$, US$ e BTC quando houver), a luz estimada e as placas. No PC sai em PDF ou em
+   planilha (CSV do jeito do Excel em português: ponto e vírgula e vírgula decimal); em qualquer lugar dá para copiar a tabela. */
+var MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+var relAno = "";   /* var: o Diário desenha o relatório e pode rodar antes daqui */
+function numBR(v, d=2){ return (+v||0).toLocaleString("pt-BR",{minimumFractionDigits:d, maximumFractionDigits:d, useGrouping:false}); }
+function btc8(v){ return (+v||0).toLocaleString("pt-BR",{minimumFractionDigits:8, maximumFractionDigits:8}); }
+function anosRelatorio(){
+  const s = new Set([hojeISO().slice(0,4)]);
+  for(const e of diario) s.add(e.data.slice(0,4));
+  for(const p of placas) if(/^\d{4}/.test(p.data||"")) s.add(p.data.slice(0,4));
+  return [...s].filter(a=>/^\d{4}$/.test(a)).sort().reverse();
+}
+/* de janeiro a maio (época da declaração), o ano passado, se ele tem dias anotados; senão, o ano de hoje */
+function anoPadraoRelatorio(anos){
+  const hoje = hojeISO(), ant = String(+hoje.slice(0,4)-1);
+  return +hoje.slice(5,7)<=5 && anos.includes(ant) && diario.some(e=>e.data.startsWith(ant)) ? ant : hoje.slice(0,4);
+}
+function dadosRelatorio(ano){
+  const dias = diario.filter(e=>e.data.slice(0,4)===ano).sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0).map(linhaDia);
+  const vazio = () => ({dias:0, horas:0, usd:0, brl:0, btc:0, nBtc:0, luz:0});
+  const meses = MESES.map((nome,i)=>({nome, i, ...vazio()})), tot = vazio();
+  for(const l of dias){
+    const h = Math.max(0, +(l.e.horas ?? cfg.horas) || 0), btc = +l.e.btc>0 ? +l.e.btc : 0;
+    for(const m of [meses[+l.e.data.slice(5,7)-1], tot]){ m.dias++; m.horas += h; m.usd += l.rUsd; m.brl += l.rBrl; m.luz += l.luz; if(btc){ m.btc += btc; m.nBtc++; } }
+  }
+  const fim = ano+"-12-31";
+  const pl = placas.filter(p=>byId[novoId(p.modelo)] && (!p.data || p.data<=fim)).map(p=>{
+    const c = byId[novoId(p.modelo)], q = Math.max(1,+p.qtd||1), un = Math.max(0,+p.preco||0);
+    return {nome:c.nome, q, un, total:q*un, pag: pagamentoDe(p)==="cartao" ? `cartão em ${parcelasDe(p)}x` : "à vista", inicio:p.data||""};
+  }).sort((a,b)=>a.inicio<b.inicio?-1:a.inicio>b.inicio?1:0);
+  const pecas = [];
+  for(const m of maqsReais()) for(const [k,p] of Object.entries(m.pecas||{})) if(p && p.tenho && +p.preco>0) pecas.push({maq:m.nome, nome:pecaNome(m,k), valor:+p.preco});
+  return {ano, dias, meses, tot, placas:pl, pecas};
+}
+var NOTAS_REL = [
+  "Recebido em R$: cada dia anotado em US$ foi convertido pelo dólar guardado naquele dia; o que foi anotado em R$ entra como está.",
+  "BTC: só aparece nos dias que vieram da conta da Kryptex com a quantidade em bitcoin.",
+  "Luz estimada: o consumo do PC na tomada nas horas minerando, pela tarifa de hoje das Premissas. Não é a conta da distribuidora.",
+  "Placas: o valor pago e a data em que cada uma começou a minerar (a data da compra pode ser outra: confira na nota fiscal).",
+  "O relatório só organiza os números do painel. Como declarar (rendimento, bens e direitos, ganho de capital) quem diz é o contador."
+];
+function linhasMesRel(r, todos){
+  const ms = todos ? r.meses : r.meses.filter(m=>m.dias);
+  return ms.map(m=>({...m, lucro:m.brl-m.luz}));
+}
+function renderRelatorio(){
+  const sel = $("rel-ano"); if(!sel) return;
+  const anos = anosRelatorio();
+  if(!anos.includes(relAno)) relAno = anoPadraoRelatorio(anos);
+  if(sel.dataset.anos!==anos.join()){ sel.innerHTML = anos.map(a=>`<option>${a}</option>`).join(""); sel.dataset.anos = anos.join(); }
+  sel.value = relAno;
+  const pc = DESKTOP && !!window.desktop.salvarArquivo;
+  document.querySelector('[data-rel="csv"]').hidden = !pc;
+  document.querySelector('[data-rel="pdf"]').hidden = !(DESKTOP && window.desktop.salvarPdf);
+  const r = dadosRelatorio(relAno), t = r.tot, comBtc = t.nBtc>0;
+  for(const b of document.querySelectorAll("[data-rel]")) b.disabled = !r.dias.length && !r.placas.length;
+  if(!r.dias.length && !r.placas.length){ $("rel-res").innerHTML = `<div class="empty">Nada anotado no Diário em ${relAno} e nenhuma placa minerando até o fim desse ano.</div>`; return; }
+  const kpis = [
+    ["Recebido no ano", brl(t.brl), t.dias ? `${usd2(t.usd)}${comBtc ? ` · ${btc8(t.btc)} BTC` : ""}` : "nenhum dia anotado"],
+    ["Luz estimada", brl(t.luz), t.dias ? `${n1(t.horas)} h minerando` : "—"],
+    ["Lucro", brl(t.brl-t.luz), "recebido menos a luz"],
+    ["Dias anotados", String(t.dias), t.dias ? `de ${dataBR(r.dias[0].e.data).slice(0,5)} a ${dataBR(r.dias[r.dias.length-1].e.data).slice(0,5)}` : "—"]
+  ].map(([l,v,sub])=>`<div class="kpi"><span class="lbl">${l}</span><b>${v}</b><small>${esc(sub)}</small></div>`).join("");
+  const ms = linhasMesRel(r, false);
+  const tabMes = ms.length ? `<div class="tw rel-tab"><table><thead><tr><th>Mês</th><th class="n">Dias</th><th class="n">Recebido (US$)</th><th class="n">Recebido (R$)</th>${comBtc ? '<th class="n">BTC</th>' : ""}<th class="n">Luz estimada</th><th class="n">Lucro</th></tr></thead>
+    <tbody>${ms.map(m=>`<tr><td>${m.nome}</td><td class="n">${m.dias}</td><td class="n">${usd2(m.usd)}</td><td class="n">${brl(m.brl)}</td>${comBtc ? `<td class="n">${m.nBtc ? btc8(m.btc) : "—"}</td>` : ""}<td class="n">${brl(m.luz)}</td><td class="n ${m.lucro<0?"neg":""}">${brl(m.lucro)}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td>Total</td><td class="n">${t.dias}</td><td class="n">${usd2(t.usd)}</td><td class="n">${brl(t.brl)}</td>${comBtc ? `<td class="n">${btc8(t.btc)}</td>` : ""}<td class="n">${brl(t.luz)}</td><td class="n ${t.brl-t.luz<0?"neg":""}">${brl(t.brl-t.luz)}</td></tr></tfoot></table></div>` : "";
+  const tabPl = r.placas.length ? `<div class="tw rel-tab"><table><thead><tr><th>Placa</th><th class="n">Qtd.</th><th class="n">Valor pago</th><th>Pagamento</th><th>Começou a minerar</th></tr></thead>
+    <tbody>${r.placas.map(p=>`<tr><td>${esc(p.nome)}</td><td class="n">${p.q}</td><td class="n">${brl(p.total)}${p.q>1 ? `<small class="sub">${brl(p.un)} cada</small>` : ""}</td><td>${p.pag}</td><td>${p.inicio ? dataBR(p.inicio) : "—"}</td></tr>`).join("")}</tbody></table></div>` : "";
+  $("rel-res").innerHTML = `<div class="kpis">${kpis}</div>${tabMes}${tabPl}${r.pecas.length ? `<p class="nota-mini">Também vão no PDF e na planilha ${r.pecas.length} ${plural(r.pecas.length,"peça")} das máquinas marcadas como “já tenho”, com o valor que você informou.</p>` : ""}`;
+}
+/* planilha: uma seção embaixo da outra, os 12 meses sempre */
+function csvRelatorio(r){
+  const cel = v => { const s = String(v ?? ""); return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const L = [], linha = (...a) => L.push(a.map(cel).join(";")), p = perfil(), comBtc = r.tot.nBtc>0;
+  linha(`Relatório de mineração de ${r.ano}`);
+  if(p.nome || lugarTxt()) linha([p.nome, lugarTxt()].filter(Boolean).join(" · "));
+  linha(`Gerado pelo Painel de Mineração em ${dataBR(hojeISO())}`);
+  linha();
+  linha("Ganhos por mês");
+  linha("Mês","Dias anotados","Horas minerando","Recebido (US$)","Recebido (R$)",...(comBtc?["Recebido (BTC)"]:[]),"Luz estimada (R$)","Lucro (R$)");
+  for(const m of [...linhasMesRel(r, true), {...r.tot, nome:"Total", lucro:r.tot.brl-r.tot.luz}])
+    linha(m.nome, m.dias, numBR(m.horas,1), numBR(m.usd), numBR(m.brl), ...(comBtc?[m.nBtc ? numBR(m.btc,8) : ""]:[]), numBR(m.luz), numBR(m.lucro));
+  linha();
+  linha("Dia a dia");
+  linha("Data","Valor anotado","Moeda","Dólar do dia (R$)","Recebido (R$)",...(comBtc?["Recebido (BTC)"]:[]),"Horas minerando","Luz estimada (R$)","Lucro (R$)","Observação");
+  for(const l of r.dias) linha(dataBR(l.e.data), numBR(+l.e.valor), l.e.moeda==="BRL" ? "R$" : "US$", l.e.moeda==="BRL" ? "" : numBR(dolarDe(l.e),4), numBR(l.rBrl), ...(comBtc?[+l.e.btc>0 ? numBR(+l.e.btc,8) : ""]:[]), numBR(+(l.e.horas ?? cfg.horas),1), numBR(l.luz), numBR(l.rBrl-l.luz), l.e.obs||"");
+  linha();
+  linha("Placas de vídeo");
+  linha("Placa","Quantidade","Valor por unidade (R$)","Valor total (R$)","Pagamento","Começou a minerar");
+  for(const x of r.placas) linha(x.nome, x.q, numBR(x.un), numBR(x.total), x.pag, x.inicio ? dataBR(x.inicio) : "");
+  if(r.pecas.length){
+    linha();
+    linha("Peças das máquinas (marcadas como já tenho, sem data de compra)");
+    linha("Máquina","Peça","Valor (R$)");
+    for(const x of r.pecas) linha(x.maq, x.nome, numBR(x.valor));
+  }
+  linha();
+  linha("Observações");
+  for(const t of NOTAS_REL) linha(t);
+  return "﻿" + L.join("\r\n") + "\r\n";
+}
+/* o que aparece na tela, em texto com tabulação (cola certinho numa planilha ou num e-mail) */
+function tsvRelatorio(r){
+  const comBtc = r.tot.nBtc>0, L = [[`Relatório de mineração de ${r.ano}`], []];
+  L.push(["Mês","Dias anotados","Recebido (US$)","Recebido (R$)",...(comBtc?["Recebido (BTC)"]:[]),"Luz estimada (R$)","Lucro (R$)"]);
+  for(const m of [...linhasMesRel(r, false), {...r.tot, nome:"Total", lucro:r.tot.brl-r.tot.luz}]) L.push([m.nome, m.dias, numBR(m.usd), numBR(m.brl), ...(comBtc?[m.nBtc ? numBR(m.btc,8) : ""]:[]), numBR(m.luz), numBR(m.lucro)]);
+  if(r.placas.length){ L.push([], ["Placa","Quantidade","Valor pago (R$)","Pagamento","Começou a minerar"]); for(const x of r.placas) L.push([x.nome, x.q, numBR(x.total), x.pag, x.inicio ? dataBR(x.inicio) : ""]); }
+  return L.map(a=>a.join("\t")).join("\n");
+}
+/* PDF (no PC): a página é impressa num navegador escondido, sem scripts, em A4 */
+function htmlRelatorio(r){
+  const p = perfil(), t = r.tot, comBtc = t.nBtc>0, quem = [p.nome, lugarTxt()].filter(Boolean).join(" · ");
+  const tab = (cab, linhas, pe) => `<table><thead><tr>${cab.map(([c,n])=>`<th${n?' class="n"':""}>${c}</th>`).join("")}</tr></thead><tbody>${linhas.join("")}</tbody>${pe||""}</table>`;
+  const td = (v, n) => `<td${n?' class="n"':""}>${v}</td>`;
+  const mesL = [...linhasMesRel(r, true)].map(m=>`<tr class="${m.dias?"":"vazio"}">${td(m.nome)}${td(m.dias,1)}${td(usd2(m.usd),1)}${td(brl(m.brl),1)}${comBtc?td(m.nBtc?btc8(m.btc):"—",1):""}${td(brl(m.luz),1)}${td(brl(m.lucro),1)}</tr>`);
+  const mesPe = `<tfoot><tr>${td("Total")}${td(t.dias,1)}${td(usd2(t.usd),1)}${td(brl(t.brl),1)}${comBtc?td(btc8(t.btc),1):""}${td(brl(t.luz),1)}${td(brl(t.brl-t.luz),1)}</tr></tfoot>`;
+  const diaL = r.dias.map(l=>`<tr>${td(dataBR(l.e.data))}${td(l.e.moeda==="BRL" ? brl(+l.e.valor) : usd2(+l.e.valor),1)}${td(l.e.moeda==="BRL" ? "—" : brl(dolarDe(l.e)),1)}${td(brl(l.rBrl),1)}${comBtc?td(+l.e.btc>0?btc8(+l.e.btc):"—",1):""}${td(n1(+(l.e.horas ?? cfg.horas)),1)}${td(brl(l.luz),1)}${td(brl(l.rBrl-l.luz),1)}${td(esc(l.e.obs||""))}</tr>`);
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório de mineração de ${r.ano}</title><style>
+@page{size:A4;margin:14mm 13mm 16mm}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;color:#1d1f1c;font-size:10.5pt;line-height:1.4}
+h1{font-size:19pt;margin:0 0 2px;letter-spacing:-.01em}
+h2{font-size:11.5pt;margin:20px 0 6px;padding-bottom:4px;border-bottom:2px solid #b36200;break-after:avoid}
+.sub{color:#62655d;margin:0}
+.res{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.res div{border:1px solid #e3e0d6;border-radius:6px;padding:8px 10px}
+.res span{display:block;font-size:8pt;text-transform:uppercase;letter-spacing:.05em;color:#62655d}
+.res b{font-size:13pt}
+.res small{display:block;color:#62655d;font-size:8.5pt}
+table{width:100%;border-collapse:collapse;font-size:9.5pt}
+th{font-size:7.5pt;text-transform:uppercase;letter-spacing:.05em;color:#62655d;text-align:left;border-bottom:1px solid #c9c6bc;padding:5px 6px;background:#f4f2ec}
+td{padding:4px 6px;border-bottom:1px solid #ebe8df;vertical-align:top}
+th.n,td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{font-weight:700;border-top:1px solid #c9c6bc;border-bottom:0;background:#f4f2ec}
+tr.vazio td{color:#9a9c94}
+tr{break-inside:avoid}
+.dias table{font-size:8.5pt}
+ul{margin:6px 0 0;padding-left:18px;color:#3c3f39;font-size:9pt}
+li{margin:2px 0}
+</style></head><body>
+<h1>Relatório de mineração · ${r.ano}</h1>
+<p class="sub">${quem ? esc(quem) + " · " : ""}gerado pelo Painel de Mineração em ${dataBR(hojeISO())}</p>
+<div class="res">
+<div><span>Recebido no ano</span><b>${brl(t.brl)}</b><small>${usd2(t.usd)}${comBtc ? ` · ${btc8(t.btc)} BTC` : ""}</small></div>
+<div><span>Luz estimada</span><b>${brl(t.luz)}</b><small>${n1(t.horas)} h minerando</small></div>
+<div><span>Lucro</span><b>${brl(t.brl-t.luz)}</b><small>recebido menos a luz</small></div>
+<div><span>Dias anotados</span><b>${t.dias}</b><small>no Diário de ganhos</small></div>
+</div>
+<h2>Ganhos por mês</h2>
+${tab([["Mês"],["Dias",1],["Recebido (US$)",1],["Recebido (R$)",1],...(comBtc?[["BTC",1]]:[]),["Luz estimada",1],["Lucro",1]], mesL, mesPe)}
+${r.placas.length ? `<h2>Placas de vídeo</h2>${tab([["Placa"],["Qtd.",1],["Valor por unidade",1],["Valor total",1],["Pagamento"],["Começou a minerar"]], r.placas.map(x=>`<tr>${td(esc(x.nome))}${td(x.q,1)}${td(brl(x.un),1)}${td(brl(x.total),1)}${td(x.pag)}${td(x.inicio ? dataBR(x.inicio) : "—")}</tr>`))}` : ""}
+${r.pecas.length ? `<h2>Peças das máquinas (marcadas como “já tenho”, sem data de compra)</h2>${tab([["Máquina"],["Peça"],["Valor",1]], r.pecas.map(x=>`<tr>${td(esc(x.maq))}${td(esc(x.nome))}${td(brl(x.valor),1)}</tr>`))}` : ""}
+${r.dias.length ? `<h2>Dia a dia</h2><div class="dias">${tab([["Data"],["Anotado",1],["Dólar",1],["Recebido (R$)",1],...(comBtc?[["BTC",1]]:[]),["Horas",1],["Luz",1],["Lucro",1],["Observação"]], diaL)}</div>` : ""}
+<h2>Observações</h2>
+<ul>${NOTAS_REL.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+</body></html>`;
+}
+/* ---------- retorno real × previsto de cada placa ----------
+   O ganho de cada dia anotado no Diário é dividido entre as placas que mineravam naquele dia, pela parte de cada uma na
+   receita estimada da Kryptex (o processador, se minera, fica com a parte dele). Da parte de cada placa sai a luz da própria
+   placa nas horas do dia, como no lucro previsto, que também conta só a placa. Os dias sem anotação não entram no real. */
+var retQual = "";   /* var: Minhas placas desenha o gráfico e pode rodar antes daqui */
+function somaDiasIso(iso, n){ return isoLocal(new Date(Date.parse(iso+"T12:00") + Math.round(n)*864e5)); }
+function diasEntreIso(a, b){ return Math.round((Date.parse(b+"T12:00") - Date.parse(a+"T12:00"))/864e5); }
+function somaMesesIso(iso, n){
+  const [a, m, d] = iso.split("-").map(Number), alvo = new Date(a, m-1+n, 1, 12), ult = new Date(alvo.getFullYear(), alvo.getMonth()+1, 0).getDate();
+  alvo.setDate(Math.min(d, ult)); return isoLocal(alvo);
+}
+function mesAnoIso(iso){ return iso ? new Date(iso+"T12:00").toLocaleDateString("pt-BR",{month:"short", year:"numeric"}).replace(". de ", "/").replace(" de ", "/").replace(".", "") : ""; }
+function retornoPlaca(p){
+  const c = byId[novoId(p && p.modelo)]; if(!c || !/^\d{4}-\d{2}-\d{2}$/.test(p.data||"")) return null;
+  const hoje = hojeISO(), d = dados(c), q = Math.max(1,+p.qtd||1);
+  const inv = q*Math.max(0,+p.preco||0), rend = rendimentoParcelado(inv, parcelasDe(p)).liquido, custo = Math.max(0, inv - rend);
+  const prevDia = calc(c).lucro*q/30;
+  const pontos = []; let acum = 0;
+  for(const e of diario.filter(e=>e.data>=p.data && e.data<=hoje).sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0)){
+    const h = Math.max(0, +(e.horas ?? cfg.horas) || 0), est = estDia(e.data, h);
+    const minha = d.rec*q/365*(h/24), parte = est.usd>0 ? Math.min(1, minha/est.usd) : 0;
+    const lucro = realBrl(e)*parte - d.w*q*h/1000*tarifaEf();
+    acum += lucro; pontos.push({data:e.data, lucro, acum});
+  }
+  const n = pontos.length, ult = pontos.slice(-30), media = ult.length ? ult.reduce((s,x)=>s+x.lucro,0)/ult.length : null;
+  const prazo = somaMesesIso(p.data, Math.max(1, Math.round(+cfg.meses||12)));
+  const quandoPrev = prevDia>0 && custo>0 ? somaDiasIso(p.data, custo/prevDia) : null;
+  let pagoReal = null, quandoReal = null;
+  if(custo>0 && n){ const x = pontos.find(x=>x.acum>=custo); if(x) pagoReal = x.data; else if(media>0) quandoReal = somaDiasIso(hoje, (custo-acum)/media); }
+  const completos = Math.max(0, diasEntreIso(p.data, hoje));
+  /* atrasada: com uma semana anotada, o ritmo real só paga a placa depois do prazo das Premissas (ou nunca) */
+  const atrasada = n>=7 && custo>0 && !pagoReal && (!quandoReal || quandoReal>prazo);
+  return {p, c, q, inv, rend, custo, prevDia, pontos, n, acum, media, prazo, quandoPrev, quandoReal, pagoReal, atrasada,
+    pctPrev: n && prevDia>0 ? acum/(n*prevDia) : null, completos, futuro: p.data>hoje};
+}
+const retornosPlacas = () => placas.map(retornoPlaca).filter(Boolean);
+/* frase do real para o Resumo e para o resumo do celular */
+function fraseReal(R, semRitmo){
+  if(R.pagoReal) return `Real: já se pagou (em ${dataBR(R.pagoReal)}), com ${brl0(R.acum)} em ${R.n} ${plural(R.n,"dia")} ${plural(R.n,"anotado")}.`;
+  const pct = R.custo>0 ? Math.max(0, Math.min(100, R.acum/R.custo*100)) : 0;
+  const ritmo = semRitmo ? "" : R.quandoReal ? `no ritmo real, se paga em ${mesAnoIso(R.quandoReal)}` : R.media!=null && R.media<=0 ? "no ritmo real, não se paga" : "";
+  return `Real: ${pct.toFixed(0)}% recuperado (${brl0(R.acum)} em ${R.n} ${plural(R.n,"dia")} ${plural(R.n,"anotado")}${R.pctPrev!=null ? `, ${Math.round(R.pctPrev*100)}% do previsto` : ""})${ritmo ? " · " + ritmo : ""}.`;
+}
+function fraseAtraso(R){
+  return `No ritmo real, a ${R.c.curto} ${R.quandoReal ? `se paga em ${mesAnoIso(R.quandoReal)}` : "não se paga"}, depois do seu prazo de ${Math.round(+cfg.meses||12)} meses (${mesAnoIso(R.prazo)}).`;
+}
+function renderRetornos(){
+  const box = $("ret-p"); if(!box) return;
+  const lista = retornosPlacas();
+  box.hidden = !lista.length;
+  if(!lista.length) return;
+  if(!lista.some(R=>R.p._id===retQual)) retQual = (lista.find(R=>!R.futuro) || lista[0]).p._id;
+  const sel = $("ret-qual"), ops = lista.map(R=>`<option value="${esc(R.p._id)}">${R.q>1 ? R.q+"× " : ""}${esc(R.c.curto)} (${R.futuro ? "começa em" : "desde"} ${dataBR(R.p.data)})</option>`).join("");
+  if(sel.dataset.ops!==ops){ sel.innerHTML = ops; sel.dataset.ops = ops; }
+  sel.value = retQual; $("ret-qual-l").hidden = lista.length<2;
+  const R = lista.find(R=>R.p._id===retQual);
+  desenharRetorno(R);
+  const L = [];
+  if(R.custo<=0) L.push(`<p>Sem valor pago cadastrado para a ${esc(R.c.curto)}: não há custo a recuperar.</p>`);
+  else {
+    L.push(`<p>Custo a recuperar: <b>${brl0(R.custo)}</b>${R.rend>0 ? ` (pagou ${brl0(R.inv)}; o dinheiro guardado durante as parcelas rende ${brl0(R.rend)})` : ""}. Previsto: ${R.quandoPrev ? `se paga em <b>${mesAnoIso(R.quandoPrev)}</b>, com ${brl(R.prevDia)} de lucro por dia` : "com as premissas de hoje, ela não dá lucro"}. Seu prazo: ${Math.round(+cfg.meses||12)} meses (${mesAnoIso(R.prazo)}).</p>`);
+    if(R.futuro) L.push(`<p>Ela começa a minerar em ${dataBR(R.p.data)}. Depois disso, cada dia anotado no Diário entra no real.</p>`);
+    else if(!R.n) L.push(`<p>Ainda não há dias anotados no Diário desde ${dataBR(R.p.data)}. Anote os ganhos (ou ligue a leitura da conta da Kryptex) para ver o real.</p>`);
+    else {
+      L.push(`<p>${fraseReal(R, R.atrasada)} Média dos últimos ${Math.min(30, R.n)} ${plural(Math.min(30, R.n),"dia")}: ${brl(R.media)} de lucro por dia.</p>`);
+      if(R.atrasada) L.push(`<p class="w">${fraseAtraso(R)}</p>`);
+      else if(R.n<7 && !R.pagoReal) L.push(`<p class="nota-mini">Com ${R.n} ${plural(R.n,"dia")} ainda é cedo para comparar com o prazo: o painel avisa a partir de 7 dias anotados.</p>`);
+      if(R.completos>0 && R.n < R.completos*0.8) L.push(`<p class="nota-mini">${Math.min(R.n, R.completos)} de ${R.completos} dias anotados desde que ela começou: os dias sem anotação não entram no real.</p>`);
+    }
+  }
+  $("ret-txt").innerHTML = L.join("");
+}
+$("ret-qual").addEventListener("change", e=>{ retQual = e.target.value; renderRetornos(); });
+/* gráfico: o acumulado em R$ ao longo do tempo. Real (Diário) em linha cheia até hoje e tracejada no ritmo real dali em
+   diante; previsto em cinza; o custo e o prazo como referências. Uma escala só, em R$. */
+var retLarg = 0;
+function desenharRetorno(R){
+  const box = $("ret-graf"), tabEl = $("ret-tab");
+  $("ret-leg").hidden = $("ret-tab-d").hidden = !(R.custo>0);
+  if(!(R.custo>0)){ box.innerHTML = ""; tabEl.innerHTML = ""; return; }
+  const hoje = hojeISO(), x0 = R.p.data;
+  const fins = [R.prazo, R.quandoPrev, R.quandoReal, R.pagoReal, hoje].filter(Boolean).sort();
+  let x1 = fins[fins.length-1]; const teto = somaMesesIso(x0, 48); if(x1>teto) x1 = teto;
+  x1 = somaDiasIso(x1, Math.max(7, diasEntreIso(x0, x1)*0.04));
+  const total = Math.max(1, diasEntreIso(x0, x1));
+  const prevEm = iso => Math.max(0, R.prevDia*diasEntreIso(x0, iso));
+  const ultReal = R.pontos.length ? R.pontos[R.pontos.length-1] : null;
+  const realEm = iso => { if(iso<x0) return 0; let v = 0; for(const pt of R.pontos){ if(pt.data>iso) break; v = pt.acum; } return v; };
+  const temProj = !R.futuro && !R.pagoReal && R.n>0 && R.media>0;
+  const projEm = iso => R.acum + R.media*diasEntreIso(hoje, iso);
+  const yMax0 = Math.max(R.custo*1.18, R.acum*1.08, 1);
+  const passo = [10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000,20000,25000,50000].find(s=>yMax0/s<=5) || Math.ceil(yMax0/5);
+  const topo = Math.ceil(yMax0/passo)*passo, fundo = Math.min(0, Math.floor(Math.min(0, ...R.pontos.map(p=>p.acum))/passo)*passo);
+  const W = Math.max(300, Math.round(box.clientWidth || 640)), H = 250, mL = 56, mR = 16, mT = 22, mB = 26;
+  retLarg = W;
+  const pw = W-mL-mR, ph = H-mT-mB;
+  const X = iso => mL + diasEntreIso(x0, iso)/total*pw, Y = v => mT + ph - (Math.min(v, topo)-fundo)/(topo-fundo)*ph;
+  const k = v => v>=1000 ? (v/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})+" mil" : v.toLocaleString("pt-BR");
+  let g = "";
+  for(let v=fundo; v<=topo+1e-9; v+=passo) g += `<line x1="${mL}" x2="${W-mR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(${v===0?"--viz-axis":"--viz-grid"})" stroke-width="1"/><text x="${mL-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${k(v)}</text>`;
+  /* meses no eixo de baixo, com espaço de ~64 px entre os rótulos */
+  const meses = []; for(let i=0; ; i++){ const m = somaMesesIso(x0.slice(0,8)+"01", i); if(m>x1) break; if(m>=x0) meses.push(m); }
+  const pulo = Math.max(1, Math.ceil(meses.length/Math.max(2, Math.floor(pw/64))));
+  let xs = ""; meses.forEach((m,i)=>{ if(i%pulo) return; xs += `<text x="${X(m).toFixed(1)}" y="${H-8}" text-anchor="middle">${mesAnoIso(m).replace(/\/20(\d\d)$/,"/$1")}</text>`; });
+  /* referências: custo (horizontal), prazo e hoje (verticais) */
+  const yC = Y(R.custo), xP = X(R.prazo), xH = X(hoje);
+  let ref = `<line x1="${mL}" x2="${W-mR}" y1="${yC.toFixed(1)}" y2="${yC.toFixed(1)}" stroke="var(--muted)" stroke-width="1.5"/>`
+    + `<text class="ref" x="${mL+6}" y="${(yC-6).toFixed(1)}">custo ${brl0(R.custo)}</text>`;
+  if(R.prazo<=x1) ref += `<line x1="${xP.toFixed(1)}" x2="${xP.toFixed(1)}" y1="${mT}" y2="${mT+ph}" stroke="var(--muted)" stroke-width="1.5"/><text class="ref" x="${(xP-5).toFixed(1)}" y="${mT-8}" text-anchor="end">prazo de ${Math.round(+cfg.meses||12)} meses</text>`;
+  if(!R.futuro && Math.abs(xH-xP)>4) ref += `<line x1="${xH.toFixed(1)}" x2="${xH.toFixed(1)}" y1="${mT}" y2="${mT+ph}" stroke="var(--viz-axis)" stroke-width="1"/><text x="${(xH+5).toFixed(1)}" y="${mT-8}">hoje</text>`;
+  /* previsto: reta do começo até o fim do gráfico (cortada no topo) */
+  const xFimPrev = R.prevDia>0 ? (prevEm(x1)>topo ? somaDiasIso(x0, (topo-0)/R.prevDia) : x1) : x1;
+  const prev = `<path d="M${X(x0).toFixed(1)},${Y(0).toFixed(1)} L${X(xFimPrev).toFixed(1)},${Y(prevEm(xFimPrev)).toFixed(1)}" fill="none" stroke="var(--viz-est)" stroke-width="2" stroke-linecap="round"/>`;
+  /* real: do começo (zero) por cada dia anotado */
+  let real = "", proj = "", marcas = "";
+  if(R.pontos.length){
+    real = `<path d="M${X(x0).toFixed(1)},${Y(0).toFixed(1)} ${R.pontos.map(pt=>`L${X(pt.data).toFixed(1)},${Y(pt.acum).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--viz-real)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(temProj){
+      const fim = R.quandoReal && R.quandoReal<=x1 ? R.quandoReal : x1;
+      proj = `<path d="M${X(ultReal.data).toFixed(1)},${Y(ultReal.acum).toFixed(1)} L${X(fim).toFixed(1)},${Y(Math.min(projEm(fim), R.custo)).toFixed(1)}" fill="none" stroke="var(--viz-real)" stroke-width="2" stroke-dasharray="5 5" stroke-linecap="round"/>`;
+    }
+    marcas += `<circle cx="${X(ultReal.data).toFixed(1)}" cy="${Y(ultReal.acum).toFixed(1)}" r="4.5" fill="var(--viz-real)" stroke="var(--surface)" stroke-width="2"/>`
+      + `<text class="v" x="${X(ultReal.data).toFixed(1)}" y="${(Y(ultReal.acum)-10).toFixed(1)}" text-anchor="middle">${brl0(ultReal.acum)}</text>`;
+  }
+  if(R.quandoPrev && R.quandoPrev<=x1) marcas += `<circle cx="${X(R.quandoPrev).toFixed(1)}" cy="${yC.toFixed(1)}" r="4" fill="var(--viz-est)" stroke="var(--surface)" stroke-width="2"/>`;
+  const pg = R.pagoReal || (temProj && R.quandoReal && R.quandoReal<=x1 ? R.quandoReal : null);
+  if(pg) marcas += `<circle cx="${X(pg).toFixed(1)}" cy="${yC.toFixed(1)}" r="4.5" fill="var(--viz-real)" stroke="var(--surface)" stroke-width="2"/>`;
+  const desc = `Retorno da ${R.c.curto}: custo de ${brl0(R.custo)}; previsto se pagar em ${R.quandoPrev ? mesAnoIso(R.quandoPrev) : "nunca"}`
+    + (R.n ? `; real acumulado ${brl0(R.acum)} em ${R.n} dias anotados` + (R.pagoReal ? ", já se pagou" : R.quandoReal ? `, no ritmo real se paga em ${mesAnoIso(R.quandoReal)}` : "") : "; sem dias anotados") + `; prazo ${mesAnoIso(R.prazo)}.`;
+  box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(desc)}">${g}${xs}${ref}${prev}${real}${proj}${marcas}<line class="cross" x1="0" x2="0" y1="${mT}" y2="${mT+ph}"/><rect class="pt-hit" x="${mL}" y="${mT}" width="${pw}" height="${ph}"/></svg><div class="tip" hidden></div>`;
+  /* cruz que segue o mouse (ou as setas do teclado) e mostra os três valores daquele dia */
+  const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), cruz = box.querySelector(".cross");
+  let atual = R.futuro ? x0 : (hoje>x1 ? x1 : hoje);
+  const mostrar = iso => {
+    atual = iso<x0 ? x0 : iso>x1 ? x1 : iso;
+    const cx = X(atual); cruz.setAttribute("x1", cx.toFixed(1)); cruz.setAttribute("x2", cx.toFixed(1)); cruz.classList.add("on");
+    tip.replaceChildren();
+    const t = document.createElement("span"); t.className = "t"; t.textContent = dataBR(atual); tip.append(t);
+    const linha = (cls, val, nome) => { const r = document.createElement("span"); r.className = "r"; const kk = document.createElement("i"); kk.className = cls; const b = document.createElement("b"); b.textContent = val; const s = document.createElement("span"); s.textContent = nome; r.append(kk,b,s); tip.append(r); };
+    if(atual<=hoje && R.n) linha("k-lin k-real", brl0(realEm(atual)), "real (dias anotados)");
+    if(atual>hoje && temProj) linha("k-lin k-proj", brl0(Math.min(projEm(atual), Math.max(R.custo, R.acum))), "no ritmo real");
+    linha("k-lin", brl0(prevEm(atual)), "previsto");
+    tip.hidden = false;
+    const tw = tip.offsetWidth; tip.style.left = Math.min(W-tw, Math.max(0, cx - tw/2)) + "px"; tip.style.top = "0px";
+  };
+  const esconder = () => { tip.hidden = true; cruz.classList.remove("on"); };
+  const daPos = ev => { const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * (W / r.width); return somaDiasIso(x0, (px-mL)/pw*total); };
+  svg.addEventListener("pointermove", ev=>mostrar(daPos(ev)));
+  svg.addEventListener("pointerleave", esconder);
+  svg.addEventListener("focus", ()=>mostrar(atual));
+  svg.addEventListener("blur", esconder);
+  svg.addEventListener("keydown", ev=>{
+    const passoD = ev.shiftKey ? 30 : 7;
+    if(ev.key==="ArrowRight"){ mostrar(somaDiasIso(atual, passoD)); ev.preventDefault(); }
+    else if(ev.key==="ArrowLeft"){ mostrar(somaDiasIso(atual, -passoD)); ev.preventDefault(); }
+    else if(ev.key==="Home"){ mostrar(x0); ev.preventDefault(); }
+    else if(ev.key==="End"){ mostrar(x1); ev.preventDefault(); }
+  });
+  /* a mesma coisa em tabela: o fim de cada mês */
+  const linhasTab = [], mesesTab = [];
+  for(let i=0; ; i++){ const m = somaMesesIso(x0.slice(0,8)+"01", i); if(m>x1) break; mesesTab.push(m); }
+  for(const m of mesesTab.concat([x1])){
+    const fimMes = m===x1 ? x1 : somaDiasIso(somaMesesIso(m, 1), -1); if(fimMes<x0) continue;
+    const real = fimMes<=hoje ? (R.n ? brl0(realEm(fimMes)) : "—") : temProj ? `${brl0(Math.min(projEm(fimMes), Math.max(R.custo, R.acum)))} <small class="sub">no ritmo real</small>` : "—";
+    if(linhasTab.length && linhasTab[linhasTab.length-1].includes(`>${mesAnoIso(fimMes)}<`)) continue;
+    linhasTab.push(`<tr><td>${mesAnoIso(fimMes)}</td><td class="n">${brl0(prevEm(fimMes))}</td><td class="n">${real}</td></tr>`);
+  }
+  tabEl.innerHTML = `<div class="tw rel-tab"><table style="min-width:360px"><thead><tr><th>Fim do mês</th><th class="n">Previsto</th><th class="n">Real</th></tr></thead><tbody>${linhasTab.join("")}</tbody></table></div><p class="nota-mini">Custo a recuperar: ${brl0(R.custo)}.</p>`;
+}
+if("ResizeObserver" in window) new ResizeObserver(()=>{ const w = Math.round($("ret-graf").clientWidth); if(w && Math.abs(w-retLarg)>8 && !$("v-minhas").hidden && !$("ret-p").hidden) renderRetornos(); }).observe($("ret-graf"));
+
+/* copiar: no PC pelo aplicativo; no celular, pela área de transferência do navegador (ou o jeito antigo, se ela não deixar) */
+async function copiarTexto(t){
+  if(DESKTOP && window.desktop.copiar){ await window.desktop.copiar(t); return; }
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(t); return; } }catch(e){}
+  const ta = document.createElement("textarea");
+  ta.value = t; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
+  ta.remove();
+  if(!ok) throw new Error("o celular não deixou copiar");
+}
+$("rel-ano").addEventListener("change", e=>{ relAno = e.target.value; renderRelatorio(); });
+$("rel-p").addEventListener("click", async e=>{
+  const b = e.target.closest("[data-rel]"); if(!b || b.disabled) return;
+  const r = dadosRelatorio(relAno), st = (txt, tipo) => status2("rel-status", txt, tipo);
+  b.disabled = true;
+  try{
+    if(b.dataset.rel==="csv"){ const onde = await window.desktop.salvarArquivo(`relatorio-mineracao-${r.ano}.csv`, csvRelatorio(r)); st(onde ? `Planilha salva em ${onde}` : "Cancelado.", onde ? "ok" : ""); }
+    else if(b.dataset.rel==="pdf"){ st("Montando o PDF…"); const onde = await window.desktop.salvarPdf(`relatorio-mineracao-${r.ano}.pdf`, htmlRelatorio(r)); st(onde ? `PDF salvo em ${onde}` : "Cancelado.", onde ? "ok" : ""); }
+    else { await copiarTexto(tsvRelatorio(r)); st("Tabela copiada. Cole numa planilha ou num e-mail para o contador.", "ok"); }
+  }catch(err){ st("Não deu certo: " + ((err && err.message) || err) + ".", "erro"); }
+  finally{ b.disabled = false; }
+});
 
 /* ---------- dados de fora: dólar, Kryptex e preços, lidos pelo navegador do app Claude ----------
    Uma página por vez, com pausa entre elas, para não parecer robô (a Kryptex bloqueia quem abre muitas páginas seguidas). */
@@ -3968,6 +4361,7 @@ function textoResumoCelular(){
     const prazo = falta<=0 ? "já se pagou" : t.lucro>0 ? `se paga em ${mesAno(new Date(Date.now() + falta/(t.lucro/30)*864e5))}` : "";
     L.push(`Recuperado: ${brl0(t.recup)} de ${brl0(custo)} (${pct.toFixed(0)}%)${prazo ? `, ${prazo}` : ""}.`);
   }
+  for(const R of retornosPlacas()) if(R.atrasada) L.push("Atenção: " + fraseAtraso(R));
   if(OF_PODE() && ofertas && Array.isArray(ofertas.itens)){
     const boas = ofertas.itens.filter(x=>!ofMarcas.descartados[x.k] && !risco(x) && vereditoOferta(x).cls==="g").sort((a,b)=>(vereditoOferta(a).meses||99)-(vereditoOferta(b).meses||99));
     if(boas.length){ const b = boas[0], c = byId[b.modelo]; L.push(`Ofertas: ${boas.length} ${boas.length===1 ? "se paga" : "se pagam"} no seu prazo. A melhor: ${c ? c.curto : "placa"} por ${brl0(b.preco)}${b.cidade ? ` em ${b.cidade}` : ""} (busca de ${quando(ofertas.quando)}).`); }
@@ -4438,7 +4832,7 @@ function totaisRig(){
     const luc = r.lucro*q, ganho = Math.max(0, luc/30*Math.max(0,(hoje-inicio)/864e5));
     t.qtd+=q; t.bruto+=r.receita*q; t.energia+=r.energia*q; t.lucro+=luc; t.invest+=inv; t.recup+=ganho; t.rend+=rend.liquido;
     const roi = luc>0 && custo>0 ? new Date(inicio.getTime()+custo/(luc/30)*864e5) : null;
-    t.itens.push({c, q, inicio, luc, custo, ganho, pct: custo>0 ? Math.min(100, ganho/custo*100) : 100, roi, futuro: inicio>hoje});
+    t.itens.push({p, c, q, inicio, luc, custo, ganho, pct: custo>0 ? Math.min(100, ganho/custo*100) : 100, roi, futuro: inicio>hoje});
   }
   return t;
 }
@@ -4462,10 +4856,15 @@ function renderResumo(){
   }).join("") : `<li><span class="vazio">Nenhuma placa com preço no Brasil.</span></li>`;
   $("r-compras-nota").textContent = `Pelo seu preço ou pelo preço ${base==="novo"?"de nova na loja":"de usada na região"} (mude em “Todas as placas” › Preço base). Preços de ${dataPrecos()}.`;
 
-  $("r-rig").innerHTML = t.itens.length ? `<div class="rig-lista">${t.itens.map(x=>`
+  $("r-rig").innerHTML = t.itens.length ? `<div class="rig-lista">${t.itens.map(x=>{
+      const R = retornoPlaca(x.p), comReal = !!(R && R.n && R.custo>0), pctReal = comReal ? Math.max(0, Math.min(100, R.acum/R.custo*100)) : 0;
+      const barra = comReal
+        ? `<div class="bar dupla" title="real: ${pctReal.toFixed(0)}% recuperado · previsto: ${x.pct.toFixed(0)}%"><span class="prev" style="width:${x.pct.toFixed(1)}%"></span><span class="real" style="width:${pctReal.toFixed(1)}%"></span></div>`
+        : `<div class="bar" title="${x.pct.toFixed(0)}% recuperado (previsto)"><span style="width:${x.pct.toFixed(1)}%"></span></div>`;
+      return `
       <div class="rig-l"><span class="nm">${x.q>1?x.q+"× ":""}${x.c.curto}<small>${x.futuro?"começa a minerar em":"minerando desde"} ${x.inicio.toLocaleDateString("pt-BR")} · lucro ${brl0(x.luc)}/mês</small></span>
-        <span class="v">${x.pct>=100?"Pago":x.roi?"se paga em "+x.roi.toLocaleDateString("pt-BR",{month:"short",year:"numeric"}):"—"}</span>
-        <div class="bar" title="${x.pct.toFixed(0)}% recuperado"><span style="width:${x.pct.toFixed(1)}%"></span></div></div>`).join("")}</div>`
+        <span class="v">${x.pct>=100?"Pago":x.roi?"se paga em "+x.roi.toLocaleDateString("pt-BR",{month:"short",year:"numeric"}):"—"}<small>previsto</small></span>
+        ${barra}${comReal ? `<small class="rig-real${R.atrasada ? " w" : ""}">${R.atrasada ? esc(fraseReal(R, true) + " " + fraseAtraso(R)) : esc(fraseReal(R))}</small>` : ""}</div>`; }).join("")}</div>`
     : `<div class="empty">Nenhuma placa cadastrada. <button type="button" class="link" data-ir="minhas">Cadastrar a primeira</button></div>`;
 
   const ult = [...anuncios].sort((a,b)=>(b.criado||0)-(a.criado||0)).slice(0,4);

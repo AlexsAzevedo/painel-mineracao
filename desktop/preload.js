@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("desktop", {
   entrarFacebook: () => ipcRenderer.invoke("facebook"),
   mostrarNavegador: () => ipcRenderer.invoke("mostrar-navegador"),
   salvarArquivo: (nome, conteudo) => ipcRenderer.invoke("salvar-arquivo", String(nome), String(conteudo)),
+  salvarPdf: (nome, html) => ipcRenderer.invoke("salvar-pdf", String(nome), String(html)),
   abrirArquivo: () => ipcRenderer.invoke("abrir-arquivo"),
   /* backup automático do dia, numa pasta (Documentos › Painel de Mineração › Backups, ou a que a pessoa escolher) */
   backup: {

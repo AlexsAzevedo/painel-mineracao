@@ -195,7 +195,7 @@ ipcMain.handle("inicio-windows", (e, op) => {
 ipcMain.handle("notificar", (e, n) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return notificar(n || {}); });
 ipcMain.handle("janela-visivel", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return !!(principal && principal.isVisible() && !principal.isMinimized()); });
 /* a área de transferência do Electron 44 é assíncrona */
-ipcMain.handle("copiar", async (e, t) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); await clipboard.writeText(String(t || "").slice(0, 2000)); return true; });
+ipcMain.handle("copiar", async (e, t) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); await clipboard.writeText(String(t || "").slice(0, 200000)); if (TESTE) testeArquivos.copiado = String(t || ""); return true; });
 
 /* ---------- avisos no celular, pelo app ntfy ----------
    O painel publica num "tópico" do ntfy.sh com nome aleatório, que funciona como senha; o celular assina esse tópico no app ntfy.
@@ -1177,18 +1177,45 @@ function mostrarLeitor() { const w = pegarLeitor(); w.show(); w.focus(); return 
 ipcMain.handle("facebook", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return abrirFacebook(); });
 ipcMain.handle("mostrar-navegador", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return mostrarLeitor(); });
 
-/* ---------- backup ---------- */
+/* ---------- backup, planilha e PDF ---------- */
+const testeArquivos = { salvos: [], copiado: "" };
+/* onde salvar: no teste, na pasta temporária; senão, a janela do Windows, com o tipo pelo nome do arquivo */
+async function escolherDestino(nome, padrao) {
+  const sugestao = String(nome || padrao).replace(/[\\/:*?"<>|]/g, "_");
+  if (TESTE) return path.join(os.tmpdir(), sugestao);
+  const ext = path.extname(sugestao).slice(1).toLowerCase();
+  const tipo = { csv: ["Salvar planilha", "Planilha (CSV)"], pdf: ["Salvar PDF", "Documento PDF"] }[ext] || ["Salvar backup", "Backup do painel"];
+  const r = await dialog.showSaveDialog(principal, { title: tipo[0], defaultPath: path.join(app.getPath("documents"), sugestao), filters: [{ name: tipo[1], extensions: [ext || "json"] }] });
+  return r.canceled || !r.filePath ? null : r.filePath;
+}
 ipcMain.handle("salvar-arquivo", async (e, nome, conteudo) => {
   if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
-  const sugestao = String(nome || "painel-mineracao.json").replace(/[\\/:*?"<>|]/g, "_");
-  let destino = null;
-  if (TESTE) destino = path.join(os.tmpdir(), sugestao);
-  else {
-    const r = await dialog.showSaveDialog(principal, { title: "Salvar backup", defaultPath: path.join(app.getPath("documents"), sugestao), filters: [{ name: "Backup do painel", extensions: ["json"] }] });
-    if (r.canceled || !r.filePath) return null;
-    destino = r.filePath;
-  }
+  const destino = await escolherDestino(nome, "painel-mineracao.json");
+  if (!destino) return null;
   fs.writeFileSync(destino, String(conteudo), "utf8");
+  if (TESTE) testeArquivos.salvos.push(destino);
+  return destino;
+});
+/* relatório do ano: a página que o painel montou é impressa em A4 numa janela escondida, sem scripts e sem internet */
+async function pdfDaPagina(html) {
+  const w = new BrowserWindow({ show: false, width: 900, height: 1270,
+    webPreferences: { javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false, partition: "relatorio", spellcheck: false } });
+  w.webContents.session.webRequest.onBeforeRequest((d, cb) => cb({ cancel: !/^data:/.test(d.url) }));
+  w.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  w.webContents.on("will-navigate", (ev) => ev.preventDefault());
+  try {
+    await w.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+    return await w.webContents.printToPDF({ pageSize: "A4", printBackground: true, preferCSSPageSize: true, displayHeaderFooter: true,
+      headerTemplate: "<div></div>", footerTemplate: '<div style="width:100%;font:8px Segoe UI,Arial,sans-serif;color:#888;text-align:center"><span class="pageNumber"></span> de <span class="totalPages"></span></div>' });
+  } finally { if (!w.isDestroyed()) w.destroy(); }
+}
+ipcMain.handle("salvar-pdf", async (e, nome, html) => {
+  if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
+  const pdf = await pdfDaPagina(String(html || "").slice(0, 4e6));
+  const destino = await escolherDestino(nome, "relatorio.pdf");
+  if (!destino) return null;
+  fs.writeFileSync(destino, pdf);
+  if (TESTE) testeArquivos.salvos.push(destino);
   return destino;
 });
 ipcMain.handle("abrir-arquivo", async (e) => {
