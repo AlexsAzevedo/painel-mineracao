@@ -201,10 +201,93 @@ def ofertas(p):
     checa("sem erros (ofertas no PC)", not erros(pc), erros(pc)[:3])
 
 
+SECOES = """[...document.querySelectorAll('#v-premissas .sec')].filter(s => s.getClientRects().length)
+  .map(s => ({id: s.id, aberta: s.classList.contains('aberta'), exp: (s.querySelector('.sec-bt') || {getAttribute: () => null}).getAttribute('aria-expanded')}))"""
+
+
+def premissas(p):
+    pg = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, hash="premissas")
+    secs = pg.evaluate(SECOES)
+    checa("premissas: quadros fechados, cada um com o botão de abrir", len(secs) >= 8 and all(not x["aberta"] and x["exp"] == "false" for x in secs), secs)
+    alt = pg.evaluate("Math.round(document.getElementById('v-premissas').getBoundingClientRect().height)")
+    checa("premissas: tela curta com tudo fechado", alt < 1500, alt)
+    clica(pg, "#dados-fora .sec-bt"); pg.wait_for_timeout(100)
+    checa("premissas: abrir um quadro", visivel(pg, "#dados-fora [data-x=dolar]") and pg.evaluate("(document.querySelector('#dados-fora .sec-bt') || {getAttribute: () => null}).getAttribute('aria-expanded')") == "true")
+    clica(pg, "#dados-fora .sec-bt"); pg.wait_for_timeout(100)
+    checa("premissas: fechar de novo", not visivel(pg, "#dados-fora [data-x=dolar]"))
+    pg.evaluate("document.querySelector('#perfil-p h2').scrollIntoView({block: 'center'})"); pg.wait_for_timeout(100)
+    xy = pg.evaluate("(() => { const r = document.querySelector('#perfil-p h2').getBoundingClientRect(); return [r.left + 12, r.top + r.height / 2]; })()")
+    pg.mouse.click(xy[0], xy[1]); pg.wait_for_timeout(100)
+    checa("premissas: tocar no título também abre", visivel(pg, "#pf-cidade"))
+    clica(pg, "#v-premissas fieldset.grupo .sec-bt"); pg.wait_for_timeout(100)
+    checa("premissas: os grupos (receita, energia, investimento) também abrem", visivel(pg, "#dolar"))
+    clica(pg, "#perfil-p .sec-bt"); pg.evaluate("irPara('ofertas')"); clica(pg, "#of-mudar"); pg.wait_for_timeout(300)
+    checa("Mudar cidade (Ofertas) abre o perfil na cidade", pg.evaluate("document.getElementById('perfil-p').classList.contains('aberta') && document.activeElement.id === 'pf-cidade'"))
+    checa("sem rolagem para o lado (premissas)", pg.evaluate(SEM_LADO))
+    checa("sem erros (premissas)", not erros(pg), erros(pg)[:3])
+    pc = abrir(p, largura=1366, dados=DADOS, pc=True, hash="premissas")
+    checa("PC: premissas abertas, sem os botões de abrir", visivel(pc, "#dados-fora [data-x=dolar]") and visivel(pc, "#dolar") and visivel(pc, "#pf-cidade") and not visivel(pc, "#dados-fora .sec-bt"))
+
+
+def minhas(p):
+    pg = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, hash="minhas")
+    checa("minhas: formulário guardado e botão Adicionar", not visivel(pg, "#m-folha") and visivel(pg, "#m-fab") and "Adicionar" in texto(pg, "#m-fab"))
+    c = pg.evaluate(CARTOES, "#riglist table")
+    checa("minhas: placas em cartões", c and c["larg"] and c["cab"] == "none" and c["cartao"] == "grid" and "Lucro/mês" in c["rot"], c)
+    clica(pg, "#m-fab"); pg.wait_for_timeout(350)
+    f = pg.evaluate(FOLHA, "m-folha")
+    checa("minhas: Adicionar abre a folha no campo da placa", f and f["vis"] and f["fixa"] and pg.evaluate("document.activeElement.id") == "f-placa", [f, pg.evaluate("document.activeElement.id")])
+    pg.evaluate("comboForm.escolher(byId['rtx-4070-ti'] || CATALOGO[0], true)")
+    clica(pg, "input[name='f-pag'][value='avista']"); preenche(pg, "#f-preco", "3500")
+    n = pg.evaluate("placas.length")
+    clica(pg, "#addform .af-btn"); pg.wait_for_timeout(400)
+    checa("minhas: adicionar fecha a folha e avisa embaixo", not visivel(pg, "#m-folha") and pg.evaluate("placas.length") == n + 1 and "adicionad" in texto(pg, "#toast"), [pg.evaluate("placas.length"), n, texto(pg, "#toast")])
+    pg.evaluate("irPara('anuncio')")
+    checa("sem rolagem para o lado (minhas)", pg.evaluate(SEM_LADO))
+    checa("sem erros (minhas)", not erros(pg), erros(pg)[:3])
+    vazio = abrir(p, largura=390, altura=844, dados={k: v for k, v in DADOS.items() if k != "min-placas"}, celular=True, hash="minhas")
+    clica(vazio, "#riglist [data-folha]"); vazio.wait_for_timeout(300)
+    checa("minhas: sem placas, o aviso tem o botão de adicionar", visivel(vazio, "#m-folha"))
+    pc = abrir(p, largura=1366, dados=DADOS, pc=True, hash="minhas")
+    checa("PC: formulário de Minhas placas no lugar de sempre", visivel(pc, "#f-placa") and not visivel(pc, "#m-fab") and pc.evaluate("getComputedStyle(document.querySelector('#riglist thead')).display") != "none")
+
+
+APP = "window.desktop.app = true;"   # o app do celular (Capacitor): puxar para atualizar
+
+
+def toques(p):
+    pg = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, extra="addEventListener('DOMContentLoaded', () => { const m = document.createElement('meta'); m.name = 'theme-color'; m.content = '#0C1016'; document.head.append(m); });")
+    cor = lambda: pg.evaluate("document.querySelector('meta[name=theme-color]').content").lower()
+    pg.evaluate("aplicarTema('claro')")
+    checa("barra do navegador acompanha o tema claro", cor() == "#ffffff", cor())
+    pg.evaluate("aplicarTema('escuro')")
+    checa("barra do navegador acompanha o tema escuro", cor() == "#090c11", cor())
+    pg.evaluate("irPara('diario')"); clica(pg, "#d-fab"); pg.wait_for_timeout(200)
+    checa("voltar (fecharFolha) fecha a folha aberta", pg.evaluate("window.fecharFolha()") is True and not visivel(pg, "#d-folha"))
+    checa("voltar sem folha aberta segue adiante", pg.evaluate("window.fecharFolha()") is False)
+    app = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, extra=APP, toque=True)
+    app.evaluate("window.__atu = 0; window.desktop.sync.atualizar = async () => { window.__atu++; }; 0")
+    puxar = """(dy) => { const t = (y) => new Touch({identifier: 1, target: document.body, clientX: 200, clientY: y});
+      document.body.dispatchEvent(new TouchEvent('touchstart', {touches: [t(150)], changedTouches: [t(150)], bubbles: true}));
+      for (let y = 150; y <= 150 + dy; y += 20) document.body.dispatchEvent(new TouchEvent('touchmove', {touches: [t(y)], changedTouches: [t(y)], bubbles: true}));
+      document.body.dispatchEvent(new TouchEvent('touchend', {touches: [], changedTouches: [t(150 + dy)], bubbles: true})); }"""
+    app.evaluate(puxar, 40); app.wait_for_timeout(200)
+    checa("puxar pouco não atualiza", app.evaluate("window.__atu") == 0)
+    app.evaluate(puxar, 160); app.wait_for_timeout(300)
+    checa("puxar a tela para baixo atualiza (app)", app.evaluate("window.__atu") == 1 and "atualizad" in texto(app, "#toast"), [app.evaluate("window.__atu"), texto(app, "#toast")])
+    app.evaluate("scrollTo(0, 600)"); app.wait_for_timeout(100); app.evaluate("atuPc.ultimo = 0; 0")
+    app.evaluate(puxar, 160); app.wait_for_timeout(300)
+    checa("no meio da página, puxar só rola", app.evaluate("window.__atu") == 1)
+    checa("sem erros (toques)", not erros(pg) and not erros(app), (erros(pg) + erros(app))[:3])
+
+
 with sync_playwright() as p:
     casca(p)
     resumo(p)
     diario(p)
     placas(p)
     ofertas(p)
+    premissas(p)
+    minhas(p)
+    toques(p)
 fim()

@@ -1006,6 +1006,53 @@ details.saiba > :not(summary){margin-bottom:14px}
   .of-quando{font-size:.7rem}
   .of-mini .of-img{aspect-ratio:16/10}
 }
+.sec-bt,.so-cel,.puxar{display:none}
+@media (max-width:899px){
+  .so-pc{display:none}
+  span.so-cel{display:inline}
+  .painel-h.so-cel{display:flex}
+  .note > .painel-h h2{color:var(--fg)}
+  .empty .so-cel.pri{display:block;margin:12px auto 0}
+  /* Premissas: cada quadro fechado mostra só o título; tocar abre */
+  .sec > .painel-h,.sec > legend{position:relative}
+  .sec-bt{all:unset;box-sizing:border-box;display:grid;place-items:center;width:32px;height:32px;flex:none;margin-left:auto;border-radius:50%;color:var(--muted);cursor:pointer}
+  .sec-bt::after{content:"";position:absolute;inset:-16px}
+  .sec-bt svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+  .sec.aberta .sec-bt svg{transform:rotate(180deg)}
+  .sec-bt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .sec > .painel-h > :not(h2):not(.sec-bt){position:relative;z-index:1}
+  .sec:not(.aberta) > :not(.painel-h):not(legend){display:none}
+  .sec:not(.aberta) > .painel-h > :not(h2):not(.sec-bt){display:none}
+  .sec > legend{display:flex;align-items:center;gap:10px;width:100%;float:left;padding:0;margin:0}
+  .sec > legend + *{clear:both}
+  fieldset.grupo.sec:not(.aberta){padding-bottom:16px}
+  .grupos{gap:10px}
+  /* Minhas placas: a placa em cima; lucro, bruto e luz; investido e quando se paga; quanto já pagou; remover */
+  .rig-tab{border:0;background:none;overflow:visible}
+  .rig-tab table{display:block;min-width:0!important}
+  .rig-tab thead{display:none}
+  .rig-tab tbody{display:flex;flex-direction:column;gap:10px}
+  .rig-tab tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"nome nome qtd" "luc brt luz" "inv inv roi" "pago pago rec";gap:12px 10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+  .rig-tab td{display:block;padding:0;border:0;white-space:normal;text-align:left;min-width:0}
+  .rig-tab td[data-l]::before{content:attr(data-l);display:block;margin-bottom:2px;font-family:var(--body);font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .rig-tab td:nth-child(1){grid-area:nome;font-size:1rem}
+  .rig-tab td:nth-child(2){grid-area:qtd;text-align:right}
+  .rig-tab td:nth-child(3){grid-area:inv}
+  .rig-tab td:nth-child(4){grid-area:brt}
+  .rig-tab td:nth-child(5){grid-area:luz}
+  .rig-tab td:nth-child(6){grid-area:luc;font-weight:600}
+  .rig-tab td:nth-child(7){grid-area:rec}
+  .rig-tab td:nth-child(8){grid-area:pago}
+  .rig-tab td:nth-child(9){grid-area:roi}
+  .rig-tab td:nth-child(10){grid-column:1/-1;display:flex;justify-content:flex-end;border-top:1px solid var(--line);padding-top:8px}
+  .rig-tab td small.sub{display:block;white-space:normal}
+  /* puxar para atualizar (app): a bolinha desce junto com o dedo */
+  .puxar{display:grid;place-items:center;position:fixed;z-index:30;left:50%;top:calc(env(safe-area-inset-top,0px) + 56px);width:40px;height:40px;margin-left:-20px;border-radius:50%;
+    background:var(--surface);border:1px solid var(--line);color:var(--accent);box-shadow:0 8px 20px -10px var(--shadow);opacity:0;pointer-events:none;transform:translateY(calc(var(--puxou,0px) * .55 - 44px))}
+  .puxar svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transform:rotate(var(--giro,0deg))}
+  .puxar.vis{opacity:1}
+  .puxar.pronto{background:var(--accent);color:var(--onaccent);border-color:transparent}
+}
 @media (max-width:899px) and (prefers-reduced-motion:reduce){.folha-m.aberta{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1159,7 +1206,9 @@ details.saiba > :not(summary){margin-bottom:14px}
     <section class="view" id="v-minhas" aria-labelledby="t-minhas" hidden>
       <header class="vh"><div><h1 id="t-minhas" tabindex="-1">Minhas placas</h1><p class="sub">As placas que você comprou: a luz de cada uma e quanto ela já se pagou.</p></div></header>
       <div class="tiles" id="tiles"></div>
-      <div class="painel">
+      <button type="button" class="fab" id="m-fab" data-folha="m-folha" data-foco="f-placa" aria-controls="m-folha" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Adicionar placa</span></button>
+      <div class="painel folha-m" id="m-folha">
+        <div class="folha-topo"><h2 id="m-folha-t">Adicionar uma placa</h2><button type="button" class="folha-x" data-fechar-folha aria-label="Fechar">×</button></div>
     <form class="addform" id="addform" autocomplete="off">
       <div class="campo combo af-placa">
         <label class="lbl" for="f-placa">Placa</label>
@@ -1259,7 +1308,7 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar a versão nova do app</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
         <p class="status" id="estecel-status" role="status" aria-live="polite"></p>
       </article>
-      <article class="painel"><div class="painel-h"><h2>Cenário das contas</h2></div><dl class="cen" id="r-cenario"></dl></article>
+      <article class="painel" id="cen-p" aria-labelledby="t-cen"><div class="painel-h"><h2 id="t-cen">Cenário das contas</h2></div><dl class="cen" id="r-cenario"></dl></article>
       <div class="grid2 kryptex-g" id="kryptex-g">
         <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
           <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
@@ -1429,6 +1478,7 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div id="br-res"></div>
       </article>
       <div class="painel note" id="notas-prem">
+        <div class="painel-h so-cel"><h2 id="t-notas-prem">Como esses valores entram nas contas</h2></div>
         <span><b>Tarifa:</b> o valor do kWh com ICMS e PIS/Cofins, que aparece na conta de luz como “tarifa com tributos”. Sem esse campo, divida o total da conta pelos kWh consumidos: dá um número um pouco acima do real, porque inclui a iluminação pública. Os kWh do rig entram na faixa mais cara da sua casa. Exemplo: Celesc (SC), residencial, R$ 0,76/kWh sem impostos, que dá cerca de R$ 0,96 com impostos.</span>
         <span><b>Bandeira:</b> verde em outubro/2026; a ANEEL anuncia a de cada mês no fim do mês anterior.</span>
         <span><b>Margem de segurança:</b> desconto aplicado na receita da Kryptex, porque ela muda todo dia com o preço da moeda e a dificuldade da rede. Com 0% você vê o número cru do site.</span>
@@ -1677,10 +1727,12 @@ function aplicarTema(t){
   t = t==="claro" ? "claro" : "escuro";
   document.documentElement.dataset.tema = t;
   try{ localStorage.setItem("min-tema", t); }catch(e){}
-  marcarTema();
+  marcarTema(); corDaBarra();
 }
+/* a cor da barra do navegador do celular (theme-color) é a da barra de cima do painel; no app, a ponte ajusta os ícones do Android */
+function corDaBarra(){ const m = document.querySelector('meta[name="theme-color"]'); if(m) m.content = getComputedStyle(document.documentElement).getPropertyValue("--side-bg").trim(); }
 document.addEventListener("click", e=>{ const b = e.target.closest("[data-tema-op]"); if(b) aplicarTema(b.dataset.temaOp); });
-marcarTema();
+marcarTema(); corDaBarra();
 /* rodando como aplicativo do computador (Electron): o navegador escondido e o backup vêm de window.desktop.
    REMOTO: no celular, com os dados do PC (pelo navegador, servido pelo PC, ou pelo app do celular, APP); os dados
    vão e voltam por window.desktop.sync e as buscas rodam no PC (window.desktop.pedirAoPc) */
@@ -2005,13 +2057,13 @@ function renderRig(){
     let roi="—";
     if(luc>0 && custo>0){ const d=new Date(inicio.getTime()+custo/(luc/30)*864e5); roi = pct>=100?"Pago":d.toLocaleDateString("pt-BR"); }
     return `<tr><td class="name">${c.nome}<small>${inicio>hoje ? "começa a minerar em" : "minerando desde"} ${inicio.toLocaleDateString("pt-BR")}</small></td>
-      <td class="n">${q}</td><td class="n">${brl(inv)}<small class="sub"><select class="pag" data-pag="${p._id}" aria-label="Como pagou a ${c.nome}"><option value="avista"${pag==="avista"?" selected":""}>À vista</option><option value="cartao"${pag==="cartao"?" selected":""}>Cartão</option></select>${pag==="cartao" ? `<input class="parc" data-parc="${p._id}" type="number" min="1" max="24" step="1" value="${parc}" aria-label="Parcelas de ${c.nome}">x${parc>1 ? ` de ${brl(inv/parc)}` : ""}` : ""}</small>${rend.liquido>0 ? `<small class="sub">rende ~${brl0(rend.liquido)} líquido</small>` : ""}</td>
-      <td class="n">${brl(brt)}<small class="sub">${brl(brt/30)}/dia</small></td>
-      <td class="n">${brl(luz)}</td>
-      <td class="n ${luc<0?"neg":""}">${brl(luc)}<small class="sub">${brl(luc/30)}/dia</small></td>
-      <td class="n">${brl(ganho)}</td>
-      <td><div class="bar"><span style="width:${pct.toFixed(1)}%"></span></div><small class="num">${pct.toFixed(0)}%</small></td>
-      <td class="n">${roi}</td><td><button class="ghost" data-del="${p._id}" aria-label="Remover ${c.nome}">Remover</button></td></tr>`;
+      <td class="n" data-l="Qtd.">${q}</td><td class="n" data-l="Investido">${brl(inv)}<small class="sub"><select class="pag" data-pag="${p._id}" aria-label="Como pagou a ${c.nome}"><option value="avista"${pag==="avista"?" selected":""}>À vista</option><option value="cartao"${pag==="cartao"?" selected":""}>Cartão</option></select>${pag==="cartao" ? `<input class="parc" data-parc="${p._id}" type="number" min="1" max="24" step="1" value="${parc}" aria-label="Parcelas de ${c.nome}">x${parc>1 ? ` de ${brl(inv/parc)}` : ""}` : ""}</small>${rend.liquido>0 ? `<small class="sub">rende ~${brl0(rend.liquido)} líquido</small>` : ""}</td>
+      <td class="n" data-l="Bruto/mês">${brl(brt)}<small class="sub">${brl(brt/30)}/dia</small></td>
+      <td class="n" data-l="Luz/mês">${brl(luz)}</td>
+      <td class="n ${luc<0?"neg":""}" data-l="Lucro/mês">${brl(luc)}<small class="sub">${brl(luc/30)}/dia</small></td>
+      <td class="n" data-l="Recuperado">${brl(ganho)}</td>
+      <td data-l="Pago"><div class="bar"><span style="width:${pct.toFixed(1)}%"></span></div><small class="num">${pct.toFixed(0)}%</small></td>
+      <td class="n" data-l="Se paga em">${roi}</td><td><button class="ghost" data-del="${p._id}" aria-label="Remover ${c.nome}">Remover</button></td></tr>`;
   }).join("");
   const tarifaEf = cfg.tarifa+(+cfg.bandeira||0);
   $("tiles").innerHTML = [
@@ -2023,8 +2075,8 @@ function renderRig(){
     ["Recuperado (estim.)", brl0(recup), invest>0?`${Math.min(100,recup/Math.max(1,invest-rendTot)*100).toFixed(0)}% do custo`:"desde o início da mineração", false]
   ].map(([l,v,sub,h])=>`<div class="tile${h?" hl":""}"><span class="lbl">${l}</span><b>${v}</b><small>${sub}</small></div>`).join("");
   $("b-minhas").textContent = qtd || "";
-  $("riglist").innerHTML = placas.length ? `<div class="tw"><table style="min-width:980px"><thead><tr><th>Placa</th><th class="n">Qtd.</th><th class="n">Investido</th><th class="n">Ganho bruto/mês</th><th class="n">Luz/mês</th><th class="n">Lucro/mês</th><th class="n">Recuperado</th><th>Pago</th><th class="n">ROI previsto</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`
-    : `<div class="empty">Nenhuma placa cadastrada ainda. Busque o modelo acima, informe quanto pagou e quando ela começa a minerar.</div>`;
+  $("riglist").innerHTML = placas.length ? `<div class="tw rig-tab"><table style="min-width:980px"><thead><tr><th>Placa</th><th class="n">Qtd.</th><th class="n">Investido</th><th class="n">Ganho bruto/mês</th><th class="n">Luz/mês</th><th class="n">Lucro/mês</th><th class="n">Recuperado</th><th>Pago</th><th class="n">ROI previsto</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`
+    : `<div class="empty">Nenhuma placa cadastrada ainda. <span class="so-pc">Busque o modelo acima, informe quanto pagou e quando ela começa a minerar.</span><span class="so-cel">Toque em Adicionar placa e informe o modelo, quanto pagou e quando ela começa a minerar.</span><button type="button" class="pri so-cel" data-folha="m-folha" data-foco="f-placa">Adicionar placa</button></div>`;
   renderRetornos();
 }
 function render(){ syncInputs(); renderCat(); renderRig(); renderAnalise(); renderSetup(); renderDiario(); renderResumo(); renderCenario(); renderDadosFora(); renderMarca(); renderPerfil(); renderOfModelos(); renderOfertas(); }
@@ -2166,7 +2218,9 @@ $("addform").addEventListener("submit",e=>{
   if(!pagamento){ erroForm("Diga como pagou: à vista ou no cartão.", "pag"); $("f-pag").classList.add("invalido"); document.querySelector('input[name="f-pag"]').focus(); return; }
   const preco=parseFloat($("f-preco").value); if(!(preco>=0)) return;
   const parcelas = pagamento==="cartao" ? Math.min(24,Math.max(1,parseInt($("f-parc").value)||1)) : 1;
-  addPlaca({modelo:comboForm.id,qtd:Math.max(1,parseInt($("f-qtd").value)||1),preco,pagamento,parcelas,data:$("f-data").value,criado:Date.now()});
+  const qtdNova = Math.max(1,parseInt($("f-qtd").value)||1);
+  addPlaca({modelo:comboForm.id,qtd:qtdNova,preco,pagamento,parcelas,data:$("f-data").value,criado:Date.now()});
+  if(folhaAberta===$("m-folha")){ fecharFolha(); toast(`${qtdNova>1 ? qtdNova + "× " : ""}${byId[comboForm.id].curto} ${qtdNova>1 ? "adicionadas" : "adicionada"}.`); }
   $("f-preco").value=""; $("f-qtd").value=1; $("f-parc").value=1;
   document.querySelectorAll('input[name="f-pag"]').forEach(r=>{ r.checked = false; });   /* a próxima placa pergunta de novo */
   $("f-erro").hidden = true; atualizarFormPag();
@@ -2353,7 +2407,7 @@ function renderAnalise(){
     $("a-comprei").addEventListener("click", ()=>{
       comboForm.escolher(c, true); $("f-erro").hidden = true;
       if(a.preco>0) $("f-preco").value = a.preco;
-      irPara("minhas"); $("addform").scrollIntoView({behavior:suave(), block:"center"}); $("f-qtd").focus({preventScroll:true});
+      irPara("minhas"); if(!abrirFolha("m-folha", "f-qtd")){ $("addform").scrollIntoView({behavior:suave(), block:"center"}); $("f-qtd").focus({preventScroll:true}); }
     });
     $("a-remover").addEventListener("click", ()=>delAnuncio(a._id));
   }
@@ -4687,7 +4741,7 @@ function salvarOfUi(){ lsSet("min-ofertas-ui", {teto:$("of-teto").value, fb:$("o
   $("of-teto").value = u.teto || ""; $("of-fb").checked = u.fb!==false; $("of-olx").checked = u.olx!==false; $("of-so-compensa").checked = u.so!==false; $("of-sem-troca").checked = !!u.semTroca;
   if([...$("of-ordem").options].some(op=>op.value===u.ordem)) $("of-ordem").value = u.ordem; })();
 $("of-buscar").addEventListener("click", buscarOfertas);
-$("of-mudar").addEventListener("click", ()=>{ irPara("premissas", false); $("pf-cidade").focus(); $("perfil-p").scrollIntoView({behavior:suave(), block:"start"}); });
+$("of-mudar").addEventListener("click", ()=>{ irPara("premissas", false); abrirSecao($("perfil-p")); $("pf-cidade").focus(); $("perfil-p").scrollIntoView({behavior:suave(), block:"start"}); });
 $("of-raio").addEventListener("change", e=>definirPerfil({raio:+e.target.value}));
 $("of-teto").addEventListener("change", ()=>{ salvarOfUi(); renderOfModelos(); renderOfResumo(); });
 for(const id of ["of-fb","of-olx"]) $(id).addEventListener("change", ()=>{ salvarOfUi(); renderOfResumo(); });
@@ -6387,6 +6441,53 @@ document.addEventListener("keydown", e=>{
   else if(!e.shiftKey && (i<0 || i===fs.length-1)){ e.preventDefault(); fs[0].focus(); }
 });
 matchMedia("(max-width:899px)").addEventListener("change", e=>{ if(!e.matches) fecharFolha(); });   /* a janela ficou larga: o painel volta ao lugar */
+/* ---------- Premissas no celular: cada quadro abre e fecha pelo título (no PC fica tudo aberto) ----------
+   O botão (.sec-bt, com o nome do quadro e aria-expanded) cobre o cabeçalho inteiro; os outros botões do cabeçalho ficam por cima. */
+function prepararSecoes(){
+  const quadros = document.querySelectorAll("#v-premissas article.painel, #v-premissas .painel.note, #v-premissas fieldset.grupo");
+  quadros.forEach((q, i)=>{
+    const grupo = q.matches("fieldset"), cab = grupo ? q.querySelector(":scope > legend") : q.querySelector(":scope > .painel-h");
+    const tit = grupo ? cab : cab && cab.querySelector("h2");
+    if(!cab || !tit) return;
+    if(!q.id) q.id = "sec-" + i;
+    if(!tit.id) tit.id = q.id + "-t";
+    const b = document.createElement("button"); b.type = "button"; b.className = "sec-bt";
+    b.setAttribute("aria-expanded", "false"); b.setAttribute("aria-controls", q.id); b.setAttribute("aria-labelledby", tit.id);
+    b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
+    cab.append(b); q.classList.add("sec");
+  });
+}
+/* abre (ou fecha) o quadro de Premissas que contém el */
+function abrirSecao(el, abrir = true){
+  const q = el && el.closest(".sec"); if(!q) return;
+  q.classList.toggle("aberta", abrir);
+  const b = q.querySelector(".sec-bt"); if(b) b.setAttribute("aria-expanded", String(abrir));
+}
+prepararSecoes();
+document.addEventListener("click", e=>{ const b = e.target.closest(".sec-bt"); if(b){ const q = b.closest(".sec"); abrirSecao(q, !q.classList.contains("aberta")); } });
+
+/* ---------- app do celular: puxar a tela para baixo, no alto da página, atualiza os dados do PC ---------- */
+if(APP){
+  const ind = document.createElement("div"); ind.className = "puxar"; ind.setAttribute("aria-hidden", "true");
+  ind.innerHTML = `<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4.5V10h-5.5"/></svg>`;
+  document.body.append(ind);
+  let y0 = null, x0 = 0, puxou = 0;
+  const parar = () => { y0 = null; puxou = 0; ind.classList.remove("vis", "pronto"); ind.style.removeProperty("--puxou"); ind.style.removeProperty("--giro"); };
+  addEventListener("touchstart", e=>{
+    parar();
+    if(e.touches.length===1 && scrollY<=0 && !folhaAberta && $("mais").hidden){ y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; }
+  }, {passive:true});
+  addEventListener("touchmove", e=>{
+    if(y0==null) return;
+    const t = e.touches[0], dy = t.clientY - y0;
+    if(scrollY>0 || Math.abs(t.clientX - x0) > Math.abs(dy)){ parar(); return; }   /* rolou a página ou foi um gesto de lado */
+    puxou = Math.max(0, dy);
+    ind.style.setProperty("--puxou", Math.min(puxou, 130) + "px"); ind.style.setProperty("--giro", Math.round(Math.min(puxou, 130)*2.2) + "deg");
+    ind.classList.toggle("vis", puxou>10); ind.classList.toggle("pronto", puxou>=90);
+  }, {passive:true});
+  addEventListener("touchend", ()=>{ const ok = y0!=null && puxou>=90; parar(); if(ok) atualizarDoPc(); }, {passive:true});
+  addEventListener("touchcancel", parar, {passive:true});
+}
 $("aba-mais").addEventListener("click", ()=>{ if($("mais").hidden) abrirMais(); else fecharMais(); });
 $("mais-fundo").addEventListener("click", fecharMais);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("mais").hidden){ e.preventDefault(); fecharMais(); } });
@@ -6407,7 +6508,7 @@ document.addEventListener("click", e=>{
   const r = e.target.closest("[data-ver-res]");
   if(r){ atualId = r.dataset.verRes; renderAnalise(); irPara("anuncio", true); return; }
   const b = e.target.closest("[data-ir],[data-view]");
-  if(b){ irPara(b.dataset.ir || b.dataset.view, !b.dataset.rolar); const alvo = b.dataset.rolar && $(b.dataset.rolar); if(alvo){ alvo.scrollIntoView({block:"start", behavior:suave()}); const h = alvo.querySelector("h2"); if(h){ h.tabIndex = -1; h.focus({preventScroll:true}); } } }
+  if(b){ irPara(b.dataset.ir || b.dataset.view, !b.dataset.rolar); const alvo = b.dataset.rolar && $(b.dataset.rolar); if(alvo){ abrirSecao(alvo); alvo.scrollIntoView({block:"start", behavior:suave()}); const h = alvo.querySelector("h2"); if(h){ h.tabIndex = -1; h.focus({preventScroll:true}); } } }
 });
 
 /* ---------- carga inicial ---------- */

@@ -116,12 +116,13 @@ _navegador = None
 _erros = {}
 
 
-def abrir(p, largura=1366, altura=900, dados=None, celular=False, pc=False, sem_storage=False, hash="resumo", rotas_fotos=True):
-    """Abre a página numa aba nova (contexto novo: localStorage vazio) e devolve a Page."""
+def abrir(p, largura=1366, altura=900, dados=None, celular=False, pc=False, sem_storage=False, hash="resumo", rotas_fotos=True, extra="", toque=False):
+    """Abre a página numa aba nova (contexto novo: localStorage vazio) e devolve a Page.
+    extra: um script que roda antes da página (depois das pontes de mentira); toque: tela de toque (eventos touch)."""
     global _navegador
     if _navegador is None:
         _navegador = p.chromium.launch()
-    ctx = _navegador.new_context(viewport={"width": largura, "height": altura}, locale="pt-BR", timezone_id="America/Sao_Paulo")
+    ctx = _navegador.new_context(viewport={"width": largura, "height": altura}, locale="pt-BR", timezone_id="America/Sao_Paulo", has_touch=toque)
     pg = ctx.new_page()
     pg.set_default_timeout(5000)
     pg.clock.set_fixed_time(AGORA)
@@ -147,6 +148,8 @@ def abrir(p, largura=1366, altura=900, dados=None, celular=False, pc=False, sem_
         pg.add_init_script(_CELULAR)
     if pc:
         pg.add_init_script(_PC)
+    if extra:
+        pg.add_init_script(extra)
     pg.goto(URL + "#" + hash)
     pg.wait_for_timeout(500)
     return pg

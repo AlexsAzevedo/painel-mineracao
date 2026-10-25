@@ -15,7 +15,7 @@
   const S = window.Sincronia, SINC = S.SINCRONIZADAS;
   const nativo = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const plugin = (n) => { try { return nativo && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin(n) : null; } catch (e) { return null; } };
-  const AppP = plugin("App"), DeviceP = plugin("Device");
+  const AppP = plugin("App"), DeviceP = plugin("Device"), BarrasP = plugin("SystemBars");
   const L = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -614,10 +614,12 @@ html.pm-vinculando .app{visibility:hidden}
     try {
       AppP.addListener("pause", () => pausar());
       AppP.addListener("resume", () => voltou());
-      /* voltar do Android: fecha a câmera, a folha "Mais", a configuração inicial ou volta para o Resumo; no Resumo, sai do app */
+      /* voltar do Android: fecha a câmera, a folha aberta (Mais, Anotar, Ajustar…), a configuração inicial ou volta para o
+         Resumo; no Resumo, sai do app */
       AppP.addListener("backButton", () => {
         if (lendo) { pararCamera(); mostrar("inicio"); status(""); return; }
-        if (!vincEl && typeof window.fecharMais === "function" && window.fecharMais()) return;
+        const fechar = typeof window.fecharFolha === "function" ? window.fecharFolha : window.fecharMais;
+        if (!vincEl && typeof fechar === "function" && fechar()) return;
         const bv = document.getElementById("bv");
         if (!vincEl && bv && !bv.hidden) { const d = document.getElementById("bv-depois"); if (d) d.click(); return; }
         const tela = (location.hash || "#resumo").slice(1);
@@ -626,6 +628,15 @@ html.pm-vinculando .app{visibility:hidden}
       });
     } catch (e) {}
   }
+  /* ícones das barras do Android (relógio, bateria, navegação): claros no tema escuro do painel e escuros no claro.
+     O padrão do app (DEFAULT) segue o tema do celular, que pode não ser o do painel. */
+  function estiloBarras() {
+    if (!BarrasP) return;
+    const claro = document.documentElement.dataset.tema === "claro";
+    try { BarrasP.setStyle({ style: claro ? "LIGHT" : "DARK" }).catch(() => {}); } catch (e) {}
+  }
+  try { new MutationObserver(estiloBarras).observe(document.documentElement, { attributes: true, attributeFilter: ["data-tema"] }); } catch (e) {}
+  estiloBarras();
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") voltou(); });
   window.addEventListener("online", () => { if (codigo) { caiuDesde = 0; escutar(); } });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { iniciar(); }); else iniciar();
