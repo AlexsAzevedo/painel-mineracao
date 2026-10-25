@@ -2741,6 +2741,9 @@ async function salvarDia(ent){
   diario = diario.filter(x=>x.data!==ent.data).concat([{...ent, _id:ent.data}]); lsSet("min-diario", diario); renderDiario(); renderResumo();
 }
 async function apagarDia(data){
+  /* um dia que veio da Kryptex e foi apagado não volta sozinho (nem pelo Anotar sozinho) */
+  const ex = diario.find(x=>x.data===data), rec = kxCfg().recusados;
+  if(ex && ex.fonte==="kryptex" && !rec.includes(data)) mudarKxCfg({recusados:[...rec, data].slice(-60)});
   if(db){ try{ await db.doc("diario/"+data).delete(); return; }catch(e){ setSync(false,"Não apagou"); } }
   diario = diario.filter(x=>x.data!==data); lsSet("min-diario", diario); renderDiario(); renderResumo();
 }

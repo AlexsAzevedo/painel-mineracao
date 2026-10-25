@@ -67,7 +67,7 @@ contextBridge.exposeInMainWorld("desktop", {
     config: (op) => {
       if (!op || typeof op !== "object") return ipcRenderer.invoke("celular-config", null);
       const o = {};
-      for (const k of ["ligado", "resumo", "ofertas", "sinal", "iniciar", "novoTopico"]) if (k in op) o[k] = !!op[k];
+      for (const k of ["ligado", "resumo", "ofertas", "sinal", "maquinas", "iniciar", "novoTopico"]) if (k in op) o[k] = !!op[k];
       for (const k of ["hora", "resumoDia"]) if (k in op) o[k] = String(op[k] || "");
       return ipcRenderer.invoke("celular-config", o);
     },

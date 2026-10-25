@@ -400,6 +400,11 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.celular.semSinal = { apagou: ntfy.apagados.includes(`${topico}/pc-sinal`), agendado: !!ntfy.agendados[`${topico}/pc-sinal`] };
         await marcarCel("cel-sinal", true); await esperar(600);
         r.celular.sinalDeNovo = !!ntfy.agendados[`${topico}/pc-sinal`];
+        /* o aviso de máquina parada (conta da Kryptex) desliga e liga de novo */
+        await marcarCel("cel-maquinas", false); await esperar(400);
+        r.celular.semMaquinas = { app: celularMain.estado().maquinas, tela: await js(`document.getElementById("cel-maquinas").checked`) };
+        await marcarCel("cel-maquinas", true); await esperar(400);
+        r.celular.comMaquinas = { app: celularMain.estado().maquinas, tela: await js(`document.getElementById("cel-maquinas").checked`) };
 
         /* abrir no celular: liga o servidor, entra com a senha numa janela de celular e confere que os dois mexem nos mesmos dados */
         r.acesso = {};

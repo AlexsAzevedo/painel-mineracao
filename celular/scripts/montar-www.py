@@ -20,9 +20,9 @@ def opcao(nome):
     return None
 saida = pathlib.Path(opcao("--saida") or RAIZ / "www")
 ntfy_teste = opcao("--ntfy")
+# a versão do app é a dele (celular/package.json), que só sobe quando o app muda; não precisa ser a do PC
 versao = json.loads((RAIZ / "package.json").read_text(encoding="utf-8"))["version"]
-versao_pc = json.loads((REPO / "desktop" / "package.json").read_text(encoding="utf-8"))["version"]
-assert versao == versao_pc, f"a versão do app ({versao}) é diferente da do PC ({versao_pc}): suba as duas juntas"
+assert re.fullmatch(r"\d+\.\d+\.\d+", versao), f"a versão do app ({versao}) não é do tipo X.Y.Z"
 
 html = (REPO / "mineracao.html").read_text(encoding="utf-8")
 if saida.exists():
