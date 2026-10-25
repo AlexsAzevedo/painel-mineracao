@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld("desktop", {
   buscarAnuncios: (op) => ipcRenderer.invoke("buscar-anuncios", { site: String(op && op.site || ""), url: String(op && op.url || ""), rolar: Number(op && op.rolar) || 0 }),
   detalhesAnuncio: (op) => ipcRenderer.invoke("detalhes-anuncio", { site: String(op && op.site || ""), url: String(op && op.url || "") }),
   entrarFacebook: () => ipcRenderer.invoke("facebook"),
+  /* conta da Kryptex: entrar (janela do site) e ler as máquinas ou o saldo pelo navegador escondido */
+  kryptex: {
+    entrar: () => ipcRenderer.invoke("kryptex-entrar"),
+    ler: (qual) => ipcRenderer.invoke("kryptex-ler", qual === "saldo" ? "saldo" : "maquinas")
+  },
   mostrarNavegador: () => ipcRenderer.invoke("mostrar-navegador"),
   salvarArquivo: (nome, conteudo) => ipcRenderer.invoke("salvar-arquivo", String(nome), String(conteudo)),
   salvarPdf: (nome, html) => ipcRenderer.invoke("salvar-pdf", String(nome), String(html)),

@@ -105,7 +105,7 @@ function videoDoQr(q, arquivo) {
   fs.writeFileSync(arquivo, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F15:1 Ip A1:1 C420jpeg\n`), ...Array(20).fill(quadro)]));
 }
 
-module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, comoAbrir, celular: celularMain, acesso: acessoMain, appCelular: appMain }) {
+module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano, comoAbrir, testeArquivos, testeKryptex, celular: celularMain, acesso: acessoMain, appCelular: appMain }) {
   /* versões de mentira no formato das Releases do GitHub, para a atualização automática.
      modo "igual": a última versão publicada é a que está instalada; "defeito": versão nova com o arquivo corrompido; "ok": versão nova certa */
   const versaoApp = app.getVersion(), proxima = versaoApp.replace(/(\d+)$/, (n) => String(+n + 1));
@@ -137,6 +137,30 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
   const fx = (n) => fs.readFileSync(path.join(process.env.PAINEL_FIXOS, n), "utf8");
   const emDivs = (txt) => txt.split("\n").map((l) => `<div>${esc(l)}</div>`).join("");
   const pedidos = [], agentes = [];
+  /* conta da Kryptex de mentira: sem o cookie de sessão, a página pede login; "entrando" é a janela de login (o teste
+     faz de conta que a pessoa entrou: a resposta grava o cookie); "desafio" serve antes a verificação contra robôs, que
+     recarrega a página sozinha; a lista de máquinas vai num <script type="application/json" id="workerDataset">, como no site */
+  const kxf = { entrando: false, desafio: 0, pedidos: [], saldo: "0.00010000", fiat: "$6.80",
+    maquinas: [{ name: "RIG-ALEX", coin: "xtm", scheme: "pplns", agent: "lolMiner 1.92", is_online: true, avg_hashrate_30m: 58300000, avg_hashrate_24h: 60100000, profit_daily: 1.23, profit_monthly: 36.9, valid: 1234, stale: 3, invalid: 0 }] };
+  const paginaKx = (titulo, corpo, extra) => `<html><head><title>${titulo} | Kryptex</title></head><body><header><span>alex.teste@example.com</span><span>ID 7f3a9c2e1b4d5f60718293a4b5c6d7e8f9</span></header><main><h1>${titulo}</h1>${corpo}</main>${extra || ""}</body></html>`;
+  function respostaKryptex(req, res, p) {
+    const logado = /(^|;\s*)kxsessao=1/.test(String(req.headers.cookie || ""));
+    kxf.pedidos.push(p + (logado ? "" : " (sem login)"));
+    const cab = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" };
+    if (!logado) {
+      if (kxf.entrando) { kxf.entrando = false; cab["Set-Cookie"] = "kxsessao=1; Path=/; HttpOnly"; }
+      res.writeHead(200, cab); res.end(paginaKx("Log in", '<form><input name="email" type="email"><input name="password" type="password"><button>Log in</button></form>'));
+      return;
+    }
+    if (kxf.desafio > 0) {
+      kxf.desafio--;
+      res.writeHead(200, cab); res.end(`<html><head><title>Kryptex</title></head><body><div class="gorizontal-vertikal">Verificando o navegador…</div><script>setTimeout(()=>location.reload(), 800)</script></body></html>`);
+      return;
+    }
+    if (p === "/kryptex/site/hardware") { res.writeHead(200, cab); res.end(paginaKx("Hardware", kxf.maquinas.map((m) => `<div>${esc(m.name)}</div><div>${m.is_online ? "Online" : "Offline"}</div>`).join(""), `<script id="workerDataset" type="application/json">${JSON.stringify(kxf.maquinas)}</script>`)); return; }
+    if (p === "/kryptex/site/dashboard") { res.writeHead(200, cab); res.end(paginaKx("Dashboard", `<div>Balance</div><div>${kxf.saldo} BTC</div><div>≈ ${kxf.fiat}</div><div>Withdraw</div><div>Wallet bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</div>`)); return; }
+    res.writeHead(404, cab); res.end("nada");
+  }
   /* ntfy de mentira (avisos no celular e app do celular): guarda o que o painel publicou, agenda/substitui/cancela o "sinal de vida"
      como o ntfy.sh faz (mesmo sequence_id substitui o agendado), guarda as cartas da sincronia e os anexos e entrega a quem escuta */
   let baseNtfy = "";
@@ -160,6 +184,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
       res.writeHead(corpo ? 200 : 404, { "Content-Type": tipo, "Cache-Control": "no-store" }); res.end(corpo || "nada"); return;
     }
     agentes.push(String(req.headers["user-agent"] || ""));
+    if (p.startsWith("/kryptex/")) { respostaKryptex(req, res, p); return; }
     if (p === "/fb/marketplace/category/search/") corpo = paginaBuscaFb(u.searchParams);
     else if (/^\/fb\/marketplace\/item\/1000000000000007\/?$/.test(p)) corpo = paginaTexto("Marketplace — Rtx 3080 galax 10gb RGB com Caixa | Facebook", DETALHE_FB, 'role="main"');
     else if (/^\/olx\/www\/estado-(sc|pr)$/.test(p)) corpo = paginaBuscaOlx(p.slice(-2), u.searchParams);
@@ -856,6 +881,79 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         })()`);
         r.backup = await js(`window.desktop.salvarArquivo("teste-backup.json", JSON.stringify(backupDados()))`);
         r.backupChaves = Object.keys(JSON.parse(fs.readFileSync(r.backup, "utf8")).dados).sort();
+
+        /* relatório do ano: PDF e planilha pelos botões do Diário (no teste, salvos na pasta temporária) */
+        await js(`irPara("diario")`); await esperar(400);
+        r.relatorio = {};
+        r.relatorio.antes = await js(`(()=>{ diario = diario.filter(e=>e.data!=="2026-10-20").concat([{data:"2026-10-20", valor:3, moeda:"USD", dolar:5.05, horas:24, obs:"teste; relatório", criado:1, btc:0.00002712}]); lsSet("min-diario", diario); renderDiario();
+          return {anos:[...document.querySelectorAll("#rel-ano option")].map(o=>o.value), pdf:!document.querySelector("[data-rel=pdf]").hidden, csv:!document.querySelector("[data-rel=csv]").hidden, texto:document.getElementById("rel-res").innerText.slice(0,400)}; })()`);
+        await js(`relAno = "2026"; renderRelatorio(); document.querySelector("[data-rel=pdf]").click()`);
+        for (let i = 0; i < 40; i++) { await esperar(250); if (/PDF salvo|Não deu/.test(await js(`document.getElementById("rel-status").textContent`))) break; }
+        r.relatorio.statusPdf = await js(`document.getElementById("rel-status").textContent`);
+        await js(`document.querySelector("[data-rel=csv]").click()`); await esperar(500);
+        r.relatorio.statusCsv = await js(`document.getElementById("rel-status").textContent`);
+        await js(`document.querySelector("[data-rel=copiar]").click()`); await esperar(400);
+        r.relatorio.copiado = testeArquivos.copiado.slice(0, 200);
+        r.relatorio.salvos = testeArquivos.salvos.map((f) => path.basename(f));
+        try { const pdf = fs.readFileSync(testeArquivos.salvos.find((f) => /\.pdf$/.test(f))); r.relatorio.pdf = { inicio: pdf.slice(0, 5).toString(), bytes: pdf.length, paginas: (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) || []).length }; } catch (e) { r.relatorio.pdf = String(e.message); }
+        try { const csv = fs.readFileSync(testeArquivos.salvos.find((f) => /\.csv$/.test(f)), "utf8"); r.relatorio.csv = { bom: csv.charCodeAt(0) === 0xfeff, linhas: csv.split("\r\n").length, outubro: csv.split("\r\n").find((l) => l.startsWith("Outubro;")), obs: /"teste; relatório"/.test(csv) }; } catch (e) { r.relatorio.csv = String(e.message); }
+        await foto("diario_relatorio");
+
+        /* conta da Kryptex: sem login → entrar (janela) → verificação contra robôs → máquinas e saldo; máquina para, volta,
+           rende menos; o ganho de um dia pelo saldo vira sugestão no Diário; copiar o que o painel leu (sem e-mail) */
+        r.kryptex = {};
+        await js(`irPara("resumo")`); await esperar(300);
+        const kxEstado = `({estado:kx.estado, msg:kx.msg, maquinas:kx.maquinas.map(m=>({nome:m.nome, online:m.online, estado:m.estado, h30:m.h30, base:m.base})), saldo:kx.saldo && {btc:kx.saldo.btc, fiat:kx.saldo.fiat, moeda:kx.saldo.moeda, preco:kx.saldo.preco},
+          alertas:kx.alertas.map(a=>a.tipo), card:document.getElementById("kx-corpo").innerText.slice(0,500), visivel:!document.getElementById("kx-p").hidden})`;
+        r.kryptex.antes = await js(`({visivel:!document.getElementById("kx-p").hidden, botao:!!document.querySelector('#kx-acoes [data-kx="ligar"]'), entrarNoPc:!document.querySelector('[data-pc="kryptex"]').hidden})`);
+        const notifAntes = testeSegundoPlano.notificacoes.length;
+        await js(`mudarKxCfg({ligado:true}); lerKryptex(true)`);
+        for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
+        r.kryptex.semLogin = await js(kxEstado);
+        r.kryptex.semLoginAvisou = testeSegundoPlano.notificacoes.length - notifAntes;
+        r.kryptex.segundoPlano = segundoPlano();
+        kxf.entrando = true; kxf.desafio = 1;
+        await js(`document.querySelector('#kx-acoes [data-kx="entrar"]').click()`);
+        for (let i = 0; i < 160; i++) { await esperar(250); if (testeKryptex.entrou && !(await js("kxLendo")) && (await js("kx.estado")) !== "login") break; }
+        await esperar(500);
+        r.kryptex.entrou = await js(`({...${kxEstado}, status:document.getElementById("kx-status").textContent})`);
+        r.kryptex.janelas = testeKryptex.entrou;
+        r.kryptex.pedidos = kxf.pedidos.slice();
+        await foto("kryptex");
+        /* a máquina para (a Kryptex marca offline): aviso no Windows e no celular; depois volta */
+        const nAntes = testeSegundoPlano.notificacoes.length, pubAntes = ntfy.publicados.length;
+        kxf.maquinas[0].is_online = false;
+        await js(`lerKryptex(false)`); for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
+        r.kryptex.parou = await js(kxEstado);
+        kxf.maquinas[0].is_online = true;
+        await js(`lerKryptex(false)`); for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
+        r.kryptex.voltou = await js(kxEstado);
+        /* rendendo menos: duas leituras seguidas abaixo de 70% do normal */
+        kxf.maquinas[0].avg_hashrate_30m = 30000000;
+        await js(`lerKryptex(false)`); for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
+        r.kryptex.umaBaixa = await js(kxEstado);
+        await js(`lerKryptex(false)`); for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
+        r.kryptex.lenta = await js(kxEstado);
+        kxf.maquinas[0].avg_hashrate_30m = 59000000;
+        await js(`lerKryptex(false)`); for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
+        r.kryptex.normal = await js(kxEstado);
+        r.kryptex.avisos = testeSegundoPlano.notificacoes.slice(nAntes).map((n) => n.titulo);
+        r.kryptex.celular = ntfy.publicados.slice(pubAntes).filter((m) => m.sequence_id !== "pc-sinal" && m.title).map((m) => m.title);
+        /* o ganho de ontem pelo saldo (leituras às 00:10, 12:00 e 00:20 de hoje): vira sugestão no Diário e é anotado pelo botão */
+        r.kryptex.dia = await js(`(async()=>{ const h = new Date(); h.setHours(0,0,0,0); const ontem = h.getTime() - 864e5, iso = isoLocal(new Date(ontem));
+          diario = diario.filter(e=>e.data!==iso); lsSet("min-diario", diario); delete kx.dias[iso];
+          kxHist.saldos = [[ontem + 10*60e3, 0.0001, 68000], [ontem + 12*3600e3, 0.000105, 68000], [h.getTime() + 20*60e3, 0.00011, 68100]];
+          calcularDiasKx(); renderSugestoesKx(); irPara("diario"); await new Promise(o=>setTimeout(o,300));
+          const sug = document.getElementById("kx-sug").innerText;
+          document.querySelector('[data-kx-anotar="'+iso+'"]').click(); await new Promise(o=>setTimeout(o,400));
+          const e = diario.find(x=>x.data===iso);
+          return {iso, dia:kx.dias[iso], sugestao:sug.slice(0,300), anotado:e && {valor:e.valor, moeda:e.moeda, btc:e.btc, obs:e.obs, fonte:e.fonte}, sumiu:document.getElementById("kx-sug").hidden}; })()`);
+        await foto("kryptex_diario");
+        await js(`irPara("resumo")`); await esperar(300);
+        await js(`document.querySelector('#kx-acoes [data-kx="copiar"]').click()`); await esperar(500);
+        const diag = testeArquivos.copiado;
+        r.kryptex.diag = { tamanho: diag.length, semEmail: !/alex\.teste@example\.com/.test(diag), semCarteira: !/bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh/.test(diag), semCodigo: !/7f3a9c2e1b4d5f60718293a4b5c6d7e8f9/.test(diag), temDataset: /workerDataset/.test(diag), oculto: /e-mail@oculto/.test(diag) };
+        r.kryptex.sincronizada = await js(`({lista:SINCRONIZADAS.includes("min-kryptex"), gravada:!!localStorage.getItem("min-kryptex"), hist:!!localStorage.getItem("min-kx-hist")})`);
 
         for (const tela of ["resumo", "setup", "premissas"]) {
           await js(`irPara("${tela}")`); await esperar(500);

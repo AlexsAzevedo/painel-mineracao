@@ -208,7 +208,7 @@ const ntfy = () => ((TESTE && process.env.PAINEL_NTFY) || "https://ntfy.sh").rep
 const SINAL_CADA = TESTE ? Math.max(500, Number(process.env.PAINEL_SINAL_MS) || 60000) : 15 * 60e3;
 const SINAL_ESPERA_MIN = 45;
 const arquivoCelular = () => path.join(app.getPath("userData"), "celular.json");
-let celular = { topico: "", ligado: false, resumo: true, hora: "08:00", ofertas: true, sinal: true, iniciar: true, resumoDia: "", ultimoSinal: 0, saiuAMao: false, ultimoEnvio: 0, erro: "" };
+let celular = { topico: "", ligado: false, resumo: true, hora: "08:00", ofertas: true, sinal: true, maquinas: true, iniciar: true, resumoDia: "", ultimoSinal: 0, saiuAMao: false, ultimoEnvio: 0, erro: "" };
 let encerrandoWindows = false, atualizandoAgora = false, sinalCancelado = false;
 const testeCelular = { publicados: [], cancelados: [], pedidos: 0 };
 function lerCelular() { try { celular = { ...celular, ...JSON.parse(fs.readFileSync(arquivoCelular(), "utf8")) }; } catch (e) {} }
@@ -218,7 +218,7 @@ function novoTopico() {
   const A = "abcdefghjkmnpqrstuvwxyz23456789", s = [...require("crypto").randomBytes(16)].map((x) => A[x % A.length]).join("");
   return `painel-${s.slice(0, 4)}-${s.slice(4, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}`;
 }
-const celularPublico = () => ({ topico: celular.topico, ligado: celular.ligado, resumo: celular.resumo, hora: celular.hora, ofertas: celular.ofertas, sinal: celular.sinal, iniciar: celular.iniciar !== false,
+const celularPublico = () => ({ topico: celular.topico, ligado: celular.ligado, resumo: celular.resumo, hora: celular.hora, ofertas: celular.ofertas, sinal: celular.sinal, maquinas: celular.maquinas !== false, iniciar: celular.iniciar !== false,
   resumoDia: celular.resumoDia, ultimoEnvio: celular.ultimoEnvio, ultimoSinal: celular.ultimoSinal, erro: celular.erro, esperaMin: SINAL_ESPERA_MIN });
 function avisarCelular() { if (principal && !principal.isDestroyed()) principal.webContents.send("celular", celularPublico()); }
 const dataHora = (t) => new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "");
@@ -245,6 +245,8 @@ function mensagemCelular({ tipo, titulo, corpo, url }) {
   if (tipo === "resumo") return { title, message, tags: ["bar_chart"], priority: 3, sequence_id: "resumo",
     actions: [{ action: "http", label: "Atualizar", url: `${ntfy()}/${celular.topico}-p`, method: "POST", body: "resumo" }] };
   if (tipo === "oferta") return { title, message, tags: ["moneybag"], priority: 4, ...(link ? { click: link, actions: [{ action: "view", label: "Abrir o anúncio", url: link }] } : {}) };
+  if (tipo === "maquina") return { title, message, tags: ["rotating_light"], priority: 4 };
+  if (tipo === "voltou") return { title, message, tags: ["white_check_mark"], priority: 3 };
   if (tipo === "teste") return { title: title || "Painel de Mineração", message: message || "Funcionou! Os avisos do painel vão chegar aqui.", tags: ["white_check_mark"], priority: 3 };
   /* endereço do painel deste PC (rede de casa ou Tailscale): http, com número de porta */
   if (tipo === "endereco") {
@@ -329,7 +331,7 @@ ipcMain.handle("celular-config", async (e, op) => {
     const antes = { ...celular };
     if ("ligado" in op) celular.ligado = !!op.ligado;
     if (op.novoTopico || (celular.ligado && !celular.topico)) { celular.topico = novoTopico(); celular.ultimoSinal = 0; }
-    for (const k of ["resumo", "ofertas", "sinal", "iniciar"]) if (k in op) celular[k] = !!op[k];
+    for (const k of ["resumo", "ofertas", "sinal", "maquinas", "iniciar"]) if (k in op) celular[k] = !!op[k];
     if (typeof op.hora === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(op.hora)) celular.hora = op.hora;
     if (typeof op.resumoDia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(op.resumoDia)) celular.resumoDia = op.resumoDia;
     if (celular.ligado && !antes.ligado) celular.erro = "";
@@ -1045,6 +1047,7 @@ function paraTeste(url) {
   const u = new URL(url);
   if (/(^|\.)facebook\.com$/.test(u.hostname)) return `${base}/fb${u.pathname}${u.search}`;
   if (/(^|\.)olx\.com\.br$/.test(u.hostname)) return `${base}/olx/${u.hostname.split(".")[0]}${u.pathname}${u.search}`;
+  if (/(^|\.)kryptex\.com$/.test(u.hostname)) return `${base}/kryptex${u.pathname}${u.search}`;
   return url;
 }
 /* só o Marketplace e a OLX, por https */
@@ -1155,11 +1158,66 @@ function detalhesAnuncioLeitor(op) {
     return r || {};
   });
 }
+/* ---------- conta da Kryptex: as máquinas e o saldo, lidos da sua conta ----------
+   Você entra na conta numa janela do painel (o login fica guardado no navegador escondido, como o do Facebook).
+   O painel pede, de meia em meia hora, as duas páginas da conta abaixo; o navegador escondido espera passar a verificação
+   contra robôs da Kryptex e devolve o texto, os dados em JSON da página (a lista de máquinas vem num
+   <script type="application/json">) e as tabelas. Quem separa máquinas, saldo e ganhos é o painel. */
+const KRYPTEX_CONTA = { saldo: "https://www.kryptex.com/site/dashboard", maquinas: "https://www.kryptex.com/site/hardware" };
+const testeKryptex = { entrou: 0, lidas: [] };
+function paginaKryptex() {
+  const corpo = document.body ? (document.body.innerText || "") : "";
+  const login = !!document.querySelector('input[type="password"]') || /\/(login|signin|signup|register)\b/i.test(location.pathname);
+  const desafio = !!document.querySelector(".gorizontal-vertikal") || /Just a moment|Checking your browser|Verifique se você é humano|Проверка браузера/i.test(document.title + " " + corpo.slice(0, 600));
+  const json = {};
+  for (const s of document.querySelectorAll('script[type="application/json"]')) {
+    const id = s.id || s.getAttribute("data-id") || s.getAttribute("name") || "";
+    if (id && Object.keys(json).length < 12) json[id] = (s.textContent || "").slice(0, 400000);
+  }
+  const tabelas = [...document.querySelectorAll("table")].slice(0, 8)
+    .map((t) => [...t.rows].slice(0, 400).map((r) => [...r.cells].map((c) => (c.innerText || "").replace(/\s+/g, " ").trim().slice(0, 120))));
+  return { titulo: document.title, login, desafio, pronto: document.readyState === "complete", texto: corpo.slice(0, 60000), json, tabelas };
+}
+function lerKryptexLeitor(qual) {
+  const url = KRYPTEX_CONTA[qual];
+  if (!url) throw new Error("página não permitida");
+  return emFila(async () => {
+    const w = pegarLeitor();
+    await carregar(w, paraTeste(url));
+    /* a verificação contra robôs recarrega a página sozinha: pergunta de novo até ela passar (no máximo ~45 s) */
+    let r = null;
+    for (let i = 0; i < 18; i++) {
+      r = await rodarNoLeitor(w, `(${paginaKryptex})()`, 10000).catch(() => null);
+      if (r && r.pronto && !r.desafio && (r.login || r.texto.length > 60)) break;
+      await new Promise((ok) => setTimeout(ok, 2500));
+    }
+    if (TESTE) testeKryptex.lidas.push(qual);
+    if (!r) return { erro: "a página da Kryptex não respondeu" };
+    return { ...r, url: w.webContents.getURL().replace(/[?#].*$/, "") };
+  });
+}
+function abrirKryptex() {
+  return new Promise((ok) => {
+    const w = new BrowserWindow({
+      width: 1000, height: 820, title: "Entrar na Kryptex", parent: principal || undefined, autoHideMenuBar: true,
+      icon: path.join(__dirname, "app", "icone.png"),
+      webPreferences: { partition: PARTICAO, contextIsolation: true, nodeIntegration: false, sandbox: true }
+    });
+    /* janelas que o login abre (entrar com o Google, por exemplo) abrem por cima, na mesma sessão */
+    w.webContents.setWindowOpenHandler(({ url }) => /^https:\/\//i.test(url)
+      ? { action: "allow", overrideBrowserWindowOptions: { parent: w, autoHideMenuBar: true, width: 620, height: 760 } } : { action: "deny" });
+    w.loadURL(paraTeste(KRYPTEX_CONTA.saldo), { userAgent: agente() }).catch(() => {});
+    w.on("closed", () => ok(true));
+    if (TESTE) { testeKryptex.entrou++; setTimeout(() => { if (!w.isDestroyed()) w.close(); }, 1500); }
+  });
+}
 const doPainel = (fn) => (e, ...a) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return fn(...a); };
 ipcMain.handle("navegar", doPainel(navegarLeitor));
 ipcMain.handle("texto", doPainel(textoLeitor));
 ipcMain.handle("buscar-anuncios", doPainel(buscarAnunciosLeitor));
 ipcMain.handle("detalhes-anuncio", doPainel(detalhesAnuncioLeitor));
+ipcMain.handle("kryptex-ler", doPainel((qual) => lerKryptexLeitor(String(qual || ""))));
+ipcMain.handle("kryptex-entrar", doPainel(() => abrirKryptex()));
 
 function abrirFacebook() {
   return new Promise((ok) => {
@@ -1355,7 +1413,7 @@ const AUTOR = { nome: "Alexsander Azevedo", contato: ["alexs_azevedo@hotmail.com
 function montarMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: "Painel", submenu: [{ label: "Recarregar", role: "reload" }, { label: "Tela cheia", role: "togglefullscreen" }, { type: "separator" }, { label: "Sair", role: "quit" }] },
-    { label: "Navegador", submenu: [{ label: "Entrar no Facebook", click: () => abrirFacebook() }, { label: "Mostrar o navegador escondido", click: () => mostrarLeitor() }] },
+    { label: "Navegador", submenu: [{ label: "Entrar no Facebook", click: () => abrirFacebook() }, { label: "Entrar na Kryptex", click: () => abrirKryptex() }, { label: "Mostrar o navegador escondido", click: () => mostrarLeitor() }] },
     { label: "Ajuda", submenu: [
       { label: "Ferramentas do desenvolvedor", role: "toggleDevTools" },
       { label: "Sobre", click: () => dialog.showMessageBox(principal, { type: "info", title: "Sobre o Painel de Mineração", message: `Painel de Mineração ${app.getVersion()}`,
@@ -1374,7 +1432,7 @@ if (UNICO) app.whenReady().then(() => {
   iniciarAcesso();
   iniciarAppCelular();
   /* no teste, quem liga a atualização é o próprio teste, depois de subir o servidor de versões de mentira */
-  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir,
+  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir, testeArquivos, testeKryptex,
     celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular },
     acesso: { estado: acessoPublico, config: () => ({ ...acesso }), versao: () => versaoDados },
     appCelular: { estado: () => JSON.parse(JSON.stringify(appCel)), publico: appPublico, registro: testeApp, conectado: () => appConectado,

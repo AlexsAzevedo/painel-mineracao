@@ -512,6 +512,29 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .hist-tab summary{cursor:pointer;font-size:.86rem;color:var(--accent)}
 .hist-tab table{margin-top:8px;max-width:420px;min-width:0}
 .legenda{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+/* conta da Kryptex */
+#kx-p .painel-h{flex-wrap:wrap}
+.kx-maqs{display:flex;flex-direction:column;gap:8px}
+.kx-m{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.kx-m .nm{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.kx-m .nm small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.kx-m .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-size:.88rem;white-space:nowrap}
+.kx-m .v small{display:block;font-family:var(--body);font-size:.72rem;color:var(--muted)}
+@media (max-width:520px){.kx-m{grid-template-columns:auto minmax(0,1fr)}.kx-m .v{grid-column:2;text-align:left}}
+.kx-saldo{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:.88rem;color:var(--muted)}
+.kx-saldo b{color:var(--fg);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.kx-alertas{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:.84rem;color:var(--muted)}
+.kx-alertas b{color:var(--fg);font-family:var(--mono);font-weight:600;margin-right:4px}
+.kx-aviso{margin:0;font-size:.88rem}
+.kx-aviso.w{color:var(--warn)}
+.kx-aviso.w::before{content:"!";display:inline-grid;place-items:center;width:15px;height:15px;margin-right:6px;border-radius:50%;background:var(--warn-soft);color:var(--warn);font-weight:700;font-size:.7rem;vertical-align:1px}
+.kx-sug{border-color:var(--accent-soft)}
+.kx-sug-l{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.kx-sug-l li{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.kx-sug-l .t{min-width:0}
+.kx-sug-l .t::first-letter{text-transform:uppercase}
+.kx-sug-l .t b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.kx-sug-l .t small{display:block;color:var(--muted);font-size:.78rem}
 /* retorno real × previsto */
 .k-lin.k-real{height:3px;background:var(--viz-real)}
 .k-lin.k-proj{height:0;background:none;border-top:2px dashed var(--viz-real)}
@@ -725,6 +748,12 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         <ul id="novid-lista"></ul>
       </article>
       <div class="kpis" id="r-kpis"></div>
+      <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
+        <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
+        <div id="kx-corpo"></div>
+        <div class="acoes" id="kx-acoes"></div>
+        <p class="status" id="kx-status" role="status" aria-live="polite"></p>
+      </article>
       <div class="grid2">
         <article class="painel"><div class="painel-h"><h2>Melhores compras hoje</h2><button type="button" class="link" data-ir="placas">Ver todas as placas</button></div><ol class="rank" id="r-compras"></ol><p class="nota-mini" id="r-compras-nota"></p></article>
         <article class="painel"><div class="painel-h"><h2>Seu rig</h2><button type="button" class="link" data-ir="minhas">Abrir</button></div><div id="r-rig"></div></article>
@@ -968,6 +997,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         </div>
         <div class="acoes">
           <button type="button" data-pc="facebook">Entrar no Facebook</button>
+          <button type="button" data-pc="kryptex">Entrar na Kryptex</button>
           <button type="button" data-pc="navegador">Mostrar o navegador escondido</button>
           <button type="button" data-pc="exportar">Exportar backup</button>
           <button type="button" data-pc="importar">Importar backup</button>
@@ -1010,6 +1040,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
             <label class="check"><input type="checkbox" id="cel-resumo"><span>Resumo todo dia às <input type="time" id="cel-hora" value="08:00" aria-label="Hora do resumo"><br><small>Lucro, ganho anotado, quanto já recuperou e as melhores ofertas. O botão Atualizar, no aviso, pede um resumo novo na hora.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-ofertas"><span>Ofertas boas que a busca automática encontrar<br><small id="cel-ofertas-h">Os mesmos avisos que aparecem no Windows, com o link do anúncio.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-sinal"><span>Avisar se este computador ficar mais de 45 minutos sem dar sinal<br><small>Desligado, travado ou sem internet: a mineração parou. Sair pelo painel não avisa.</small></span></label>
+            <label class="check"><input type="checkbox" id="cel-maquinas"><span>Máquina parada ou rendendo menos<br><small id="cel-maquinas-h">Vem da sua conta da Kryptex, que o painel lê de meia em meia hora (Resumo › Sua conta da Kryptex).</small></span></label>
           </div>
           <p class="hint" style="margin:0">Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos (para fechar de vez: botão direito no ícone › Sair). Abrir junto com o Windows: em Premissas › Este computador.</p>
           <div class="acoes"><button type="button" id="cel-resumo-agora">Mandar o resumo agora</button><button type="button" class="link" id="cel-trocar">Gerar outro nome</button><button type="button" class="link" id="cel-desligar">Desligar os avisos</button></div>
@@ -1123,6 +1154,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         <p class="hint" id="d-est" style="margin:0"></p>
         <p class="status" id="d-status" role="status" aria-live="polite"></p>
       </div>
+      <div id="kx-sug" hidden></div>
       <div class="cab"><div class="seg" role="group" aria-label="Período" id="d-per"><button type="button" data-per="7" aria-pressed="true">7 dias</button><button type="button" data-per="30" aria-pressed="false">30 dias</button><button type="button" data-per="0" aria-pressed="false">Tudo</button></div><span class="cont" id="d-cont"></span></div>
       <div class="kpis" id="d-kpis"></div>
       <p class="nota-mini" id="d-margem"></p>
@@ -1371,7 +1403,7 @@ function parcelasPadrao(){ try{ const n = Math.round(+setup.parcelas||1); return
 /* ---------- persistência: db do artifact, com fallback local ---------- */
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 /* chaves que o PC e o celular dividem (o resto, como a tela aberta e os filtros, é de cada aparelho) */
-const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos"];
+const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos","min-kryptex"];
 var aplicandoRemoto = false;   /* var: lsSet roda antes da parte do celular, lá embaixo */
 var painelPronto = false;      /* o script inteiro já rodou (as telas que dependem de tudo podem ser desenhadas) */
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
@@ -2641,6 +2673,7 @@ function renderDiario(){
     : `Nos dias anotados você recebeu ${pctTxt} do estimado. <button type="button" class="link" data-acao="usar-margem" data-v="${margemReal}">Usar ${margemReal}% como margem de segurança</button> (hoje: ${cfg.margem}%).`;
   renderGraf(linhas);
   if(MESES) renderRelatorio();
+  renderSugestoesKx();
   $("d-tab").innerHTML = linhas.length ? `<div class="tw"><table><thead><tr><th>Dia</th><th class="n">Real</th><th class="n">Estimado</th><th class="n">Diferença</th><th class="n">Lucro real</th><th>Observação</th><th></th></tr></thead><tbody>${linhas.map(l=>{
       const dif = l.pct!=null ? l.pct-1 : null;
       return `<tr><td class="name">${dataBR(l.e.data)}<small>${new Date(l.e.data+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"})}${+l.e.horas<24?` · ${n1(+l.e.horas)} h`:""}</small></td>
@@ -3440,11 +3473,13 @@ if(DESKTOP){
   document.querySelector("#dados-fora > .sub").textContent = "O painel abre as páginas num navegador escondido, uma por vez, e lê os números. Se o Facebook pedir login, use Entrar no Facebook (em Este computador, logo abaixo).";
   document.querySelector(".x-colar > summary").textContent = "Colar a lista da Kryptex (se a leitura automática não der certo)";
   const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o painel abre o anúncio num navegador escondido e lê título, preço e descrição. Se o Facebook pedir login, use Premissas › Este computador › Entrar no Facebook.";
+  if(!window.desktop.kryptex) document.querySelector('[data-pc="kryptex"]').hidden = true;
   $("este-pc").addEventListener("click", async e=>{
     const b = e.target.closest("[data-pc]"); if(!b) return;
     const st = (t, tipo) => status2("pc-status", t, tipo);
     try{
       if(b.dataset.pc==="facebook"){ st("Entre na sua conta na janela do Facebook e feche a janela quando terminar."); await window.desktop.entrarFacebook(); st("Pronto: os links de anúncio e as buscas do Marketplace usam essa conta.", "ok"); }
+      else if(b.dataset.pc==="kryptex"){ st("Entre na sua conta na janela da Kryptex e feche a janela quando terminar."); await entrarKryptex(); st(kx.estado==="ok" ? "Pronto: o painel está lendo a sua conta da Kryptex (Resumo › Sua conta da Kryptex)." : "Janela fechada. Veja como ficou em Resumo › Sua conta da Kryptex.", kx.estado==="ok" ? "ok" : ""); }
       else if(b.dataset.pc==="navegador"){ await window.desktop.mostrarNavegador(); st("O navegador escondido está aberto. Se algum site pedir verificação, resolva por lá e feche a janela."); }
       else if(b.dataset.pc==="exportar"){ const onde = await window.desktop.salvarArquivo(`painel-mineracao-${hojeISO()}.json`, JSON.stringify(backupDados(), null, 1)); st(onde ? `Backup salvo em ${onde}` : "Backup cancelado.", onde ? "ok" : ""); }
       else if(b.dataset.pc==="importar"){ const txt = await window.desktop.abrirArquivo(); if(!txt){ st("Importação cancelada."); return; } restaurarBackup(txt); }
@@ -4241,9 +4276,9 @@ function renderAlerta(){
 function sincronizarSegundoPlano(){
   if(!DESKTOP || !window.desktop.segundoPlano) return;
   if((window.desktop.celular && !celCfg) || (window.desktop.acesso && !acCfg) || (window.desktop.appCelular && !apCfg)) return;   /* espera as configurações chegarem */
-  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado), apl = !!(apCfg && apCfg.ligado);
-  /* com o acesso pelo celular ligado ou o app do celular vinculado, o painel precisa estar rodando: fica no ícone e abre com o Windows */
-  const bandeja = ofertasBg || cel || ac || apl, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl);
+  const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado), apl = !!(apCfg && apCfg.ligado), kxl = PODE_KX() && kxCfg().ligado;
+  /* com o acesso pelo celular ligado, o app do celular vinculado ou a leitura da Kryptex, o painel precisa estar rodando: fica no ícone e abre com o Windows */
+  const bandeja = ofertasBg || cel || ac || apl || kxl, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl || kxl);
   window.desktop.segundoPlano({bandeja, iniciar}).then(()=>carregarInicio()).catch(()=>{});
 }
 /* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha fica no aplicativo, deste PC).
@@ -4258,7 +4293,7 @@ function renderInicio(){
   $("pc-minimizado-h").textContent = c.bandeja ? "(a janela não aparece: o painel fica no ícone perto do relógio)" : "(a janela fica minimizada na barra de tarefas)";
   const dica = $("pc-iniciar-dica");
   dica.hidden = !!c.comWindows || !c.precisa;
-  dica.textContent = "Sem abrir junto com o Windows, o app do celular, os avisos no celular e a busca automática de ofertas param até você abrir o painel.";
+  dica.textContent = "Sem abrir junto com o Windows, o app do celular, os avisos no celular, a leitura da conta da Kryptex e a busca automática de ofertas param até você abrir o painel.";
 }
 async function carregarInicio(op){
   if(!DESKTOP || !window.desktop.inicioWindows) return;
@@ -4386,7 +4421,8 @@ function renderCelular(){
   const c = celCfg, lig = !!(c.ligado && c.topico);
   $("cel-desligado").hidden = lig; $("cel-ligado").hidden = !lig;
   $("cel-topico").textContent = c.topico || "";
-  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).checked = !!c[k];
+  for(const k of ["resumo","ofertas","sinal","maquinas"]) $("cel-"+k).checked = !!c[k];
+  $("cel-maquinas-h").textContent = c.maquinas && !kxCfg().ligado ? "Ligue a leitura da conta da Kryptex (Resumo › Sua conta da Kryptex) para esses avisos chegarem." : "Vem da sua conta da Kryptex, que o painel lê de meia em meia hora (Resumo › Sua conta da Kryptex).";
   if(document.activeElement!==$("cel-hora")) $("cel-hora").value = c.hora || "08:00";
   $("cel-ofertas-h").textContent = c.ofertas && !alerta.horas ? "Ligue Procurar sozinho, em Ofertas, para a busca rodar sem você." : "Os mesmos avisos que aparecem no Windows, com o link do anúncio.";
   const st = $("cel-status");
@@ -4415,7 +4451,7 @@ if(CEL){
     catch(err){ avisoCel("Não deu certo: " + (err && err.message || err) + ".", "erro"); }
     b.disabled = false; renderCelular();
   });
-  for(const k of ["resumo","ofertas","sinal"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
+  for(const k of ["resumo","ofertas","sinal","maquinas"]) $("cel-"+k).addEventListener("change", e=>mudarCelular({[k]: e.target.checked}));
   $("cel-hora").addEventListener("change", e=>{ if(/^\d{2}:\d{2}$/.test(e.target.value)) mudarCelular({hora:e.target.value}); });
   $("cel-resumo-agora").addEventListener("click", async e=>{
     const b = e.currentTarget; b.disabled = true;
@@ -4431,6 +4467,347 @@ if(CEL){
     avisoCel("Avisos desligados. Se ligar de novo, o nome continua o mesmo.", "ok");
   });
 }
+
+/* ---------- conta da Kryptex: máquinas, saldo e o ganho de cada dia (aplicativo do computador) ----------
+   Depois de entrar na conta (Entrar na Kryptex), o PC lê de meia em meia hora, pelo navegador escondido:
+   - as máquinas (página Hardware): minerando ou não, e o hashrate de 30 min e de 24 h. Uma máquina que para (a Kryptex marca
+     "offline" depois de 30 minutos sem trabalho) ou que fica abaixo de 70% do normal dela em duas leituras seguidas vira aviso
+     no Windows e no celular. O normal é a mediana do hashrate de 24 h das últimas 72 horas;
+   - o saldo (página Dashboard), uma vez por hora e logo depois da meia-noite: o ganho de cada dia é a diferença do saldo em
+     BTC entre as leituras (um saque, que faz o saldo cair, entra pelo ritmo das outras horas e o dia fica "aproximado"),
+     convertido pela cotação que a própria Kryptex mostra ao lado do saldo.
+   Nada vai para o Diário sem você confirmar, até marcar "Anotar sozinho". min-kryptex vai para o celular (só o PC grava, e
+   só quando algo muda de verdade, ou a cada 2 horas); min-kx-hist (as leituras) fica só neste PC. */
+var kx = null, kxHist = null, kxDiag = null, kxLendo = false;   /* var: o Resumo e o Diário desenham isto e podem rodar antes daqui */
+const KX_CADA = 30*60e3, KX_SALDO_CADA = 55*60e3, KX_LENTA = 0.7, KX_VOLTA = 0.85;
+const MSG_KX = {login:"a Kryptex pediu para você entrar na conta", bloqueado:"a Kryptex pediu uma verificação contra robôs", erro:"a página da Kryptex não abriu", formato:"a página abriu, mas não achei a lista das máquinas"};
+const UNID_HASH = {"":1, k:1e3, K:1e3, M:1e6, G:1e9, T:1e12, P:1e15};
+function PODE_KX(){ return DESKTOP && !!(window.desktop && window.desktop.kryptex); }
+function kxCfg(){ const c = (typeof cfg==="object" && cfg && cfg.kx && typeof cfg.kx==="object") ? cfg.kx : {}; return {ligado:!!c.ligado, auto:!!c.auto, recusados:Array.isArray(c.recusados) ? c.recusados.filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)) : []}; }
+function mudarKxCfg(o){ cfg.kx = {...kxCfg(), ...o}; salvarCfg(); }
+function carregarKx(){
+  const k = lsGet("min-kryptex");
+  kx = {v:1, quando:0, tentou:0, estado:"", msg:"", msgSaldo:"", fonte:"", saldo:null, maquinas:[], dias:{}, alertas:[], gravado:0, loginAvisou:0, falhaAvisou:0, ...(k && typeof k==="object" ? k : {})};
+  for(const c of ["maquinas","alertas"]) if(!Array.isArray(kx[c])) kx[c] = [];
+  if(!kx.dias || typeof kx.dias!=="object") kx.dias = {};
+  const h = lsGet("min-kx-hist");
+  kxHist = {saldos:[], hw:{}, ...(h && typeof h==="object" ? h : {})};
+  if(!Array.isArray(kxHist.saldos)) kxHist.saldos = [];
+  if(!kxHist.hw || typeof kxHist.hw!=="object") kxHist.hw = {};
+}
+carregarKx();
+/* número escrito do jeito do site (0.00012345, 0,00012345, 1,234.56 ou 1.234,56) */
+function numKx(s){
+  s = String(s??"").replace(/[\s  ]/g, "").replace(/[^\d.,-]/g, "");
+  if(!/\d/.test(s)) return NaN;
+  const p = s.lastIndexOf("."), v = s.lastIndexOf(",");
+  if(p>=0 && v>=0){ const dec = p>v ? "." : ","; return parseFloat(s.split(dec==="." ? "," : ".").join("").replace(",", ".")); }
+  const sep = p>=0 ? "." : v>=0 ? "," : "";
+  if(!sep) return parseFloat(s);
+  const partes = s.split(sep);
+  if(partes.length>2) return parseFloat(partes.join(""));
+  const [int, frac] = partes;
+  if(frac.length===3 && int.replace("-","")!=="0" && int.replace("-","").length<=3) return parseFloat(int+frac);
+  return parseFloat(int+"."+frac);
+}
+function hashTxt(v){
+  if(!(v>0)) return "—";
+  const [u, f] = [["P",1e15],["T",1e12],["G",1e9],["M",1e6],["k",1e3]].find(([,f])=>v>=f) || ["",1];
+  return (v/f).toLocaleString("pt-BR",{maximumFractionDigits: v/f>=100 ? 0 : 2}) + " " + u + "H/s";
+}
+function falhaDaPagina(r){ return !r || r.erro ? "erro" : r.login ? "login" : r.desafio ? "bloqueado" : ""; }
+/* máquinas: a lista em JSON que a página traz (workerDataset); sem ela, as linhas "online/offline" do texto com o nome logo acima */
+function maquinaDoJson(o){
+  const pega = (...ks) => { for(const k of ks) if(o[k]!=null && o[k]!=="") return o[k]; return null; };
+  const nome = String(pega("name","worker","worker_name","workerName","rig","rig_name","hostname","device","title") ?? "").trim().slice(0,60);
+  const on = pega("is_online","online","isOnline","active","is_active","status","state");
+  if(!nome || on==null) return null;
+  const n = v => { const x = typeof v==="number" ? v : numKx(v); return Number.isFinite(x) ? x : 0; };
+  return {nome, online: on===true || on===1 || /^(true|1|online|active|ativo|ativa|on|mining|minerando|working|ok)$/i.test(String(on).trim()),
+    h30: n(pega("avg_hashrate_30m","hashrate_30m","hashrate30m","current_hashrate","hashrate","hr")),
+    h24: n(pega("avg_hashrate_24h","hashrate_24h","hashrate24h","average_hashrate","avg_hashrate")),
+    lucroDia: n(pega("profit_daily","daily_profit","profit_day","profitDaily","earnings_daily")),
+    algo: String(pega("coin","algorithm","algo","scheme") ?? "").slice(0,24)};
+}
+function maquinasDoTexto(t){
+  const linhas = String(t||"").split("\n").map(x=>x.trim()).filter(Boolean), lista = [], vistos = new Set();
+  const ON = /^(online|em linha|ativ[ao]|minerando|в сети)$/i, OFF = /^(offline|fora do ar|desconectad[ao]|parad[ao]|inativ[ao]|не в сети)$/i;
+  for(let i=1; i<linhas.length; i++){
+    const l = linhas[i]; if(!ON.test(l) && !OFF.test(l)) continue;
+    const nome = linhas[i-1].slice(0,60); if(ON.test(nome) || OFF.test(nome) || vistos.has(nome)) continue;
+    vistos.add(nome);
+    const hs = [...linhas.slice(i+1, i+8).join(" ").matchAll(/(\d[\d.,]*)\s*([kKMGTP]?)H\/s/g)].map(m=>numKx(m[1])*(UNID_HASH[m[2]]||1)).filter(x=>x>0);
+    lista.push({nome, online: ON.test(l), h30: hs[0]||0, h24: hs[1]||0, lucroDia:0, algo:""});
+  }
+  return lista.length ? {fonte:"texto", lista} : null;
+}
+function maquinasDaPagina(r){
+  const parece = id => /worker|device|hardware|rig/i.test(id);
+  for(const id of Object.keys(r.json||{}).sort((a,b)=>parece(b)-parece(a))){
+    let v = null; try{ v = JSON.parse(r.json[id]); }catch(e){ continue; }
+    const lista = Array.isArray(v) ? v : ["workers","devices","items","data","rigs"].map(k=>v && v[k]).find(Array.isArray);
+    if(!lista) continue;
+    if(!lista.length){ if(parece(id)) return {fonte:"json:"+id, lista:[]}; continue; }
+    const ms = lista.filter(o=>o && typeof o==="object").map(maquinaDoJson).filter(Boolean);
+    if(ms.length) return {fonte:"json:"+id, lista:ms};
+  }
+  return maquinasDoTexto(r.texto);
+}
+/* saldo: o primeiro valor em BTC da página (fica no topo) e a cotação "≈ ..." que a Kryptex mostra logo depois */
+function saldoDaPagina(r){
+  const t = String(r && r.texto || ""), m = /(\d+[.,]\d+)\s*BTC\b/i.exec(t);
+  if(!m) return null;
+  const btc = numKx(m[1]); if(!Number.isFinite(btc) || btc<0) return null;
+  const f = /≈\s*([^\n]{1,32})/.exec(t.slice(m.index, m.index+240));
+  let fiat = null, moeda = "";
+  if(f){
+    const s = f[1];
+    moeda = /R\$|BRL/i.test(s) ? "BRL" : /US\$|\$|USD/i.test(s) ? "USD" : /€|EUR/i.test(s) ? "EUR" : /₽|RUB/i.test(s) ? "RUB" : /¥|CNY|RMB/i.test(s) ? "CNY" : "";
+    const nm = /\d[\d.,\s ]*\d|\d/.exec(s); if(nm){ const x = numKx(nm[0]); fiat = Number.isFinite(x) ? x : null; }
+  }
+  return {btc, fiat, moeda, preco: btc>0 && fiat>0 ? fiat/btc : null};
+}
+function avisoKx(tipo, titulo, corpo){
+  kx.alertas = [{t:Date.now(), tipo, texto: titulo + (corpo ? ". " + corpo : "")}, ...kx.alertas].slice(0, 12);
+  if(!PODE_KX()) return;
+  window.desktop.notificar({titulo, corpo, tela:"resumo"}).catch(()=>{});
+  if(celAtivo("maquinas")) window.desktop.celular.enviar({tipo: tipo==="voltou" ? "voltou" : "maquina", titulo, corpo}).catch(()=>{});
+}
+/* o normal de cada máquina: a mediana do hashrate de 24 h das leituras com ela minerando nas últimas 72 h (sem a de agora) */
+function hashNormal(hist, x){
+  const lim = Date.now() - 72*3600e3, v = hist.slice(0,-1).filter(r=>r[0]>=lim && r[3] && r[2]>0).map(r=>r[2]).sort((a,b)=>a-b);
+  return v.length>=6 ? v[Math.floor(v.length/2)] : x.h24>0 ? x.h24 : 0;
+}
+function atualizarMaquinas(lista){
+  const agora = Date.now(), antes = new Map(kx.maquinas.map(m=>[m.nome, m])), novas = [];
+  const hora = t => new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit", minute:"2-digit"});
+  /* depois de mais de 75 minutos sem ler (o PC dormiu ou o painel ficou fechado), uma máquina parada só vira aviso se
+     continuar parada na leitura seguinte: ela pode estar voltando junto com o PC */
+  const lacuna = !kx.quando || agora - kx.quando > 75*60e3;
+  const parou = (m, motivo) => avisoKx("parou", `${m.nome} parou de minerar`, motivo);
+  for(const x of lista){
+    const ant = antes.get(x.nome); antes.delete(x.nome);
+    const h = (kxHist.hw[x.nome] ||= []); h.push([agora, x.h30||0, x.h24||0, x.online ? 1 : 0]);
+    const base = hashNormal(h, x), baixa = x.online && base>0 && x.h30>0 && x.h30 < KX_LENTA*base;
+    const baixas = baixa ? ((ant && ant.baixas) || 0) + 1 : 0;
+    const estado = !x.online ? "parada" : ant && ant.estado==="lenta" ? (base>0 && x.h30>0 && x.h30 < KX_VOLTA*base ? "lenta" : "ok") : baixas>=2 ? "lenta" : "ok";
+    const mudou = !ant || ant.estado!==estado;
+    const m = {...x, base, baixas, estado, desde: mudou ? agora : ant.desde, avisada: !mudou && !!ant.avisada, pendente: !mudou && !!ant.pendente};
+    if(ant && mudou){
+      if(estado==="parada"){ if(lacuna) m.pendente = true; else { parou(x, `A Kryptex mostra a máquina offline (sem trabalho há 30 minutos ou mais) desde antes das ${hora(agora)}.`); m.avisada = true; } }
+      else if(estado==="lenta"){ avisoKx("lenta", `${x.nome} está rendendo menos`, `Hashrate de ${hashTxt(x.h30)} nos últimos 30 minutos, ${Math.round((1-x.h30/base)*100)}% abaixo do normal dela (${hashTxt(base)}).`); m.avisada = true; }
+      else if(ant.estado==="parada" && ant.avisada) avisoKx("voltou", `${x.nome} voltou a minerar`, `Parada desde ${quando(ant.desde)}; ${hashTxt(x.h30)} agora.`);
+    }
+    else if(ant && estado==="parada" && m.pendente && !lacuna){ parou(x, `A Kryptex mostra a máquina offline desde antes das ${hora(m.desde)}.`); m.avisada = true; m.pendente = false; }
+    novas.push(m);
+  }
+  /* uma máquina que sumiu da página: fica como parada (e avisa, se estava minerando); some da lista depois de 3 dias */
+  for(const ant of antes.values()){
+    if(ant.estado==="parada" && agora - ant.desde > 3*864e5) continue;
+    const m = {...ant, online:false, sumiu:true, estado:"parada", desde: ant.estado==="parada" ? ant.desde : agora};
+    if(ant.estado!=="parada"){ m.avisada = false; m.pendente = lacuna; if(!lacuna){ parou(ant, "Ela sumiu da lista de máquinas da sua conta da Kryptex."); m.avisada = true; } }
+    else if(ant.pendente && !lacuna){ parou(ant, "Ela sumiu da lista de máquinas da sua conta da Kryptex."); m.avisada = true; m.pendente = false; }
+    novas.push(m);
+  }
+  kx.maquinas = novas;
+  const lim = agora - 4*864e5;
+  for(const [n, h] of Object.entries(kxHist.hw)){ const f = h.filter(r=>r[0]>=lim).slice(-300); if(f.length) kxHist.hw[n] = f; else delete kxHist.hw[n]; }
+}
+function registrarSaldo(s){
+  const t = Date.now();
+  kx.saldo = {...s, quando:t};
+  kxHist.saldos.push([t, s.btc, s.preco || 0]);
+  kxHist.saldos = kxHist.saldos.filter(x=>x[0] >= t - 6*864e5).slice(-400);
+}
+/* horas minerando num dia, pelas leituras das máquinas: a parte das leituras com alguma máquina minerando, vezes as horas
+   lidas (o dia todo, com 3/4 dele coberto: 36 leituras de meia em meia hora; ou só desde a primeira leitura, no dia em que
+   o painel começou a ler a conta) */
+function horasDoDiaKx(a, b){
+  const ts = new Map();
+  for(const h of Object.values(kxHist.hw)) for(const [t,,,on] of h) if(t>=a && t<b) ts.set(t, ts.get(t) || !!on);
+  if(!ts.size) return null;
+  const ini = Math.min(...ts.keys()), frac = [...ts.values()].filter(Boolean).length/ts.size;
+  if(ini > a + 90*60e3) return Math.round(frac*(b-ini)/3600e3*2)/2;
+  return ts.size>=36 ? Math.round(frac*48)/2 : null;
+}
+/* o ganho de cada dia inteiro (com leitura antes de 1h30 e depois da meia-noite seguinte), pela diferença do saldo */
+function calcularDiasKx(){
+  const S = kxHist.saldos; if(S.length<2) return;
+  const segs = [];
+  for(let i=1; i<S.length; i++){ const [t1,b1] = S[i-1], [t2,b2] = S[i]; if(!(t2>t1)) continue; const d = b2-b1; segs.push({t1, t2, d: d < -1e-10 ? null : Math.max(0, d)}); }
+  const bons = segs.filter(s=>s.d!=null), dur = bons.reduce((a,s)=>a+s.t2-s.t1, 0), ritmo = dur>0 ? bons.reduce((a,s)=>a+s.d, 0)/dur : 0;
+  const hoje = hojeISO(), ini = S[0][0], fim = S[S.length-1][0], d0 = new Date(ini);
+  for(let i=0; i<10; i++){
+    const a = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()+i).getTime(), b = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()+i+1).getTime();
+    const iso = isoLocal(new Date(a));
+    if(iso>=hoje || b>fim) break;
+    if(kx.dias[iso]) continue;
+    /* o dia em que o painel começou a ler a conta: só o que entrou desde a primeira leitura (fica "aproximado") */
+    const parcial = ini > a + 90*60e3 ? new Date(ini).toLocaleTimeString("pt-BR",{hour:"2-digit", minute:"2-digit"}) : "";
+    let btc = 0, aprox = !!parcial;
+    for(const s of segs){ const o = Math.min(s.t2, b) - Math.max(s.t1, a); if(o<=0) continue; btc += (s.d ?? ritmo*(s.t2-s.t1)) * o/(s.t2-s.t1); if(s.d==null || s.t2-s.t1 > 3*3600e3) aprox = true; }
+    const depois = S.find(x=>x[0]>=b), preco = (depois && depois[2]) || (kx.saldo && kx.saldo.preco) || 0;
+    kx.dias[iso] = {btc, valor: preco>0 ? btc*preco : null, moeda: (kx.saldo && kx.saldo.moeda) || "", horas: horasDoDiaKx(a, b), aproximado: aprox, parcial, fonte:"saldo"};
+  }
+  const lim = isoLocal(new Date(Date.now() - 21*864e5));
+  for(const d of Object.keys(kx.dias)) if(d<lim) delete kx.dias[d];
+}
+function sugestoesKx(){
+  if(!kx) return [];
+  const c = kxCfg(), tem = new Set(diario.map(e=>e.data)), hoje = hojeISO();
+  return Object.entries(kx.dias).filter(([d,v])=>v && d<hoje && !tem.has(d) && !c.recusados.includes(d) && v.btc>0).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,5);
+}
+const valorKx = v => v.valor>0 && v.moeda==="USD" ? usd2(v.valor) : v.valor>0 && v.moeda==="BRL" ? brl(v.valor) : `${btc8(v.btc)} BTC`;
+async function anotarDiaKx(d, sozinho){
+  const v = kx.dias[d]; if(!v || !(v.valor>0) || (v.moeda!=="USD" && v.moeda!=="BRL")) return false;
+  await salvarDia({data:d, valor:v.valor, moeda:v.moeda, dolar:cfg.dolar, horas: v.horas ?? cfg.horas, obs: sozinho ? "Kryptex (anotado sozinho)" : "Kryptex", criado:Date.now(), btc:v.btc, fonte:"kryptex"});
+  return true;
+}
+async function anotarSozinhoKx(){
+  for(const [d, v] of sugestoesKx().reverse()) if(!v.aproximado) await anotarDiaKx(d, true);
+}
+function registrarFalhaKx(estado, detalhe){
+  const antes = kx.estado;
+  kx.estado = estado; kx.msg = detalhe ? String(detalhe).slice(0,160) : "";
+  /* login: avisa uma vez por dia (não na primeira leitura de todas, quando ainda nem entrou) */
+  if(estado==="login" && kx.quando && (antes!=="login" || Date.now() - (kx.loginAvisou||0) > 864e5)){
+    kx.loginAvisou = Date.now();
+    avisoKx("login", "A Kryptex pediu para entrar de novo", "Abra o painel e clique em Entrar na Kryptex (Resumo › Sua conta da Kryptex). Até lá o painel não vê se as máquinas param.");
+  }
+  else if(estado!=="login" && kx.quando && Date.now() - kx.quando > 6*3600e3 && Date.now() - (kx.falhaAvisou||0) > 864e5){
+    kx.falhaAvisou = Date.now();
+    avisoKx("falha", "O painel não consegue ler a sua conta da Kryptex", `Faz mais de 6 horas: ${MSG_KX[estado] || "erro"}. Até lá ele não vê se as máquinas param.`);
+  }
+}
+const impressaoKx = () => JSON.stringify([kx.estado, kx.msg, kx.msgSaldo, kx.maquinas.map(m=>[m.nome, m.online, m.estado]), kx.alertas.length ? kx.alertas[0].t : 0, Object.keys(kx.dias).sort().join(), kx.saldo ? kx.saldo.moeda : ""]);
+function salvarKx(antes){
+  lsSet("min-kx-hist", kxHist);
+  if(antes!==impressaoKx() || Date.now() - (kx.gravado||0) >= 2*3600e3){ kx.gravado = Date.now(); lsSet("min-kryptex", kx); }
+}
+const precisaSaldo = () => !kx.saldo || Date.now() - kx.saldo.quando >= KX_SALDO_CADA || isoLocal(new Date(kx.saldo.quando))!==hojeISO();
+async function lerKryptex(manual){
+  if(kxLendo || !PODE_KX()) return;
+  kxLendo = true; kx.tentou = Date.now(); renderKryptex();
+  const antes = impressaoKx(), diag = {quando:Date.now()};
+  try{
+    const hw = await window.desktop.kryptex.ler("maquinas"); diag.maquinas = hw;
+    const f = falhaDaPagina(hw); if(f){ registrarFalhaKx(f, hw && hw.erro); return; }
+    let ms = maquinasDaPagina(hw);
+    /* a página de máquinas sem lista nenhuma: antes de conhecer alguma máquina, é a conta sem máquinas ainda; depois, a página mudou */
+    if(!ms && /hardware/i.test(hw.url||"") && !kx.maquinas.length) ms = {fonte:"nenhuma", lista:[]};
+    if(!ms){ registrarFalhaKx("formato"); return; }
+    atualizarMaquinas(ms.lista); kx.fonte = ms.fonte;
+    if(manual || precisaSaldo()){
+      const sd = await window.desktop.kryptex.ler("saldo"); diag.saldo = sd;
+      const f2 = falhaDaPagina(sd);
+      if(f2==="login"){ registrarFalhaKx("login"); return; }
+      const s = f2 ? null : saldoDaPagina(sd);
+      if(s){ registrarSaldo(s); kx.msgSaldo = s.moeda==="USD" || s.moeda==="BRL" ? "" : `A Kryptex mostra os valores em ${s.moeda || "outra moeda"}: escolha dólar (USD) na conta da Kryptex para o painel anotar os ganhos.`; }
+      else kx.msgSaldo = f2 ? `Saldo não lido agora: ${MSG_KX[f2]}.` : "A página do saldo abriu, mas não achei o saldo em BTC.";
+    }
+    calcularDiasKx();
+    kx.estado = "ok"; kx.msg = ""; kx.quando = Date.now();
+    if(kxCfg().auto) await anotarSozinhoKx();
+  }catch(e){ registrarFalhaKx("erro", e && e.message); }
+  finally{ kxDiag = diag; kxLendo = false; salvarKx(antes); renderKryptex(); renderSugestoesKx(); }
+}
+async function verificarKryptex(){
+  if(!PODE_KX() || !kxCfg().ligado || kxLendo || !$("bv").hidden || navigator.onLine===false) return false;
+  const espera = kx.estado==="login" ? 2*3600e3 : kx.estado && kx.estado!=="ok" ? 60*60e3 : KX_CADA;
+  if(Date.now() - (kx.tentou||0) < espera) return false;
+  await lerKryptex(false);
+  return true;
+}
+async function entrarKryptex(){
+  if(!PODE_KX()) return;
+  status2("kx-status", "Entre na sua conta na janela da Kryptex e feche a janela quando terminar.");
+  await window.desktop.kryptex.entrar();
+  if(!kxCfg().ligado) mudarKxCfg({ligado:true});
+  for(let i=0; i<120 && kxLendo; i++) await new Promise(ok=>setTimeout(ok, 500));   /* uma leitura sozinha em andamento: espera ela acabar */
+  sincronizarSegundoPlano();
+  status2("kx-status", "Lendo a sua conta…");
+  await lerKryptex(true);
+  const ok = kx.estado==="ok";
+  status2("kx-status", ok ? `Pronto: ${kx.maquinas.length ? `${kx.maquinas.length} ${plural(kx.maquinas.length,"máquina")} na conta` : "nenhuma máquina na conta ainda (ela aparece de 10 a 20 minutos depois de começar a minerar)"}.`
+    : kx.estado==="login" ? "A Kryptex ainda pede login: clique em Entrar na Kryptex e entre na conta antes de fechar a janela." : `Não deu certo: ${MSG_KX[kx.estado] || "erro"}.`, ok ? "ok" : "erro");
+}
+/* o que o painel leu, para conferir a leitura (sem e-mail, carteira nem códigos longos) */
+function textoDiagKx(){
+  const ocultar = s => String(s??"").replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "e-mail@oculto").replace(/\b(bc1[a-z0-9]{20,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,40})\b/g, "carteira-oculta").replace(/\b[A-Za-z0-9_-]{32,}\b/g, "código-oculto");
+  const pag = r => r ? {url:r.url, titulo:ocultar(r.titulo), login:r.login, desafio:r.desafio, erro:r.erro, texto:ocultar(r.texto).slice(0, 9000),
+    json:Object.fromEntries(Object.entries(r.json||{}).map(([k,v])=>[k, ocultar(v).slice(0, 5000)])), tabelas:(r.tabelas||[]).map(t=>t.slice(0,25).map(l=>l.map(ocultar)))} : null;
+  return `Painel de Mineração ${window.desktop ? window.desktop.versao : ""} · leitura da Kryptex de ${kxDiag ? new Date(kxDiag.quando).toLocaleString("pt-BR") : "—"}\n`
+    + JSON.stringify({estado:kx.estado, msg:kx.msg, msgSaldo:kx.msgSaldo, fonte:kx.fonte, maquinas:kx.maquinas, saldo:kx.saldo, dias:kx.dias, saldos:kxHist.saldos.slice(-72),
+      paginas: kxDiag ? {maquinas:pag(kxDiag.maquinas), saldo:pag(kxDiag.saldo)} : null}, null, 1);
+}
+function renderKryptex(){
+  const box = $("kx-p"); if(!box || !kx) return;
+  const c = kxCfg(), pode = PODE_KX();
+  box.hidden = !(pode || (c.ligado && kx.quando));
+  if(box.hidden) return;
+  const corpo = $("kx-corpo"), acoes = $("kx-acoes");
+  if(!c.ligado){
+    $("kx-quando").textContent = "";
+    corpo.innerHTML = `<p class="sub" style="margin:0">O painel pode ler a sua conta da Kryptex de meia em meia hora: avisa no Windows e no celular se uma máquina parar ou render menos, e prepara o ganho de cada dia para o Diário (você confirma antes de anotar). Você entra na conta numa janela do painel, como no Facebook: a senha fica só no site da Kryptex.</p>`;
+    acoes.innerHTML = pode ? `<button type="button" class="pri" data-kx="ligar">Entrar na Kryptex e ligar</button>` : "";
+    acoes.hidden = !acoes.innerHTML;
+    return;
+  }
+  $("kx-quando").textContent = kxLendo ? "lendo agora…" : kx.quando ? `lida ${quando(kx.quando)}${pode ? "" : " (o PC confere de meia em meia hora)"}` : "";
+  const L = [];
+  if(kx.estado==="login") L.push(`<p class="kx-aviso w">${pode ? "A Kryptex pediu para você entrar na conta. Clique em Entrar na Kryptex, entre e feche a janela." : "A Kryptex pediu para entrar de novo: resolva no PC (Resumo › Sua conta da Kryptex › Entrar na Kryptex)."}</p>`);
+  else if(kx.estado && kx.estado!=="ok") L.push(`<p class="kx-aviso w">Última tentativa: ${esc(MSG_KX[kx.estado] || "erro")}${kx.msg ? ` (${esc(kx.msg)})` : ""}. ${kx.estado==="formato" ? "Use Copiar o que o painel leu e mande na conversa com o Claude para ajustar a leitura." : kx.estado==="bloqueado" && pode ? "O painel tenta de novo sozinho; se continuar, abra Premissas › Este computador › Mostrar o navegador escondido e resolva a verificação." : "O painel tenta de novo sozinho."}</p>`);
+  else if(!kx.quando) L.push(`<p class="sub" style="margin:0">${kxLendo ? "Lendo a sua conta…" : "Ainda não leu a conta."}</p>`);
+  if(kx.maquinas.length){
+    const pill = m => m.estado==="parada" ? `<span class="pill b">Parada</span>` : m.estado==="lenta" ? `<span class="pill w">Rendendo menos</span>` : `<span class="pill g">Minerando</span>`;
+    const moeda = kx.saldo && kx.saldo.moeda, lucro = v => v>0 ? (moeda==="BRL" ? brl(v) : moeda==="USD" ? usd2(v) : v.toLocaleString("pt-BR",{maximumFractionDigits:2})) : "";
+    L.push(`<div class="kx-maqs">${kx.maquinas.map(m=>`<div class="kx-m">${pill(m)}<span class="nm">${esc(m.nome)}<small>${m.estado==="parada"
+        ? (m.sumiu ? "sumiu da lista da Kryptex" : "offline na Kryptex") + ` desde ${quando(m.desde)}`
+        : `agora ${hashTxt(m.h30)} · 24 h: ${hashTxt(m.h24)}${m.base>0 ? ` · normal: ${hashTxt(m.base)}` : ""}${m.algo ? ` · ${esc(m.algo)}` : ""}`}</small></span>${m.lucroDia>0 && m.estado!=="parada" ? `<span class="v">≈ ${lucro(m.lucroDia)}<small>por dia, pela Kryptex</small></span>` : "<span></span>"}</div>`).join("")}</div>`);
+  }
+  else if(kx.quando) L.push(`<p class="sub" style="margin:0">Nenhuma máquina na conta ainda. Ela aparece de 10 a 20 minutos depois de começar a minerar.${pode ? " Se já faz mais tempo, use Copiar o que o painel leu e mande na conversa com o Claude para ajustar a leitura." : ""}</p>`);
+  if(kx.saldo) L.push(`<div class="kx-saldo"><span>Saldo: <b>${btc8(kx.saldo.btc)} BTC</b>${kx.saldo.fiat>0 ? ` ≈ ${kx.saldo.moeda==="BRL" ? brl(kx.saldo.fiat) : kx.saldo.moeda==="USD" ? usd2(kx.saldo.fiat) : kx.saldo.fiat.toLocaleString("pt-BR",{maximumFractionDigits:2}) + (kx.saldo.moeda ? " " + kx.saldo.moeda : "")}` : ""}</span><span>saldo lido ${quando(kx.saldo.quando)}</span></div>`);
+  if(kx.msgSaldo) L.push(`<p class="nota-mini">${esc(kx.msgSaldo)}</p>`);
+  const recentes = kx.alertas.filter(a=>Date.now() - a.t < 864e5).slice(0,3);
+  if(recentes.length) L.push(`<ul class="kx-alertas">${recentes.map(a=>`<li><b>${new Date(a.t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</b> ${esc(a.texto)}</li>`).join("")}</ul>`);
+  L.push(`<label class="check"><input type="checkbox" class="kx-auto"${c.auto ? " checked" : ""}> Anotar sozinho no Diário o ganho de cada dia (os dias aproximados continuam esperando você)</label>`);
+  corpo.innerHTML = L.join("");
+  acoes.innerHTML = pode ? `<button type="button" data-kx="ler"${kxLendo ? " disabled" : ""}>Ler agora</button><button type="button" data-kx="entrar">Entrar na Kryptex</button><button type="button" class="link" data-kx="copiar"${kxDiag ? "" : " disabled"}>Copiar o que o painel leu</button><button type="button" class="link" data-kx="desligar">Desligar</button>` : "";
+  acoes.hidden = !acoes.innerHTML;
+}
+function renderSugestoesKx(){
+  const box = $("kx-sug"); if(!box) return;
+  const lista = sugestoesKx(), c = kxCfg();
+  box.hidden = !lista.length;
+  if(!lista.length){ box.innerHTML = ""; return; }
+  const dia = d => new Date(d+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"});
+  box.innerHTML = `<div class="painel kx-sug"><div class="painel-h"><h2>Ganhos lidos da sua conta da Kryptex</h2></div>
+    <ul class="kx-sug-l">${lista.map(([d,v])=>`<li><span class="t">${dia(d)}, ${dataBR(d).slice(0,5)}: <b>${valorKx(v)}</b><small>${btc8(v.btc)} BTC${v.horas!=null ? ` · ${n1(v.horas)} h minerando` : ""}${v.parcial ? ` · só desde ${v.parcial}, quando o painel começou a ler a conta` : v.aproximado ? " · aproximado (houve saque, ou o PC ficou horas sem ler a conta)" : ""}</small></span>
+      <span class="acoes">${v.valor>0 && (v.moeda==="USD" || v.moeda==="BRL") ? `<button type="button" class="pri" data-kx-anotar="${d}">Anotar no Diário</button>` : ""}<button type="button" class="link" data-kx-recusar="${d}">Não anotar</button></span></li>`).join("")}</ul>
+    <label class="check"><input type="checkbox" class="kx-auto"${c.auto ? " checked" : ""}> Anotar sozinho os próximos dias (os aproximados continuam esperando você)</label></div>`;
+}
+document.addEventListener("change", e=>{
+  if(!e.target.classList || !e.target.classList.contains("kx-auto")) return;
+  mudarKxCfg({auto: e.target.checked});
+  for(const el of document.querySelectorAll(".kx-auto")) el.checked = e.target.checked;
+  if(e.target.checked && PODE_KX()) anotarSozinhoKx().then(()=>renderSugestoesKx());
+});
+$("kx-sug").addEventListener("click", async e=>{
+  const a = e.target.closest("[data-kx-anotar]"), r = e.target.closest("[data-kx-recusar]");
+  if(a){ a.disabled = true; const d = a.dataset.kxAnotar; if(await anotarDiaKx(d, false)) status2("d-status", `Anotado ${dataBR(d)}: ${valorKx(kx.dias[d])}, lido da Kryptex.`, "ok"); renderSugestoesKx(); }
+  else if(r){ mudarKxCfg({recusados: [...kxCfg().recusados, r.dataset.kxRecusar].slice(-60)}); renderSugestoesKx(); }
+});
+$("kx-p").addEventListener("click", async e=>{
+  const b = e.target.closest("[data-kx]"); if(!b || b.disabled) return;
+  const acao = b.dataset.kx;
+  try{
+    if(acao==="ligar" || acao==="entrar") await entrarKryptex();
+    else if(acao==="ler"){ status2("kx-status", "Lendo a sua conta…"); await lerKryptex(true); status2("kx-status", kx.estado==="ok" ? "Conta lida agora." : `Não deu certo: ${MSG_KX[kx.estado] || "erro"}.`, kx.estado==="ok" ? "ok" : "erro"); }
+    else if(acao==="copiar"){ await copiarTexto(textoDiagKx()); status2("kx-status", "Copiado (sem e-mail nem carteira). Cole na conversa com o Claude para conferir a leitura.", "ok"); }
+    else if(acao==="desligar"){ mudarKxCfg({ligado:false}); sincronizarSegundoPlano(); renderKryptex(); status2("kx-status", "Leitura da Kryptex desligada. O login continua guardado: para voltar, clique em Entrar na Kryptex e ligar."); }
+  }catch(err){ status2("kx-status", "Não deu certo: " + ((err && err.message) || err) + ".", "erro"); }
+});
+if(PODE_KX()) setInterval(()=>{ verificarKryptex().catch(()=>{}); }, 60e3);
 
 /* ---------- PC e celular com os mesmos dados ----------
    O que chega do outro lado é gravado chave por chave e o painel redesenha o que depende dela, sem recarregar a página.
@@ -4463,6 +4840,7 @@ function recarregarDados(ks){
   if(tem("min-ofertas")) ofertas = lsGet("min-ofertas");
   if(tem("min-ofertas-marcas")) ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
   if(tem("min-ofertas-modelos")) ofSel = lsGet("min-ofertas-modelos");
+  if(tem("min-kryptex")) carregarKx();
   if(tem("min-ofertas-alerta")){
     alerta = {horas:0, bandeja:false, iniciar:false, ultima:0, avisados:{}, vistos:{}, bloqueio:0, ...(lsGet("min-ofertas-alerta")||{})};
     for(const k of ["avisados","vistos"]) if(!alerta[k] || typeof alerta[k]!=="object") alerta[k] = {};
@@ -4717,6 +5095,12 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.5.0", itens:[
+    "Sua conta da Kryptex (no Resumo): o painel lê a sua conta de meia em meia hora e avisa no Windows e no celular quando uma máquina para ou rende menos que o normal dela. Para ligar, clique em Entrar na Kryptex e entre na conta: a senha fica só no site da Kryptex.",
+    "O ganho de cada dia sai do saldo da sua conta da Kryptex e aparece no Diário para você anotar com um clique. Se preferir, marque Anotar sozinho.",
+    "Retorno real × previsto (em Minhas placas): um gráfico com o que cada placa já devolveu de verdade, pelo Diário, contra o previsto e o seu prazo. O Resumo avisa quando, no ritmo real, a placa só se paga depois do prazo.",
+    "Relatório do ano para o contador (no Diário): os ganhos de cada mês em R$, US$ e BTC, a luz estimada e as placas compradas, em PDF ou planilha.",
+    "O app do celular agora só avisa de versão nova quando o próprio app muda."]},
   {v:"1.4.1", itens:[
     "Você escolhe se o painel abre junto com o Windows e se abre minimizado, só no ícone perto do relógio: Premissas › Este computador › Ao ligar o computador. Antes, com o app do celular, os avisos ou o acesso pelo navegador ligados, ele sempre abria com o Windows.",
     "Corrigido: com a janela maximizada, o painel aparecia na tela ao ligar o computador, em vez de ficar só no ícone perto do relógio."]},
@@ -4844,7 +5228,7 @@ function renderResumo(){
     ["Luz/mês na tomada", brl0(temSetup ? s.luz : t.energia), temSetup ? `${Math.round(s.tomada)} W · a ${brl(tarifaEf())}/kWh` : `a ${brl(tarifaEf())}/kWh`, false],
     ["Recuperado", brl0(t.recup), custo>0 ? `${Math.min(100,t.recup/custo*100).toFixed(0)}% de ${brl0(custo)}` : "—", false]
   ].map(([l,v,sub,h])=>`<div class="kpi${h?" hl":""}"><span class="lbl">${l}</span><b>${v}</b><small>${sub}</small></div>`).join("");
-  renderResumoSetup(); renderResumoDiario();
+  renderResumoSetup(); renderResumoDiario(); renderKryptex();
 
   const base = $("base").value;
   const cands = CATALOGO.filter(c=>!deNotebook(c) && !soMineracao(c)).map(c=>{ const r = calc(c), p = precoEfetivo(c); return {...r, preco:p, meses: p ? mesesRetorno(r, p.v) : null}; })
