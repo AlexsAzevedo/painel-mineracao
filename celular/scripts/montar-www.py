@@ -30,9 +30,9 @@ if saida.exists():
 (saida / "fonts").mkdir(parents=True)
 
 # ---------- fontes locais ----------
-FONTES = [("Bricolage Grotesque", "bricolage-grotesque", [600, 800]),
-          ("Public Sans", "public-sans", [400, 500, 600]),
-          ("JetBrains Mono", "jetbrains-mono", [400, 600])]
+FONTES = [("Sora", "sora", [600, 700]),
+          ("Inter", "inter", [400, 500, 600, 700]),
+          ("JetBrains Mono", "jetbrains-mono", [400])]
 css = []
 for familia, pacote, pesos in FONTES:
     for p in pesos:
@@ -56,8 +56,7 @@ CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 
        "object-src 'none'; base-uri 'none'; form-action 'none'")
 pagina = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
           '<meta name="viewport" content="width=device-width,initial-scale=1">'
-          '<meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">'
-          '<meta name="theme-color" content="#141513" media="(prefers-color-scheme: dark)">'
+          '<meta name="theme-color" content="#0C1016">'
           '<meta name="format-detection" content="telephone=no">'
           f'<meta http-equiv="Content-Security-Policy" content="{CSP}">' + html + "</html>")
 (saida / "index.html").write_text(pagina, encoding="utf-8")

@@ -19,9 +19,10 @@ fonte = pathlib.Path(args[0] if args else RAIZ.parent / "mineracao.html")
 html = fonte.read_text(encoding="utf-8")
 
 # ---------- fontes locais ----------
-FONTES = [("Bricolage Grotesque", "bricolage-grotesque", [600, 800]),
-          ("Public Sans", "public-sans", [400, 500, 600]),
-          ("JetBrains Mono", "jetbrains-mono", [400, 600])]
+FONTES = [("Sora", "sora", [600, 700]),
+          ("Inter", "inter", [400, 500, 600, 700]),
+          ("JetBrains Mono", "jetbrains-mono", [400])]
+shutil.rmtree(RAIZ / "app" / "fonts", ignore_errors=True)   # sem sobras de fontes antigas
 (RAIZ / "app" / "fonts").mkdir(parents=True, exist_ok=True)
 css = []
 for familia, pacote, pesos in FONTES:

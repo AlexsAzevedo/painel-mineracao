@@ -61,7 +61,7 @@ function criarPrincipal() {
   const j = lerJanela();
   principal = new BrowserWindow({
     width: j.width || 1360, height: j.height || 900, x: j.x, y: j.y, minWidth: 380, minHeight: 520,
-    title: "Painel de Mineração", autoHideMenuBar: true, show: false, backgroundColor: "#17181b",
+    title: "Painel de Mineração", autoHideMenuBar: true, show: false, backgroundColor: "#0C1016",
     icon: path.join(__dirname, "app", "icone.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false,
@@ -456,7 +456,7 @@ function paginaBase() {
   if (paginaBaseCache) return paginaBaseCache;
   let h = fs.readFileSync(path.join(__dirname, "app", "index.html"), "utf8");
   h = h.replace("connect-src 'none'", "connect-src 'self'");
-  const cabeca = '<meta name="theme-color" content="#17181b"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">' +
+  const cabeca = '<meta name="theme-color" content="#0C1016"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">' +
     '<meta name="apple-mobile-web-app-title" content="Mineração"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><link rel="icon" href="/icone.png">';
   const i = h.indexOf("<script>");
   paginaBaseCache = h.slice(0, i) + cabeca + "<!--DADOS-DO-PC-->" + h.slice(i);
@@ -518,18 +518,18 @@ async function paginaCelular() {
   const json = JSON.stringify(dados).replace(/</g, "\\u003c").replace(/[\u2028\u2029]/g, (c) => "\\u" + c.charCodeAt(0).toString(16));
   return paginaBase().replace("<!--DADOS-DO-PC-->", `<script>window.__PC__=${json};</script><script>${PONTE_CELULAR}</script>`);
 }
-const ESTILO_ENTRAR = "body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#17181b;color:#ece9e2;display:flex;min-height:100vh;align-items:center;justify-content:center}" +
-  "main{width:min(360px,calc(100% - 32px))}h1{font-size:1.4rem;margin:0 0 8px}p{color:#a9a49a;margin:0 0 18px}" +
-  "input{box-sizing:border-box;width:100%;font:600 1.6rem/1 ui-monospace,monospace;letter-spacing:.3em;text-align:center;padding:12px;border-radius:10px;border:1px solid #3a3b40;background:#222327;color:#ece9e2}" +
-  "button{margin-top:12px;width:100%;font:600 1rem system-ui,sans-serif;padding:12px;border:0;border-radius:10px;background:#e8a33d;color:#17181b}.erro{color:#ef8a7a;margin-top:12px}";
+const ESTILO_ENTRAR = "body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#0C1016;color:#E8EDF4;display:flex;min-height:100vh;align-items:center;justify-content:center}" +
+  "main{width:min(360px,calc(100% - 32px))}h1{font-size:1.4rem;margin:0 0 8px}p{color:#8E9AAE;margin:0 0 18px}" +
+  "input{box-sizing:border-box;width:100%;font:600 1.6rem/1 ui-monospace,monospace;letter-spacing:.3em;text-align:center;padding:12px;border-radius:10px;border:1px solid #243040;background:#131921;color:#E8EDF4}" +
+  "button{margin-top:12px;width:100%;font:600 1rem system-ui,sans-serif;padding:12px;border:0;border-radius:10px;background:#F5A524;color:#1B1203}.erro{color:#FF7B72;margin-top:12px}";
 function paginaEntrar(erro) {
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#17181b">` +
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0C1016">` +
     `<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><title>Painel de Mineração</title><style>${ESTILO_ENTRAR}</style></head><body><main>` +
     `<h1>Painel de Mineração</h1><p>Digite a senha de 6 números que aparece no PC, em Premissas › Abrir no celular.</p>` +
     `<form method="post" action="/entrar"><input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" aria-label="Senha" required autofocus><button type="submit">Entrar</button></form>` +
     (erro ? `<p class="erro" role="alert">${erro}</p>` : "") + `</main></body></html>`;
 }
-const MANIFESTO = JSON.stringify({ name: "Painel de Mineração", short_name: "Mineração", start_url: "/", display: "standalone", background_color: "#17181b", theme_color: "#17181b", lang: "pt-BR",
+const MANIFESTO = JSON.stringify({ name: "Painel de Mineração", short_name: "Mineração", start_url: "/", display: "standalone", background_color: "#0C1016", theme_color: "#0C1016", lang: "pt-BR",
   icons: [{ src: "/icone.png", sizes: "256x256", type: "image/png" }] });
 
 function responder(req, res, status, tipo, corpo, extra) {

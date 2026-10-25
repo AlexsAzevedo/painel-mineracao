@@ -77,7 +77,7 @@
 
 ---
 
-### Tarefa 1: Paleta nova, tema escuro e claro, fontes Sora e Inter
+### Task 1: Paleta nova, tema escuro e claro, fontes Sora e Inter
 
 **Arquivos:**
 - Modificar: `mineracao.html:1-4` (links das fontes e script do tema), `:135-152` (variáveis), `:36` (`#5cc98a` → `var(--good)`), `:117` (`body::before`), regras de números grandes (`.kpi b`, `.g-linha b`, `.tile b`) para `var(--num)`
@@ -130,7 +130,7 @@ Expected: tudo OK; `2` (Sora 600 e 700).
 
 ---
 
-### Tarefa 2: Menu em grupos no PC, barra de baixo e "Mais" no celular
+### Task 2: Menu em grupos no PC, barra de baixo e "Mais" no celular
 
 **Arquivos:**
 - Modificar: `mineracao.html:714-741` (menu), `:6-50` e `:117-133` (CSS do menu e do celular), `:5325-5334` (`VIEWS`, `irPara`), `renderGanhos`/`tickGanhos`/`renderCenario` (5295-5324: não mexem em elemento que não existe mais)
@@ -168,7 +168,7 @@ checa("Ofertas na barra do celular", pg.is_visible("#aba-ofertas"))
 
 ---
 
-### Tarefa 3: Resumo novo (o mês, ganho por dia, retorno, ofertas, avisos) e o que muda de lugar
+### Task 3: Resumo novo (o mês, ganho por dia, retorno, ofertas, avisos) e o que muda de lugar
 
 **Arquivos:**
 - Modificar: `mineracao.html:744-769` (Resumo), `:5226-5293` (`renderResumo`; sair `renderResumoSetup` e `renderResumoDiario`), `:2689-2737` (`renderGraf`), o topo de `#v-placas` (recebe "Melhores compras hoje", `#r-compras` e `#r-compras-nota`), o fim de `#v-anuncio` (recebe "Últimos analisados", `#r-anuncios`), o topo de `#v-premissas` (recebe "Cenário das contas", `#r-cenario`, e o grupo "Kryptex" com `#kx-p`)
@@ -210,7 +210,7 @@ checa("sem rolagem lateral 390", pgc.evaluate("document.documentElement.scrollWi
 
 ---
 
-### Tarefa 4: Módulo do app da Kryptex no aplicativo (e o app de mentira)
+### Task 4: Módulo do app da Kryptex no aplicativo (e o app de mentira)
 
 **Arquivos:**
 - Criar: `desktop/kryptex-app.js`, `desktop/scripts/kryptex-falso.js`, `desktop/scripts/teste-kryptex-app.js`
@@ -255,7 +255,7 @@ process.env.PAINEL_KRYPTEX_LOCAL = "http://127.0.0.1:1"; const fe = await K.ler(
 
 ---
 
-### Tarefa 5: Painel do PC: ao vivo, ganho e luz de hoje, avisos, proteção e Premissas › App da Kryptex
+### Task 5: Painel do PC: ao vivo, ganho e luz de hoje, avisos, proteção e Premissas › App da Kryptex
 
 **Arquivos:**
 - Modificar: `mineracao.html` (bloco novo logo depois do bloco da conta da Kryptex, `:4813`; `renderAgora`, `renderVivo`; `SINCRONIZADAS` em `:1406`; `recarregarDados` em `:4846`; Premissas: painel `#kxa-p` dentro do grupo "Kryptex", ao lado de `#kx-p`)
@@ -321,7 +321,7 @@ checa("sem erros no console", not erros)
 
 ---
 
-### Tarefa 6: Celular: retrato, Atualizar, pausar e voltar pelo PC
+### Task 6: Celular: retrato, Atualizar, pausar e voltar pelo PC
 
 **Arquivos:**
 - Modificar: `mineracao.html` (`executarPedidoRemoto` em `:4883`: os três pedidos antes do teste de `ocupado()`; `renderAgora` no celular; botões)
@@ -356,7 +356,7 @@ checa("atende mesmo ocupado", pg.evaluate("ofEst.rodando = true, executarPedidoR
 
 ---
 
-### Tarefa 7: Ofertas com foto, cartões novos, fichas e gráfico de preço × tempo para se pagar
+### Task 7: Ofertas com foto, cartões novos, fichas e gráfico de preço × tempo para se pagar
 
 **Arquivos:**
 - Modificar: `desktop/main.js:1064-1103` (`paginaBuscaFb` devolve `foto` de `a.querySelector("img")`; `paginaBuscaOlx` devolve `foto` de `img.currentSrc || img.src || img.dataset.src` do card)
@@ -396,7 +396,7 @@ checa("sem rolagem lateral", pgc.evaluate("document.documentElement.scrollWidth 
 
 ---
 
-### Tarefa 8: As outras telas no visual novo
+### Task 8: As outras telas no visual novo
 
 **Arquivos:**
 - Modificar: CSS de `mineracao.html` (painéis com canto de 16 px, cabeçalhos, botões `.pri` com `--accent`/`--onaccent`, campos, tabelas, selos `.pill`/`.estado`/`.of-tags li` com ícone além da cor), os textos longos de cabeçalho (`.vh .sub` de no máximo uma frase) e os blocos `.note` e explicações longas de Ofertas, Todas as placas e Premissas dentro de `details.saiba` ("Saiba mais")
@@ -414,7 +414,7 @@ checa("sem rolagem lateral", pgc.evaluate("document.documentElement.scrollWidth 
 
 ---
 
-### Tarefa 9: Teste de ponta a ponta, novidades, versão 1.6.0 e documentação
+### Task 9: Teste de ponta a ponta, novidades, versão 1.6.0 e documentação
 
 **Arquivos:**
 - Modificar: `desktop/scripts/teste.js` (app da Kryptex de mentira: `require("./kryptex-falso.js")` no mesmo servidor, em `/kxapp`, e `process.env.PAINEL_KRYPTEX_LOCAL = base + "/kxapp"`; passos novos em `r.kxApp`; `irPara("premissas")` onde hoje abre o Resumo para a conta da Kryptex; fotos das ofertas)
@@ -431,7 +431,7 @@ checa("sem rolagem lateral", pgc.evaluate("document.documentElement.scrollWidth 
 
 ---
 
-### Tarefa 10: Revisão e publicação (com o OK do Alex)
+### Task 10: Revisão e publicação (com o OK do Alex)
 
 - [ ] **Passo 1:** revisão da branch inteira por um revisor que não escreveu o código; corrigir o que ele achar.
 - [ ] **Passo 2:** mandar ao Alex as fotos das telas e perguntar se pode publicar. Sem OK, parar aqui.
