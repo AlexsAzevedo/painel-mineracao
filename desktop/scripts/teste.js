@@ -72,9 +72,10 @@ function paginaBuscaFb(q) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Facebook</title></head><body>
     <div role="banner">menu do topo</div><div aria-label="Localização: Itajaí, No raio de ${esc(q.get("radius") || "40")} km">Itajaí · 40 km</div>
     <div role="main" id="lista">${primeiros.join("")}</div><div id="fim" style="height:20px"></div>
-    <script>const resto = ${JSON.stringify(resto)}; let i = 0;
-      new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting) && i < resto.length) { const b = resto.slice(i, i + 4); i += 4;
-        setTimeout(() => document.getElementById("lista").insertAdjacentHTML("beforeend", b.join("")), 300); } }).observe(document.getElementById("fim"));</script>
+    <script>const resto = ${JSON.stringify(resto)}; let i = 0; const t0 = Date.now(), log = (ev) => fetch("/fb-log?q=" + encodeURIComponent(${JSON.stringify(q.get("query") || "")}) + "&ev=" + ev + "&ms=" + (Date.now() - t0)).catch(() => {});
+      addEventListener("scroll", () => log("scroll-" + document.querySelectorAll("#lista a").length), {passive: true}); log("carregou-" + resto.length);
+      new IntersectionObserver((es) => { log("io-" + es.some((e) => e.isIntersecting) + "-" + i); if (es.some((e) => e.isIntersecting) && i < resto.length) { const b = resto.slice(i, i + 4); i += 4;
+        setTimeout(() => { document.getElementById("lista").insertAdjacentHTML("beforeend", b.join("")); log("juntou-" + i); }, 300); } }).observe(document.getElementById("fim"));</script>
   </body></html>`;
 }
 function paginaBuscaOlx(uf, q) {
@@ -1096,6 +1097,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
           r.celular.totalSinais = ntfy.publicados.filter((m) => m.sequence_id === "pc-sinal").length;
         }
       } catch (e) { r.falha = String((e && e.stack) || e); }
+      r.fbLog = pedidos.filter((p) => p.startsWith("/fb-log"));
       fs.writeFileSync(path.join(SAIDA, "teste-desktop.json"), JSON.stringify(r, null, 1));
       for (const e of ntfy.escutas) { try { e.res.end(); } catch (err) {} }
       srv.close(); app.quit();
