@@ -10,16 +10,17 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 [hidden]{display:none!important}
 .app{display:flex;min-height:100vh}
 .side{position:sticky;top:env(safe-area-inset-top,0px);align-self:flex-start;height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
-  width:236px;flex:0 0 236px;background:var(--side-bg);color:var(--side-fg);display:flex;flex-direction:column;gap:22px;
+  width:240px;flex:0 0 240px;background:var(--side-bg);color:var(--side-fg);display:flex;flex-direction:column;gap:22px;border-right:1px solid var(--side-line);
   padding-block:22px 18px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:14px;overflow-y:auto;z-index:15}
 .marca{display:flex;align-items:center;gap:10px;padding:0 6px}
 .logo{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:var(--side-accent);display:grid;place-items:center}
 .logo svg{width:22px;height:22px;stroke:var(--side-bg);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .marca strong{display:block;font-family:var(--display);font-weight:700;font-size:1.02rem;letter-spacing:-.01em;line-height:1.15}
 .marca small{display:block;color:var(--side-muted);font-size:.74rem;margin-top:2px}
-.menu{display:flex;flex-direction:column;gap:3px}
-.menu-t{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted);padding:0 10px;margin:0 0 4px}
-.item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:var(--side-muted);font-weight:500;font-size:.93rem;cursor:pointer;white-space:nowrap}
+.menu{display:flex;flex-direction:column;gap:2px}
+.menu-t{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted);font-weight:600;padding:0 10px;margin:0 0 4px}
+.menu-t ~ .menu-t{margin-top:14px}
+.item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;min-height:40px;color:var(--side-muted);font-weight:500;font-size:.93rem;cursor:pointer;white-space:nowrap}
 .item svg{width:19px;height:19px;flex:0 0 19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .item:hover{background:var(--side-hover);color:var(--side-fg)}
 .item[aria-current="page"]{background:var(--side-active);color:var(--side-accent)}
@@ -27,9 +28,6 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .badge{margin-left:auto;font-family:var(--mono);font-size:.7rem;color:var(--side-muted);background:var(--side-hover);border-radius:999px;padding:1px 7px;min-width:22px;text-align:center}
 .badge:empty{display:none}
 .side-pe{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding:12px 10px 0;border-top:1px solid var(--side-line)}
-.cenario-mini{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:.78rem;margin:0}
-.cenario-mini dt{color:var(--side-muted)}
-.cenario-mini dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .sync{font-size:.76rem;color:var(--side-muted)}
 .tema-sel{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:3px;border-radius:10px;background:var(--side-hover);border:1px solid var(--side-line)}
 .tema-sel button{all:unset;box-sizing:border-box;text-align:center;padding:6px 8px;min-height:32px;border-radius:7px;font-size:.8rem;font-weight:600;color:var(--side-muted);cursor:pointer}
@@ -40,19 +38,17 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .credito button:hover{color:var(--side-accent)}
 .sync i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--side-muted);margin-right:6px;vertical-align:1px}
 .sync.ok i{background:var(--good)}
-.ganhos{display:flex;flex-direction:column;gap:2px;padding:12px 12px 10px;border-radius:12px;background:var(--side-hover)}
-.ganhos .lbl-s{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted);margin-bottom:4px}
-.g-linha{display:flex;align-items:baseline;gap:4px}
-.g-linha b{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600;font-size:1.3rem;color:var(--side-accent);letter-spacing:-.02em}
-.g-linha + .g-linha b{font-size:1rem;color:var(--side-fg)}
-.g-linha small{color:var(--side-muted);font-size:.78rem}
-.g-linha b.neg{color:var(--side-bad)}
-.g-sub{color:var(--side-muted);font-size:.72rem;margin-top:4px;line-height:1.35}
-.g-hoje{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.76rem;color:var(--side-fg);margin-top:8px;padding-top:8px;border-top:1px solid var(--side-line)}
-.g-hoje .gh-l{display:block;font-family:var(--body);color:var(--side-muted);font-size:.72rem}
-.g-hoje .gh-v{display:block;font-size:1rem;color:var(--side-fg)}
-.g-hoje .link-s{all:unset;cursor:pointer;color:var(--side-accent);font-family:var(--body)}
-.g-hoje .link-s:focus-visible{outline:2px solid var(--side-accent);outline-offset:2px}
+.vivo{display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:12px;background:var(--side-hover);border:1px solid var(--side-line)}
+.vivo .vivo-l{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;color:var(--side-muted)}
+.vivo .vivo-l i{width:8px;height:8px;border-radius:50%;background:var(--side-muted);flex:none}
+.vivo .vivo-l i.on{background:var(--good)}
+.vivo .vivo-l i.w{background:var(--warn)}
+.vivo .vivo-l i.b{background:var(--side-bad)}
+.vivo b{font-family:var(--num);font-weight:600;font-size:1.25rem;letter-spacing:-.02em;color:var(--side-fg)}
+.vivo b.neg{color:var(--side-bad)}
+.vivo small{color:var(--side-muted);font-size:.74rem;line-height:1.35}
+.vivo .link-s{all:unset;cursor:pointer;color:var(--side-accent);font-size:.85rem;font-weight:600}
+.vivo .link-s:focus-visible{outline:2px solid var(--side-accent);outline-offset:2px}
 .ganho-chip{display:none}
 .main{flex:1;min-width:0;padding-block:30px 60px;padding-left:28px;padding-right:max(16px,env(safe-area-inset-right,0px))}
 .view{max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
@@ -122,19 +118,35 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .ana-l:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:16;background:var(--side-bg)}
 @media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:1fr}.grupos{grid-template-columns:1fr}}
-@media (max-width:860px){
+/* barra de baixo e folha "Mais": só no celular (menos de 900 px) */
+.abas{display:none}
+.aba{all:unset;box-sizing:border-box;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border-radius:12px;color:var(--side-muted);font-size:.7rem;font-weight:600;cursor:pointer;text-align:center}
+.aba svg,.mais-item svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.aba span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aba[aria-current="page"],.aba[aria-expanded="true"]{color:var(--side-accent);background:var(--side-active)}
+.aba:focus-visible,.mais-item:focus-visible{outline:2px solid var(--side-accent);outline-offset:1px}
+.mais-fundo{position:fixed;inset:0;z-index:44;background:rgba(0,0,0,.4)}
+.mais{position:fixed;z-index:45;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px));
+  background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:18px;padding:8px;display:flex;flex-direction:column;gap:2px;box-shadow:0 18px 50px -12px var(--shadow)}
+.mais-item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:12px;font-weight:600;cursor:pointer;color:var(--fg)}
+.mais-item:hover{background:var(--sunk)}
+.mais-item[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
+.mais .tema-sel{margin-top:6px}
+@media (min-width:900px){.mais,.mais-fundo{display:none!important}}
+@media (max-width:899px){
   .app{flex-direction:column}
-  .side{width:auto;flex:none;height:auto;align-self:stretch;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:visible}
-  .marca{padding:0}
-  .logo{width:30px;height:30px;flex-basis:30px}
+  .side{width:auto;flex:none;height:auto;align-self:stretch;flex-direction:row;align-items:center;gap:10px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:visible;border-right:0;border-bottom:1px solid var(--side-line)}
+  .marca{padding:0;min-width:0}
+  .logo{width:32px;height:32px;flex-basis:32px}
   .marca small{display:none}
-  .menu{order:3;width:100%;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:2px;scrollbar-width:none}
-  .menu-t{display:none}
-  .item{padding:7px 10px;font-size:.86rem}
-  .side-pe{display:none}
-  .ganho-chip{display:inline-block;margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.8rem;color:var(--side-accent);background:var(--side-hover);border-radius:999px;padding:3px 10px}
+  .menu,.side-pe{display:none}
+  .ganho-chip{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-family:var(--num);font-size:.8rem;font-weight:600;color:var(--side-fg);background:var(--side-hover);border:1px solid var(--side-line);border-radius:999px;padding:4px 11px;white-space:nowrap}
   .ganho-chip:empty{display:none}
-  .main{padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .abas{display:flex;gap:4px;position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--side-bg);border-top:1px solid var(--side-line);
+    padding-block:6px calc(6px + env(safe-area-inset-bottom,0px));padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
+  .main{padding-block:20px calc(96px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .remoto-aviso,.aviso-atu{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
+}
 }
 @media (max-width:520px){.kpis{grid-template-columns:1fr 1fr}.kpi b{font-size:1.25rem}.painel{padding:16px}}
 
@@ -360,9 +372,6 @@ button.link:hover{text-decoration:underline}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
 .tag.t-meu{color:var(--accent);background:var(--accent-soft)}
 .oferta.in{display:inline;margin:0;font-size:inherit}
-.g-anotar{all:unset;cursor:pointer;color:var(--side-accent);font-size:.76rem;margin-top:6px}
-.g-anotar:hover{text-decoration:underline}
-.g-anotar:focus-visible{outline:2px solid var(--side-accent);outline-offset:2px}
 details > summary{cursor:pointer;font-weight:600;font-size:.9rem;width:fit-content}
 details > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
@@ -378,9 +387,6 @@ details > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2
 .dado .nm small{display:block;font-weight:400;color:var(--muted);font-size:.78rem;margin-top:2px}
 .dado button{flex:none}
 .dado.rodando{outline:2px solid var(--accent);outline-offset:-2px}
-.cenario-mini .link-mini{all:unset;cursor:pointer;color:var(--side-accent)}
-.cenario-mini .link-mini:hover{text-decoration:underline}
-.cenario-mini .link-mini:focus-visible{outline:2px solid var(--side-accent);outline-offset:2px;border-radius:2px}
 textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #x-texto{width:100%;font-family:var(--mono);font-size:.82rem;resize:vertical;min-height:80px;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
 @media (max-width:760px){.dados-l{grid-template-columns:1fr}}
@@ -728,26 +734,20 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div class="marca"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/><path d="M6 17v2.5M9.5 17v2.5M13 17v2.5"/></svg></span><div><strong>Painel de Mineração</strong><small id="marca-sub"></small></div></div>
     <span class="ganho-chip" id="g-chip" title="Lucro líquido do setup por dia, com o PC inteiro na tomada"></span>
     <nav class="menu" aria-label="Seções">
-      <p class="menu-t">Painel</p>
+      <p class="menu-t">Acompanhar</p>
       <button type="button" class="item" data-view="resumo" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="8" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Resumo</span></button>
       <button type="button" class="item" data-view="diario" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/></svg><span>Diário de ganhos</span><span class="badge" id="b-diario"></span></button>
       <button type="button" class="item" data-view="minhas" aria-current="false"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/></svg><span>Minhas placas</span><span class="badge" id="b-minhas"></span></button>
-      <button type="button" class="item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span><span class="badge" id="b-setup"></span></button>
+      <p class="menu-t">Comprar</p>
       <button type="button" class="item" data-view="ofertas" aria-current="false" id="nav-ofertas" hidden><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Ofertas</span><span class="badge" id="b-ofertas"></span></button>
       <button type="button" class="item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span><span class="badge" id="b-anuncio"></span></button>
       <button type="button" class="item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span><span class="badge" id="b-placas"></span></button>
+      <p class="menu-t">Ajustes</p>
+      <button type="button" class="item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span><span class="badge" id="b-setup"></span></button>
       <button type="button" class="item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
     </nav>
     <div class="side-pe">
-      <div class="ganhos" aria-live="off">
-        <span class="lbl-s">Seu setup rende</span>
-        <div class="g-linha"><b id="g-dia">R$ 0,00</b><small>por dia</small></div>
-        <div class="g-linha"><b id="g-mes">R$ 0</b><small>por mês</small></div>
-        <small class="g-sub" id="g-sub"></small>
-        <small class="g-hoje" id="g-hoje"></small>
-        <button type="button" class="g-anotar" data-ir="diario">Anotar o ganho do dia</button>
-      </div>
-      <dl class="cenario-mini" id="cenario-mini"></dl>
+      <div class="vivo" id="vivo" aria-live="off"></div>
       <div class="tema-sel" role="group" aria-label="Tema"><button type="button" data-tema-op="escuro" aria-pressed="true">Escuro</button><button type="button" data-tema-op="claro" aria-pressed="false">Claro</button></div>
       <div class="sync" id="sync"><i></i>Carregando…</div>
       <p class="credito">Criado por <button type="button" data-ir="premissas" data-rolar="sobre-p">Alexsander Azevedo</button>, com a ajuda do Claude</p>
@@ -1189,6 +1189,21 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
       </div>
     </section>
   </main>
+  <nav class="abas" aria-label="Telas">
+    <button type="button" class="aba" data-view="resumo" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="8" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Resumo</span></button>
+    <button type="button" class="aba" data-view="diario" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/></svg><span>Diário</span></button>
+    <button type="button" class="aba" data-view="minhas" aria-current="false"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/></svg><span>Placas</span></button>
+    <button type="button" class="aba" data-view="ofertas" aria-current="false" id="aba-ofertas" hidden><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Ofertas</span></button>
+    <button type="button" class="aba" id="aba-mais" aria-expanded="false" aria-controls="mais" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Mais</span></button>
+  </nav>
+  <div class="mais-fundo" id="mais-fundo" hidden></div>
+  <div class="mais" id="mais" role="dialog" aria-modal="true" aria-label="Mais telas" hidden>
+    <button type="button" class="mais-item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span></button>
+    <button type="button" class="mais-item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span></button>
+    <button type="button" class="mais-item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span></button>
+    <button type="button" class="mais-item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
+    <div class="tema-sel" role="group" aria-label="Tema"><button type="button" data-tema-op="escuro" aria-pressed="true">Escuro</button><button type="button" data-tema-op="claro" aria-pressed="false">Claro</button></div>
+  </div>
 </div>
 
 <aside class="aviso-atu" id="aviso-atu" aria-labelledby="aviso-atu-t" hidden>
@@ -3794,7 +3809,7 @@ function decidirBoasVindas(configNoBanco){
 
 /* ---------- ofertas: Marketplace e OLX perto de você (aplicativo do computador) ---------- */
 const OF_PODE = () => (DESKTOP && !!window.desktop.buscarAnuncios) || (REMOTO && !!window.desktop.pedirAoPc);
-$("nav-ofertas").hidden = !OF_PODE();
+$("nav-ofertas").hidden = $("aba-ofertas").hidden = !OF_PODE();
 let ofertas = lsGet("min-ofertas");      /* a última busca: {quando, cidade, uf, raio, sites, itens, avisos, fbLocal, fora} */
 let ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
 let ofSel = lsGet("min-ofertas-modelos");  /* modelos escolhidos à mão (vazio = os sugeridos) */
@@ -5316,42 +5331,67 @@ function renderResumoDiario(){
   if(!linhas.length){ el.innerHTML = `<p class="nota-mini">Nada anotado nos últimos 7 dias. O último foi ${dataBR([...diario].map(e=>e.data).sort().pop())}.</p>`; return; }
   el.innerHTML = `<dl class="cen"><dt>Recebido (7 dias)</dt><dd>${brl(r.rBrl)}</dd><dt>Estimado pela Kryptex</dt><dd>${brl(r.eBrl)}</dd><dt>Recebeu do estimado</dt><dd>${r.pct!=null ? Math.round(r.pct*100)+"%" : "—"}</dd><dt>Lucro real</dt><dd class="${r.rBrl-r.luz<0?"neg":""}">${brl(r.rBrl-r.luz)}</dd><dt>Dias anotados</dt><dd>${r.dias}</dd></dl>`;
 }
-let ganhoRitmo = 0, ganhosEstado = "vazio", ganhosProx = null;
+let ganhoRitmo = 0, ganhosEstado = "vazio", ganhosProx = null, ganhoDia = 0;
+/* estimativa do setup (sem leitura ao vivo): quanto ele rende por dia e o "hoje até agora" que corre a cada segundo */
 function renderGanhos(){
   const hoje = hojeISO(), agora = totaisSetup({ate:hoje}), cheio = totaisSetup({});
-  const tem = cheio.ligadas>0, ativo = agora.ligadas>0, t = ativo ? agora : cheio, dia = t.lucro/30;
-  $("g-dia").textContent = brl(dia); $("g-dia").classList.toggle("neg", dia<0);
-  $("g-mes").textContent = brl0(t.lucro); $("g-mes").classList.toggle("neg", t.lucro<0);
-  $("g-sub").textContent = tem ? `bruto ${brl(t.bruto/30)} − luz na tomada ${brl(t.luz/30)} por dia` : "";
-  $("g-chip").textContent = tem ? `${brl(dia)}/dia` : "";
+  const tem = cheio.ligadas>0, ativo = agora.ligadas>0, t = ativo ? agora : cheio;
+  ganhoDia = t.lucro/30;
   ganhoRitmo = ativo ? agora.lucro/30/86400 : 0;
   ganhosEstado = !tem ? "vazio" : ativo ? "ativo" : "futuro";
   const prox = placas.map(p=>p.data).filter(d=>d && d>hoje).sort()[0];
   ganhosProx = prox ? new Date(prox+"T00:00") : null;
+  renderVivo();
   tickGanhos();
 }
+/* o estado no rodapé do menu (PC) e no topo (celular) */
+function renderVivo(){
+  const el = $("vivo"), chip = $("g-chip"); if(!el || !chip) return;
+  if(ganhosEstado==="vazio"){
+    el.innerHTML = `<span class="vivo-l"><i></i>Seu setup</span><button type="button" class="link-s" data-ir="minhas">Cadastre suas placas</button>`;
+    chip.textContent = ""; return;
+  }
+  el.innerHTML = `<span class="vivo-l"><i${ganhosEstado==="ativo" ? ' class="on"' : ""}></i>Seu setup rende</span><b class="${ganhoDia<0 ? "neg" : ""}">${brl(ganhoDia)}</b><small>por dia, pela estimativa</small>`;
+  chip.textContent = `${brl(ganhoDia)}/dia`;
+}
 function tickGanhos(){
-  const el = $("g-hoje");
+  const el = $("ag-hoje"); if(!el) return;
   if(ganhosEstado==="vazio"){ el.innerHTML = `<button type="button" class="link-s" data-ir="minhas">Cadastre suas placas</button>`; return; }
   if(ganhosEstado==="futuro"){ el.innerHTML = ganhosProx ? `<span class="gh-l">Começa a minerar em</span><span class="gh-v">${ganhosProx.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</span>` : `<span class="gh-l">Ainda não começou a minerar</span>`; return; }
   const agora = new Date(), meia = new Date(agora); meia.setHours(0,0,0,0);
   const v = ganhoRitmo*(agora-meia)/1000;
-  el.innerHTML = `<span class="gh-l">Hoje até agora</span><span class="gh-v">${v<0?"−":""}R$ ${Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:4,maximumFractionDigits:4})}</span>`;
+  el.innerHTML = `<span class="gh-l">Hoje até agora, pela estimativa</span><span class="gh-v">${v<0?"−":""}R$ ${Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
 }
 setInterval(()=>{ if(ganhosEstado==="ativo") tickGanhos(); }, 1000);
 function renderCenario(){
-  const a = cfg.atualizado || {}, datas = [a.dolar, a.kryptex, Math.max(a.novas||0, a.usadas||0)||0].filter(Boolean);
-  const maisVelho = datas.length===3 ? Math.min(...datas) : 0;
-  const dadosTxt = maisVelho ? new Date(maisVelho).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}) : "22/10";
-  $("cenario-mini").innerHTML = [["Dólar", brl(cfg.dolar)], ["Luz", brl(cfg.tarifa+(+cfg.bandeira||0))+"/kWh"], ["Retorno em", cfg.meses+" meses"]].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("")
-    + `<dt>Dados de</dt><dd><button type="button" class="link-mini" data-ir="premissas" title="Atualizar dólar, receitas da Kryptex e preços (Premissas › Dados de fora)">${dadosTxt} ↻</button></dd>`;
   $("chips-cen").innerHTML = `Contas com <span>dólar ${brl(cfg.dolar)}</span><span>luz ${brl(cfg.tarifa+(+cfg.bandeira||0))}/kWh</span><span>margem ${cfg.margem}%</span><span>retorno em ${cfg.meses} meses</span><button type="button" class="link" data-ir="premissas">Mudar premissas</button>`;
 }
-const VIEWS = ["resumo","diario","minhas","setup","ofertas","anuncio","placas","premissas"];
+const VIEWS = ["resumo","diario","minhas","ofertas","anuncio","placas","setup","premissas"];
+/* no celular, as telas que ficam na folha "Mais" (as outras estão na barra de baixo) */
+const NA_FOLHA = ["anuncio","placas","setup","premissas"];
+let maisVoltar = null;
+function abrirMais(){
+  $("mais").hidden = false; $("mais-fundo").hidden = false; $("aba-mais").setAttribute("aria-expanded", "true");
+  maisVoltar = document.activeElement;
+  ($("mais").querySelector('[aria-current="page"]') || $("mais").querySelector("button")).focus({preventScroll:true});
+}
+function fecharMais(){
+  if($("mais").hidden) return false;
+  $("mais").hidden = true; $("mais-fundo").hidden = true; $("aba-mais").setAttribute("aria-expanded", "false");
+  if(maisVoltar && document.contains(maisVoltar)) try{ maisVoltar.focus({preventScroll:true}); }catch(e){}
+  maisVoltar = null;
+  return true;
+}
+window.fecharMais = fecharMais;
+$("aba-mais").addEventListener("click", ()=>{ if($("mais").hidden) abrirMais(); else fecharMais(); });
+$("mais-fundo").addEventListener("click", fecharMais);
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("mais").hidden){ e.preventDefault(); fecharMais(); } });
 function irPara(v, foco){
   if(!VIEWS.includes(v) || (v==="ofertas" && !OF_PODE())) v = "resumo";
+  fecharMais();
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
-  document.querySelectorAll(".item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
+  document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
+  $("aba-mais").setAttribute("aria-current", NA_FOLHA.includes(v) ? "page" : "false");
   try{ localStorage.setItem("min-view", v); }catch(e){}
   try{ history.replaceState(null, "", "#"+v); }catch(e){}
   window.scrollTo(0,0);

@@ -613,9 +613,10 @@ html.pm-vinculando .app{visibility:hidden}
     try {
       AppP.addListener("pause", () => pausar());
       AppP.addListener("resume", () => voltou());
-      /* voltar do Android: fecha a câmera, a configuração inicial ou volta para o Resumo; no Resumo, sai do app */
+      /* voltar do Android: fecha a câmera, a folha "Mais", a configuração inicial ou volta para o Resumo; no Resumo, sai do app */
       AppP.addListener("backButton", () => {
         if (lendo) { pararCamera(); mostrar("inicio"); status(""); return; }
+        if (!vincEl && typeof window.fecharMais === "function" && window.fecharMais()) return;
         const bv = document.getElementById("bv");
         if (!vincEl && bv && !bv.hidden) { const d = document.getElementById("bv-depois"); if (d) d.click(); return; }
         const tela = (location.hash || "#resumo").slice(1);
