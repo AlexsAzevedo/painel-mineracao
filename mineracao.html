@@ -65,6 +65,51 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .kpi small{color:var(--muted);font-size:.8rem}
 .kpi.hl{background:var(--accent-soft);border-color:transparent}
 .kpi.hl b{color:var(--accent)}
+.kpi b.neg{color:var(--bad)}
+.grid2:has(> [hidden]) > :not([hidden]){grid-column:1/-1}
+/* Resumo: Agora, aviso de dias para anotar, ofertas e avisos */
+.faixa-sug{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--fg)}
+.faixa-sug .link{margin-left:auto}
+.agora{gap:12px;padding:22px 24px}
+.ag-topo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.ag-selo{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:999px;font-weight:600;font-size:.82rem;background:var(--sunk);color:var(--muted)}
+.ag-selo i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.ag-selo.g{background:var(--good-soft);color:var(--good)}
+.ag-selo.w{background:var(--warn-soft);color:var(--warn)}
+.ag-selo.b{background:var(--bad-soft);color:var(--bad)}
+.ag-onde{color:var(--muted);font-size:.86rem}
+.ag-hoje{display:flex;flex-direction:column;gap:2px}
+.ag-hoje .gh-l{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ag-hoje .gh-v{font-family:var(--num);font-weight:600;font-size:clamp(2rem,4.4vw,2.7rem);line-height:1.05;letter-spacing:-.02em}
+.ag-hoje .link-s{all:unset;cursor:pointer;color:var(--accent);font-weight:600}
+.ag-frase{margin:0;color:var(--muted);font-size:.88rem}
+.of-minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.of-mini{all:unset;box-sizing:border-box;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface);cursor:pointer;min-width:0}
+.of-mini:hover{border-color:var(--accent)}
+.of-mini:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.of-img{position:relative;display:grid;place-items:center;aspect-ratio:4/3;max-width:100%;background:var(--foto);color:var(--muted);overflow:hidden}
+.of-ph{width:34%;max-width:56px;height:auto;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;opacity:.8}
+.of-foto{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.of-mini-c{display:flex;flex-direction:column;gap:3px;padding:10px 12px 12px;min-width:0}
+.of-mini-c b{font-family:var(--num);font-weight:600;font-size:1.05rem}
+.of-mini-c .t{font-size:.84rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.of-mini-c .pill{align-self:flex-start;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.74rem}
+.avisos-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.av{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.av:first-child{border-top:0;padding-top:0}
+.av-ic{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;margin-top:1px}
+.av.b .av-ic{color:var(--bad)}
+.av.w .av-ic{color:var(--warn)}
+.av.g .av-ic{color:var(--good)}
+.av.n .av-ic{color:var(--muted)}
+.av-t{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:.9rem}
+.av-t small{color:var(--muted);font-size:.78rem}
+.av-vazio{color:var(--muted);font-size:.9rem}
+@media (max-width:899px){
+  .of-minis{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
+  .of-mini{flex:0 0 72%;max-width:240px;scroll-snap-align:start}
+  .agora{padding:18px}
+}
 .rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .rank li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .rank li:first-child{border-top:0;padding-top:0}
@@ -761,24 +806,20 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         <div class="painel-h"><h2 id="t-novid">O painel foi atualizado</h2><button type="button" class="link" id="novid-ok">Entendi</button></div>
         <ul id="novid-lista"></ul>
       </article>
-      <div class="kpis" id="r-kpis"></div>
-      <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
-        <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
-        <div id="kx-corpo"></div>
-        <div class="acoes" id="kx-acoes"></div>
-        <p class="status" id="kx-status" role="status" aria-live="polite"></p>
-      </article>
-      <div class="grid2">
-        <article class="painel"><div class="painel-h"><h2>Melhores compras hoje</h2><button type="button" class="link" data-ir="placas">Ver todas as placas</button></div><ol class="rank" id="r-compras"></ol><p class="nota-mini" id="r-compras-nota"></p></article>
-        <article class="painel"><div class="painel-h"><h2>Seu rig</h2><button type="button" class="link" data-ir="minhas">Abrir</button></div><div id="r-rig"></div></article>
+      <div class="faixa-sug" id="kx-aviso-sug" role="status" hidden></div>
+      <article class="painel agora" id="agora" aria-label="Agora"></article>
+      <section class="kpis" id="r-mes" aria-label="O mês"></section>
+      <div class="grid2 r-col">
+        <article class="painel" id="r-graf-p" aria-labelledby="t-rgraf">
+          <div class="painel-h"><h2 id="t-rgraf">Ganho por dia</h2><button type="button" class="link" data-ir="diario">Abrir o Diário</button></div>
+          <div class="legenda"><span><i class="k-bar"></i>Recebido</span><span><i class="k-lin"></i>Estimado da Kryptex</span></div>
+          <div class="graf" id="r-graf"></div>
+        </article>
+        <article class="painel" id="r-ret-p" aria-labelledby="t-rret"><div class="painel-h"><h2 id="t-rret">Retorno das placas</h2><button type="button" class="link" data-ir="minhas">Abrir</button></div><div id="r-rig"></div></article>
       </div>
-      <div class="grid2">
-        <article class="painel"><div class="painel-h"><h2>Últimos anúncios analisados</h2><button type="button" class="link" data-ir="anuncio">Analisar outro</button></div><div id="r-anuncios"></div></article>
-        <article class="painel"><div class="painel-h"><h2>Cenário das contas</h2><button type="button" class="link" data-ir="premissas">Editar</button></div><dl class="cen" id="r-cenario"></dl></article>
-      </div>
-      <div class="grid2">
-        <article class="painel"><div class="painel-h"><h2>Seu setup</h2><button type="button" class="link" data-ir="setup">Abrir</button></div><div id="r-setup"></div></article>
-        <article class="painel"><div class="painel-h"><h2>Real × estimado</h2><button type="button" class="link" data-ir="diario">Anotar</button></div><div id="r-diario"></div></article>
+      <div class="grid2 r-col">
+        <article class="painel" id="r-of-p" aria-labelledby="t-rof" hidden><div class="painel-h"><h2 id="t-rof">Ofertas perto de você</h2><button type="button" class="link" data-ir="ofertas">Ver todas</button></div><div class="of-minis" id="r-ofertas"></div></article>
+        <article class="painel" id="r-avisos-p" aria-labelledby="t-rav"><div class="painel-h"><h2 id="t-rav">Avisos recentes</h2></div><ul class="avisos-l" id="r-avisos"></ul></article>
       </div>
     </section>
 
@@ -863,6 +904,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <div id="a-card"></div>
     <div id="a-hist"></div>
       </div>
+      <article class="painel"><div class="painel-h"><h2>Últimos analisados</h2></div><div id="r-anuncios"></div></article>
     </section>
 
     <section class="view" id="v-minhas" aria-labelledby="t-minhas" hidden>
@@ -902,6 +944,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     <section class="view" id="v-placas" aria-labelledby="t-placas" hidden>
       <header class="vh"><div><h1 id="t-placas" tabindex="-1">Todas as placas</h1><p class="sub">Filtre e ordene para ver qual ganha mais e qual se paga mais rápido. Clique no título de uma coluna para ordenar por ela. Digite o preço que encontrou para ver se compensa.</p></div><button type="button" id="editar">Editar dados das placas</button></header>
       <div class="chips-cen" id="chips-cen"></div>
+      <article class="painel"><div class="painel-h"><h2>Melhores compras hoje</h2></div><ol class="rank" id="r-compras"></ol><p class="nota-mini" id="r-compras-nota"></p></article>
     <div class="barra" role="group" aria-label="Filtros da lista">
       <label class="busca"><span class="lbl">Buscar</span><input id="busca" type="search" placeholder="Ex.: 4070, rx 6600"></label>
       <label><span class="lbl">Marca</span><select id="marca"><option value="">Todas</option><option>NVIDIA</option><option>AMD</option><option>Intel</option></select></label>
@@ -961,6 +1004,15 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar a versão nova do app</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
         <p class="status" id="estecel-status" role="status" aria-live="polite"></p>
       </article>
+      <article class="painel"><div class="painel-h"><h2>Cenário das contas</h2></div><dl class="cen" id="r-cenario"></dl></article>
+      <div class="grid2 kryptex-g" id="kryptex-g">
+        <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
+          <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
+          <div id="kx-corpo"></div>
+          <div class="acoes" id="kx-acoes"></div>
+          <p class="status" id="kx-status" role="status" aria-live="polite"></p>
+        </article>
+      </div>
       <article class="painel" id="perfil-p" aria-labelledby="t-perfil">
         <div class="painel-h"><h2 id="t-perfil">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
         <div class="pf-g">
@@ -2726,19 +2778,26 @@ function renderDiario(){
     : `<div class="empty">${diario.length ? "Nenhum dia anotado neste período." : "Nenhum dia anotado ainda. Quando a RX 9070 XT começar a minerar, anote aqui o que a Kryptex mostrar de ganho de cada dia."}</div>`;
   dicaEst();
 }
-/* gráfico: colunas = real (anotado), linha em degraus = estimado (Kryptex). Uma escala só, em R$. */
-let grafLarg = 0;
-function renderGraf(linhas){
-  const box = $("d-graf"); if(!box) return;
+/* gráfico: colunas = real (anotado), linha em degraus = estimado (Kryptex). Uma escala só, em R$.
+   No Diário: do primeiro ao último dia anotado do período (até 60). No Resumo (op.dias e op.fim): os op.dias dias até op.fim. */
+function renderGraf(linhas, box = $("d-graf"), op = {}){
+  if(!box) return;
   const porData = new Map(linhas.map(l=>[l.e.data, l]));
-  const datas = linhas.map(l=>l.e.data).sort();
-  if(datas.length<2){ box.innerHTML = `<div class="empty">${datas.length ? "Anote mais um dia para ver o gráfico." : "O gráfico aparece a partir de 2 dias anotados."}</div>`; return; }
-  const ini = new Date(datas[0]+"T12:00"), fim = new Date(datas[datas.length-1]+"T12:00");
-  let dias = []; for(let d = new Date(ini); d<=fim; d = new Date(d.getTime()+864e5)) dias.push(isoLocal(d));
-  if(dias.length>60) dias = dias.slice(-60);
+  let dias = [];
+  if(op.dias && op.fim){
+    const fim = new Date(op.fim+"T12:00").getTime();
+    for(let i=op.dias-1; i>=0; i--) dias.push(isoLocal(new Date(fim - i*864e5)));
+    if(!linhas.length && !dias.some(d=>estDia(d).usd>0)){ box.innerHTML = `<div class="empty">Anote os ganhos no Diário para ver o gráfico.</div>`; box.dataset.larg = ""; return; }
+  } else {
+    const datas = linhas.map(l=>l.e.data).sort();
+    if(datas.length<2){ box.innerHTML = `<div class="empty">${datas.length ? "Anote mais um dia para ver o gráfico." : "O gráfico aparece a partir de 2 dias anotados."}</div>`; box.dataset.larg = ""; return; }
+    const ini = new Date(datas[0]+"T12:00"), fim = new Date(datas[datas.length-1]+"T12:00");
+    for(let d = new Date(ini); d<=fim; d = new Date(d.getTime()+864e5)) dias.push(isoLocal(d));
+    if(dias.length>60) dias = dias.slice(-60);
+  }
   const pontos = dias.map(d=>{ const l = porData.get(d); const est = l ? l.eBrl : estDia(d).usd*cfg.dolar; return {d, real: l ? l.rBrl : null, est}; });
   const W = Math.max(280, Math.round(box.clientWidth || 640)), H = 230, mL = 46, mR = 10, mT = 18, mB = 26;
-  grafLarg = W;
+  box.dataset.larg = String(W);
   const pw = W-mL-mR, ph = H-mT-mB, band = pw/pontos.length;
   const maxV = Math.max(1, ...pontos.map(p=>Math.max(p.real||0, p.est||0)));
   const passo = [1,2,2.5,5,10,20,25,50,100,200,250,500,1000].find(s=>maxV/s<=5) || Math.ceil(maxV/5);
@@ -2774,7 +2833,10 @@ function renderGraf(linhas){
   const esconder = () => { tip.hidden = true; washes.forEach(w=>w.classList.remove("on")); };
   box.querySelectorAll(".bar-hit").forEach(el=>{ el.addEventListener("pointerenter", ()=>mostrar(el)); el.addEventListener("focus", ()=>mostrar(el)); el.addEventListener("pointerleave", esconder); el.addEventListener("blur", esconder); });
 }
-if("ResizeObserver" in window) new ResizeObserver(()=>{ const w = Math.round($("d-graf").clientWidth); if(w && Math.abs(w-grafLarg)>8 && !$("v-diario").hidden) renderDiario(); }).observe($("d-graf"));
+if("ResizeObserver" in window){
+  new ResizeObserver(()=>{ const w = Math.round($("d-graf").clientWidth); if(w && Math.abs(w-(+$("d-graf").dataset.larg||0))>8 && !$("v-diario").hidden) renderDiario(); }).observe($("d-graf"));
+  new ResizeObserver(()=>{ const w = Math.round($("r-graf").clientWidth); if(w && Math.abs(w-(+$("r-graf").dataset.larg||0))>8 && !$("v-resumo").hidden) renderGrafResumo(); }).observe($("r-graf"));
+}
 async function salvarDia(ent){
   const ex = diario.find(x=>x.data===ent.data); if(ex && +ex.dolar>0 && ex.moeda===ent.moeda) ent.dolar = +ex.dolar;
   if(db){ try{ await db.collection("diario").doc(ent.data).set(ent); return; }catch(e){ setSync(false,"Não salvou na nuvem"); } }
@@ -3810,6 +3872,16 @@ function decidirBoasVindas(configNoBanco){
 /* ---------- ofertas: Marketplace e OLX perto de você (aplicativo do computador) ---------- */
 const OF_PODE = () => (DESKTOP && !!window.desktop.buscarAnuncios) || (REMOTO && !!window.desktop.pedirAoPc);
 $("nav-ofertas").hidden = $("aba-ofertas").hidden = !OF_PODE();
+/* foto do anúncio: só https do Facebook (fbcdn.net) e da OLX; outra coisa vira o desenho da placa */
+function fotoValida(u){
+  u = String(u || "");
+  if(!u || u.length>1200) return "";
+  let x; try{ x = new URL(u); }catch(e){ return ""; }
+  return x.protocol==="https:" && (/(^|\.)fbcdn\.net$/.test(x.hostname) || /(^|\.)olx\.com\.br$/.test(x.hostname)) ? u : "";
+}
+const ICONE_PLACA = `<svg class="of-ph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.2"/><circle cx="15.5" cy="12" r="2.2"/></svg>`;
+/* foto que não carrega (expirou, ou o lugar não deixa carregar imagem de fora): some, e fica o desenho da placa */
+document.addEventListener("error", e=>{ const t = e.target; if(t && t.classList && t.classList.contains("of-foto")) t.hidden = true; }, true);
 let ofertas = lsGet("min-ofertas");      /* a última busca: {quando, cidade, uf, raio, sites, itens, avisos, fbLocal, fora} */
 let ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
 let ofSel = lsGet("min-ofertas-modelos");  /* modelos escolhidos à mão (vazio = os sugeridos) */
@@ -5263,15 +5335,84 @@ function totaisRig(){
   }
   return t;
 }
+/* o mês corrente pelo Diário (recebido, luz e lucro de verdade), o previsto pela estimativa e o recuperado das placas */
+function resumoMes(hoje = hojeISO()){
+  const mes = hoje.slice(0,7);
+  const linhas = diario.filter(e=>e.data.slice(0,7)===mes && e.data<=hoje).map(linhaDia), r = resumoDias(linhas);
+  const t = totaisRig(), s = totaisSetup({}), temSetup = s.ligadas>0;
+  return {recebido:r.rBrl, luz:r.luz, lucro:r.rBrl - r.luz, dias:r.dias, previsto: temSetup ? s.lucro : t.lucro, recup:t.recup, custo:Math.max(0, t.invest - t.rend)};
+}
+const NOME_MES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+function renderMes(){
+  const m = resumoMes(), nome = NOME_MES[new Date().getMonth()];
+  $("r-mes").innerHTML = [
+    ["Lucro do mês", m.dias ? brl(m.lucro) : "—", m.dias ? `luz: ${brl(m.luz)}` : `anote os ganhos de ${nome} no Diário`, true, m.dias && m.lucro<0],
+    ["Recebido", brl(m.recebido), m.dias ? `em ${m.dias} ${plural(m.dias,"dia")} de ${nome}` : "nenhum dia anotado", false],
+    ["Previsto", brl0(m.previsto), "de lucro por mês, pela estimativa", false, m.previsto<0],
+    ["Recuperado", brl0(m.recup), m.custo>0 ? `${Math.min(100, m.recup/m.custo*100).toFixed(0)}% de ${brl0(m.custo)}` : "—", false]
+  ].map(([l,v,sub,h,neg])=>`<div class="kpi${h?" hl":""}"><span class="lbl">${l}</span><b${neg?' class="neg"':""}>${v}</b><small>${sub}</small></div>`).join("");
+}
+/* Agora: a mineração ao vivo (app da Kryptex) ou, sem leitura, a estimativa do setup */
+function renderAgora(){
+  const box = $("agora"); if(!box) return;
+  const semPlacas = ganhosEstado==="vazio";
+  const frase = DESKTOP ? "Abra o app da Kryptex neste PC para ver a mineração ao vivo." : REMOTO ? "O PC ainda não mandou a leitura do app da Kryptex." : "No aplicativo do PC, este quadro mostra a mineração ao vivo.";
+  box.innerHTML = `<div class="ag-topo"><span class="ag-selo n"><i></i>${semPlacas ? "Nenhuma placa cadastrada" : "Sem leitura ao vivo"}</span></div>
+    <div class="ag-hoje" id="ag-hoje"></div>
+    <p class="ag-frase">${frase}</p>${semPlacas ? `<div class="acoes"><button type="button" class="pri" data-ir="minhas">Cadastrar suas placas</button></div>` : ""}`;
+  tickGanhos();
+}
+/* Ganho por dia: os últimos 14 dias do Diário contra o estimado da Kryptex */
+function renderGrafResumo(){
+  const box = $("r-graf"); if(!box) return;
+  const hoje = hojeISO(), lim = isoLocal(new Date(new Date(hoje+"T12:00").getTime() - 13*864e5));
+  renderGraf(diario.filter(e=>e.data>=lim && e.data<=hoje).map(linhaDia), box, {dias:14, fim:hoje});
+}
+const AV_COR = {parou:"b", fechado:"b", quente:"b", lenta:"w", falha:"w", login:"w", voltou:"g"};
+const AV_ICONE = {b:"M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v5M12 16h.01", w:"M12 3 2 20h20zM12 9v5M12 17h.01", g:"M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12.5l2.5 2.5L16 9.5", n:"M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v5M12 8h.01"};
+function quandoCurto(t){
+  const d = new Date(t), dia = isoLocal(d), hm = d.toLocaleTimeString("pt-BR",{hour:"2-digit", minute:"2-digit"});
+  if(dia===hojeISO()) return "hoje " + hm;
+  if(dia===isoLocal(new Date(Date.now()-864e5))) return "ontem " + hm;
+  return d.toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"}) + " " + hm;
+}
+function renderAvisos(){
+  const ul = $("r-avisos"); if(!ul) return;
+  const lim = Date.now() - 7*864e5, lista = ((kx && kx.alertas) || []).filter(a=>a && a.t>=lim).slice(0,6);
+  ul.innerHTML = lista.length ? lista.map(a=>{ const c = AV_COR[a.tipo] || "n";
+      return `<li class="av ${c}"><svg class="av-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${AV_ICONE[c]}"/></svg><span class="av-t">${esc(a.texto)}<small>${quandoCurto(a.t)}</small></span></li>`; }).join("")
+    : `<li class="av-vazio">Nenhum aviso nos últimos 7 dias.</li>`;
+}
+function renderAvisoSug(){
+  const b = $("kx-aviso-sug"); if(!b) return;
+  const n = kx ? sugestoesKx().length : 0;
+  b.hidden = !n;
+  b.innerHTML = n ? `<span>${n} ${plural(n,"dia")} lido${n>1?"s":""} da Kryptex ${n>1?"esperam":"espera"} você anotar no Diário.</span><button type="button" class="link" data-ir="diario">Ver no Diário</button>` : "";
+}
+/* Ofertas perto de você: as 3 que se pagam mais rápido na última busca (só as que compensam ou estão apertadas) */
+function htmlOfertaMini({x, c, v}){
+  const foto = fotoValida(x.foto);
+  return `<button type="button" class="of-mini" data-of-ver="${esc(x.k)}" aria-label="${esc((c ? c.curto : "Placa") + " por " + brl0(x.preco) + (v.meses ? ", se paga em " + n1(v.meses) + " meses" : ""))}">
+    <span class="of-img">${ICONE_PLACA}${foto ? `<img class="of-foto" src="${esc(foto)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}</span>
+    <span class="of-mini-c"><b>${brl0(x.preco)}</b><span class="t">${esc(c ? c.curto : x.titulo || "Placa")}</span><span class="pill ${v.cls}">${v.meses ? "se paga em " + n1(v.meses) + " meses" : esc(v.txt)}</span></span></button>`;
+}
+function renderOfertasResumo(){
+  const painel = $("r-of-p"); if(!painel) return;
+  painel.hidden = !OF_PODE(); if(painel.hidden) return;
+  let lista = [], busca = null;
+  try{ busca = ofertas; lista = ((ofertas && ofertas.itens) || []).filter(x=>!ofMarcas.descartados[x.k]); }catch(e){ return; }   /* antes da parte das ofertas carregar */
+  const linhas = lista.map(x=>{ const c = byId[x.modelo], r = c ? calc(c) : null; return {x, c, r, v:veredito(r, x.preco)}; })
+    .filter(l=>l.v.meses!=null && (l.v.cls==="g" || l.v.cls==="w")).sort((a,b)=>a.v.meses-b.v.meses).slice(0,3);
+  $("r-ofertas").innerHTML = linhas.length ? linhas.map(htmlOfertaMini).join("")
+    : `<div class="empty">${busca ? "Nenhuma oferta que compensa na última busca." : "Nenhuma busca de ofertas ainda."} <button type="button" class="link" data-ir="ofertas">Buscar ofertas</button></div>`;
+}
+document.addEventListener("click", e=>{
+  const b = e.target.closest("[data-of-ver]"); if(!b) return;
+  irPara("ofertas"); destacarOferta(b.dataset.ofVer);
+});
 function renderResumo(){
-  const t = totaisRig(), custo = Math.max(0, t.invest - t.rend), s = totaisSetup({}), temSetup = s.ligadas>0;
-  $("r-kpis").innerHTML = [
-    ["Lucro líquido/mês", brl0(temSetup ? s.lucro : t.lucro), temSetup ? `PC inteiro na tomada · só as placas: ${brl0(t.lucro)}` : t.qtd ? `${brl(t.lucro/30)} por dia` : "cadastre suas placas", true],
-    ["Ganho bruto/mês", brl0(temSetup ? s.bruto : t.bruto), s.brutoCpu>0 ? `placas ${brl0(s.brutoGpu)} + processador ${brl0(s.brutoCpu)}` : t.qtd ? "antes de pagar a luz" : "—", false],
-    ["Luz/mês na tomada", brl0(temSetup ? s.luz : t.energia), temSetup ? `${Math.round(s.tomada)} W · a ${brl(tarifaEf())}/kWh` : `a ${brl(tarifaEf())}/kWh`, false],
-    ["Recuperado", brl0(t.recup), custo>0 ? `${Math.min(100,t.recup/custo*100).toFixed(0)}% de ${brl0(custo)}` : "—", false]
-  ].map(([l,v,sub,h])=>`<div class="kpi${h?" hl":""}"><span class="lbl">${l}</span><b>${v}</b><small>${sub}</small></div>`).join("");
-  renderResumoSetup(); renderResumoDiario(); renderKryptex();
+  renderGanhos(); renderAgora(); renderMes(); renderGrafResumo(); renderAvisos(); renderAvisoSug(); renderOfertasResumo(); renderKryptex();
+  const t = totaisRig();
 
   const base = $("base").value;
   const cands = CATALOGO.filter(c=>!deNotebook(c) && !soMineracao(c)).map(c=>{ const r = calc(c), p = precoEfetivo(c); return {...r, preco:p, meses: p ? mesesRetorno(r, p.v) : null}; })
@@ -5282,6 +5423,7 @@ function renderResumo(){
     return `<li><span class="pos">${i+1}</span><span class="nm">${r.curto}<small>${fonteTxt(r.preco)} · lucro ${brl0(r.lucro)}/mês${compra}</small></span><span class="val">${n1(r.meses)} meses<small>para se pagar</small></span></li>`;
   }).join("") : `<li><span class="vazio">Nenhuma placa com preço no Brasil.</span></li>`;
   $("r-compras-nota").textContent = `Pelo seu preço ou pelo preço ${base==="novo"?"de nova na loja":"de usada na região"} (mude em “Todas as placas” › Preço base). Preços de ${dataPrecos()}.`;
+
 
   $("r-rig").innerHTML = t.itens.length ? `<div class="rig-lista">${t.itens.map(x=>{
       const R = retornoPlaca(x.p), comReal = !!(R && R.n && R.custo>0), pctReal = comReal ? Math.max(0, Math.min(100, R.acum/R.custo*100)) : 0;
@@ -5294,6 +5436,7 @@ function renderResumo(){
         ${barra}${comReal ? `<small class="rig-real${R.atrasada ? " w" : ""}">${R.atrasada ? esc(fraseReal(R, true) + " " + fraseAtraso(R)) : esc(fraseReal(R))}</small>` : ""}</div>`; }).join("")}</div>`
     : `<div class="empty">Nenhuma placa cadastrada. <button type="button" class="link" data-ir="minhas">Cadastrar a primeira</button></div>`;
 
+
   const ult = [...anuncios].sort((a,b)=>(b.criado||0)-(a.criado||0)).slice(0,4);
   $("r-anuncios").innerHTML = ult.length ? ult.map(x=>{
     const cc = byId[novoId(x.modelo)], vv = veredito(cc?calc(cc):null, x.preco);
@@ -5301,35 +5444,13 @@ function renderResumo(){
     return `<button type="button" class="ana-l" data-ver-res="${esc(x._id)}"><span class="t">${esc(tit)}<small>${esc([x.preco>0?brl0(x.preco):"", x.local].filter(Boolean).join(" · "))}</small></span><span class="pill ${vv.cls}">${vv.txt}</span></button>`;
   }).join("") : `<div class="empty">Nenhum anúncio analisado ainda. <button type="button" class="link" data-ir="anuncio">Analisar um anúncio</button></div>`;
 
+
   const band = {"0":"verde","0.024":"amarela","0.056":"vermelha 1","0.099":"vermelha 2"}[String(cfg.bandeira)] || "—";
   $("r-cenario").innerHTML = [
     ["Dólar", brl(cfg.dolar)], ["Luz", `${brl(cfg.tarifa)}/kWh`], ["Bandeira", band], ["Margem de segurança", `${cfg.margem}%`],
     ["Recuperar em", `${cfg.meses} meses`], ...((cfg.branca||{}).aplicado ? [["Tarifa branca", {"24h":"ligado direto", ponta:"desligado na ponta", "ponta-inter":"desligado na ponta e no intermediário"}[cfg.branca.aplicado] || "sim"]] : []), ["Revenda", cfg.revenda ? `conta, perdendo ${n1(+cfg.deprec)}% ao ano` : "não entra na conta"], ["Seu rendimento", `${cfg.pctCdi}% do CDI (${n1(+cfg.cdi)}% a.a.)`], ["Receitas da Kryptex", (cfg.kryptex||{}).quando ? quando(cfg.kryptex.quando) : "22/10/2026"], ["Preços das placas", dataPrecos()]
   ].map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("");
-  renderGanhos();
   renderBranca();
-}
-function renderResumoSetup(){
-  const el = $("r-setup"); if(!el) return;
-  const reais = setup.maquinas;
-  if(!reais.length){ el.innerHTML = `<div class="empty">Nenhuma máquina cadastrada. <button type="button" class="link" data-ir="setup">Montar o setup</button></div>`; return; }
-  let compras = 0;
-  const linhas = reais.map(m=>{
-    const R = retornoMaq(m), r = m.nova ? R.plano : R.hoje; compras += R.cp.total;
-    const sub = r.ligada ? `${r.n} ${plural(r.n,"placa")} · ${Math.round(r.tomada)} W na tomada · fonte em ${Math.round(r.carga*100)}%` : (m.nova ? "a montar" : "parada");
-    const val = r.ligada ? `${brl0(r.lucro)}<small>${m.nova ? "quando montar" : "por mês"}</small>` : `—<small>${R.cp.total>0 ? "compras: "+brl0(R.cp.total) : ""}</small>`;
-    return `<div class="rig-l"><span class="nm">${esc(m.nome)}<small>${sub}</small></span><span class="v">${val}</span></div>`;
-  }).join("");
-  const s = totaisSetup({}), p = totaisSetup({plano:true}), ef = compras - rendimentoParcelado(compras, setup.parcelas).liquido, ex = p.lucro - s.lucro;
-  el.innerHTML = `<div class="rig-lista">${linhas}</div>${compras>0 ? `<p class="nota-mini" style="margin-top:12px">Compras planejadas: ${brl0(compras)}${ex>0 ? `, que se pagam em ${n1(ef/ex)} meses e levam o lucro a ${brl0(p.lucro)}/mês` : ""}.</p>` : ""}`;
-}
-function renderResumoDiario(){
-  const el = $("r-diario"); if(!el) return;
-  const lim = isoLocal(new Date(Date.now()-6*864e5));
-  const linhas = diario.filter(e=>e.data>=lim).map(linhaDia), r = resumoDias(linhas);
-  if(!diario.length){ el.innerHTML = `<div class="empty">Nenhum dia anotado ainda. <button type="button" class="link" data-ir="diario">Anotar o ganho do dia</button></div>`; return; }
-  if(!linhas.length){ el.innerHTML = `<p class="nota-mini">Nada anotado nos últimos 7 dias. O último foi ${dataBR([...diario].map(e=>e.data).sort().pop())}.</p>`; return; }
-  el.innerHTML = `<dl class="cen"><dt>Recebido (7 dias)</dt><dd>${brl(r.rBrl)}</dd><dt>Estimado pela Kryptex</dt><dd>${brl(r.eBrl)}</dd><dt>Recebeu do estimado</dt><dd>${r.pct!=null ? Math.round(r.pct*100)+"%" : "—"}</dd><dt>Lucro real</dt><dd class="${r.rBrl-r.luz<0?"neg":""}">${brl(r.rBrl-r.luz)}</dd><dt>Dias anotados</dt><dd>${r.dias}</dd></dl>`;
 }
 let ganhoRitmo = 0, ganhosEstado = "vazio", ganhosProx = null, ganhoDia = 0;
 /* estimativa do setup (sem leitura ao vivo): quanto ele rende por dia e o "hoje até agora" que corre a cada segundo */
