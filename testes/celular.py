@@ -65,6 +65,9 @@ def casca(p):
     checa("a faixa acompanha a rolagem", 0 <= faixa <= 12, faixa)
     pg.evaluate("remotoEstado({ok:true, texto:'Ligado ao PC'})")
     checa("a faixa some quando o PC volta", not visivel(pg, "#remoto-aviso"))
+    clica(pg, "#aba-mais"); pg.wait_for_timeout(100)
+    checa("a folha Mais mostra a ligação com o PC", "Ligado ao PC" in texto(pg, "#mais-sync") and pg.evaluate("document.getElementById('mais-sync').classList.contains('ok')"), texto(pg, "#mais-sync"))
+    pg.evaluate("fecharFolha()")
     # Atualizar pelo topo: pede ao PC e diz como foi, sem deixar apertar de novo em seguida
     pg.evaluate("window.__atu = 0; window.desktop.sync.atualizar = async () => { window.__atu++; }; 0")   # "; 0": o Playwright chamaria a função
     checa("botão de atualizar no topo", visivel(pg, "#topo-atu"))

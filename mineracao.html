@@ -208,6 +208,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .mais-item:hover{background:var(--sunk)}
 .mais-item[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
 .mais .tema-sel{margin-top:6px}
+.mais-sync{margin:0;padding:8px 12px 0;border-top:1px solid var(--line)}
 @media (min-width:900px){.mais,.mais-fundo{display:none!important}}
 /* barra de cima do celular: o título da tela, o estado da mineração e (com o PC) o botão de atualizar */
 .topo-t{display:none}
@@ -1005,6 +1006,8 @@ details.saiba > :not(summary){margin-bottom:14px}
   .of-salvar svg{width:15px;height:15px}
   .of-quando{font-size:.7rem}
   .of-mini .of-img{aspect-ratio:16/10}
+  .anaform input{flex:1 1 160px}
+  #a-status:empty{display:none}
 }
 .sec-bt,.so-cel,.puxar{display:none}
 @media (max-width:899px){
@@ -1580,6 +1583,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     <button type="button" class="mais-item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span></button>
     <button type="button" class="mais-item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span></button>
     <button type="button" class="mais-item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
+    <p class="sync mais-sync" id="mais-sync"><i></i>Carregando…</p>
     <div class="tema-sel" role="group" aria-label="Tema"><button type="button" data-tema-op="escuro" aria-pressed="true">Escuro</button><button type="button" data-tema-op="claro" aria-pressed="false">Claro</button></div>
   </div>
 </div>
@@ -1864,7 +1868,7 @@ async function delPlaca(id){
   if(db && !id.startsWith("l")){try{await db.doc("placas/"+id).delete();return}catch(e){setSync(false,"Não removeu")}}
   placas = placas.filter(p=>p._id!==id); lsSet("min-placas",placas); aoMudarPlacas();
 }
-function setSync(ok,txt){ const s=$("sync"); s.className="sync"+(ok?" ok":""); s.lastChild.textContent=txt; }
+function setSync(ok,txt){ for(const s of [$("sync"), $("mais-sync")]){ s.classList.toggle("ok", !!ok); s.lastChild.textContent = txt; } }   /* no menu do PC e na folha Mais do celular */
 
 /* ---------- render ---------- */
 function syncInputs(){ for(const k of ["dolar","tarifa","bandeira","horas","meses","margem","cdi","pctCdi","deprec"]) if(document.activeElement!==$(k)) $(k).value=String(cfg[k]); $("revenda").checked = !!cfg.revenda; }
@@ -6028,6 +6032,12 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.6.1", itens:[
+    "Celular com cara de app: a barra de cima mostra o nome da tela, o estado da mineração e um botão para atualizar os dados do PC. No app, também dá para puxar a tela para baixo para atualizar.",
+    "Diário no celular: o botão Anotar o dia abre o formulário numa folha que sobe de baixo, e os dias aparecem em cartões, com Editar e Apagar (e Desfazer).",
+    "Ofertas no celular: lista mais compacta, com a foto ao lado, e a busca resumida numa linha (Ajustar abre a cidade, a distância, o preço e os modelos).",
+    "Placas no celular: Todas as placas e Minhas placas em cartões, no lugar das tabelas cortadas, com Filtros, Mostrar todas e o botão Adicionar placa.",
+    "Premissas no celular: cada quadro abre e fecha pelo título. No computador, nada mudou de lugar."]},
   {v:"1.6.0", itens:[
     "Visual novo: tema escuro, com a opção de tema claro no rodapé do menu (no celular, em Mais). O menu agora vem em grupos (Acompanhar, Comprar e Ajustes) e, no celular, há uma barra embaixo com Resumo, Diário, Placas, Ofertas e Mais.",
     "Resumo novo: a mineração agora, com o ganho e o lucro de hoje; o mês (lucro, recebido, previsto e recuperado); um gráfico do ganho por dia; o retorno das placas; as melhores ofertas perto de você e os avisos recentes.",

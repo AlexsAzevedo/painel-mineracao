@@ -1,7 +1,7 @@
 {
   "name": "painel-mineracao",
   "productName": "Painel de Mineração",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Painel pessoal de mineração com placas de vídeo: placas, setup, diário de ganhos, anúncios e preços no Brasil.",
   "main": "main.js",
   "author": {
