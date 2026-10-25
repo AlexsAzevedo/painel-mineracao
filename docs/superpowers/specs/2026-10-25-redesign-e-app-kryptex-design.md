@@ -31,7 +31,7 @@ Escolhas dele (25/10):
 ## 1. Visual
 
 ### Tema
-- Duas paletas, com os nomes de cor da prévia: `bg`, `side`, `surface`, `surface2`, `line`, `text`, `muted`, `accent`, `onaccent`, `accentsoft`, `good`, `goodsoft`, `warn`, `warnsoft`, `bad`, `badsoft`, `est`, `barra`, `foto`, `scrim`, `onscrim`. Os valores são os da prévia (escuro: fundo `#0C1016`, destaque `#F5A524`; claro: fundo `#F3F5F8`, destaque `#A35F00`).
+- Duas paletas com os valores da prévia (escuro: fundo `#0C1016`, destaque `#F5A524`; claro: fundo `#F3F5F8`, destaque `#A35F00`), nos nomes de cor que o painel já usa (`--bg`, `--surface`, `--sunk`, `--line`, `--fg`, `--muted`, `--accent`, `--good`, `--warn`, `--bad` e os do menu e dos gráficos; a tela de vincular do app do celular também usa esses nomes), mais as novas `--onaccent` (texto sobre o destaque), `--foto` (fundo da foto), `--scrim` e `--onscrim` (selos sobre a foto).
 - O escuro é o padrão. A escolha fica em `min-tema` (localStorage), por aparelho, e **não sincroniza**: o PC e o celular podem ficar diferentes.
 - Um script no topo da página põe `data-tema="escuro"` ou `"claro"` no `<html>` antes de desenhar, para não piscar. `color-scheme` acompanha o tema (barras de rolagem e campos).
 - Todas as cores do painel passam a vir dessas variáveis. Nenhuma cor fixa no meio do código, para os dois temas ficarem sempre legíveis.
