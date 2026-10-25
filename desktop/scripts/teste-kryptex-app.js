@@ -41,8 +41,10 @@ srv.listen(0, "127.0.0.1", async () => {
     assert(p.ok && p.pausado && !p.placas[0].minerando, JSON.stringify(p));
     assert.deepEqual(ultimoPut(), { pause_for: 3600000 });
     assert(p.pausaAte > Date.now() + 3500e3 && p.pausaAte < Date.now() + 3700e3, String(p.pausaAte));
+    assert.equal(p.feito, true, "pausar: o app aceitou");
     const v = await K.voltar();
     assert(v.ok && !v.pausado && v.placas[0].minerando);
+    assert.equal(v.feito, true, "voltar: o app aceitou");
     assert.deepEqual(ultimoPut(), { pause: false });
     await K.pausar(15); assert.deepEqual(ultimoPut(), { pause_for: 900000 });
     await K.pausar(44640); assert.deepEqual(ultimoPut(), { pause_for: 44640 * 60000 });
@@ -52,6 +54,17 @@ srv.listen(0, "127.0.0.1", async () => {
     falso.estado.modo = "pausado";
     const lp = await K.ler();
     assert(lp.pausado && !lp.placas[0].minerando && lp.placas[0].hash > 0);
+    /* o GET /pause do app de verdade ainda não foi visto com a placa pausada: aceita só a hora de voltar e "pause" como objeto */
+    for (const f of ["so-ate", "objeto"]) {
+      falso.estado.formatoPausa = f; falso.estado.pausaAte = new Date(Date.now() + 3600e3).toISOString();
+      const x = await K.ler();
+      assert(x.pausado && !x.placas[0].minerando && x.pausaAte > Date.now(), f + " " + JSON.stringify({ pausado: x.pausado, ate: x.pausaAte }));
+    }
+    falso.estado.formatoPausa = "padrao";
+    /* para acertar a leitura com o app de verdade: os nomes das chaves de cada resposta (só os nomes, nunca os valores) */
+    const fm = (await K.ler()).formato || {};
+    assert((fm.pause || []).includes("pause") && (fm.balance || []).includes("total") && (fm.cotacoes || []).includes("brl") && (fm.config || []).includes("currency"), JSON.stringify(fm));
+    assert(!JSON.stringify(fm).includes("PC-TESTE"), "só nomes");
     /* parado sem pausa */
     falso.estado.modo = "parado";
     const lz = await K.ler();
@@ -64,6 +77,8 @@ srv.listen(0, "127.0.0.1", async () => {
     const t0 = Date.now(), f = await K.ler();
     assert(!f.ok && f.erro === "tempo", JSON.stringify(f));
     assert(Date.now() - t0 < 6000, "demorou " + (Date.now() - t0) + " ms");
+    const pf = await K.pausar(60);   /* o app não aceitou a pausa: o painel precisa saber que não pausou */
+    assert(!pf.ok && pf.feito === false, JSON.stringify(pf));
     /* app fechado (nada na porta) */
     process.env.PAINEL_KRYPTEX_LOCAL = "http://127.0.0.1:1";
     const fe = await K.ler();

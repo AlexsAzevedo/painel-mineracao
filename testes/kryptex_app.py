@@ -69,8 +69,19 @@ def kryptex_app(p):
     # app que respondia e parou de responder: 1 aviso depois de 5 minutos
     checa("fechado", pg.evaluate("simularLeituras([[0, MIN], [1, FALHA], [3, FALHA], [6, FALHA], [7, FALHA]])")["alertas"] == ["fechado"])
     checa("app que nunca respondeu: sem aviso", pg.evaluate("simularLeituras([FALHA, FALHA, FALHA, FALHA, FALHA, FALHA, FALHA])")["alertas"] == [])
+    # o PC dormiu 6 h e o app da Kryptex ainda não respondeu na primeira leitura: avisa só depois de 5 min de falhas
+    checa("acordou: sem aviso na hora", pg.evaluate("simularLeituras([[0, MIN], [360, FALHA]])")["alertas"] == [])
+    checa("acordou: avisa depois de 5 min sem resposta", pg.evaluate("simularLeituras([[0, MIN], [360, FALHA], [362, FALHA], [366, FALHA]])")["alertas"] == ["fechado"])
+    # a proteção pede a pausa e o app da Kryptex não aceita: não diz que pausou, tenta de novo com 15 min e avisa uma vez
+    pg.evaluate("window.__pausarOk = window.desktop.kryptexApp.pausar; window.desktop.kryptexApp.pausar = async (m) => { window.__acoes.push(['pausar', m]); return {ok:false, feito:false, erro:'tempo', msg:'o app da Kryptex demorou demais para responder'}; }")
+    r = pg.evaluate("simularLeituras([QUENTE, QUENTE, QUENTE, QUENTE])")
+    textos = pg.evaluate("kx.alertas.map(a => a.texto)")
+    checa("protecao_falhou: não diz que pausou", not any("Pausei" in x for x in textos) and any("não consegui pausar" in x.lower() for x in textos) and pg.evaluate("kxa.protecao") is None, textos)
+    checa("protecao_falhou: tenta de novo com 15 min e avisa uma vez", r["acoes"] == [["pausar", 15], ["pausar", 15]] and len([x for x in textos if "não consegui pausar" in x.lower()]) == 1, [r, textos])
+    pg.evaluate("window.desktop.kryptexApp.pausar = window.__pausarOk")
     # retrato para o celular: ao mudar de estado e a cada 30 min
     checa("retrato", pg.evaluate("contarGravacoes(Array(60).fill(MIN))") == 2)
+    checa("app que nunca respondeu: não grava retrato", pg.evaluate("contarGravacoes(Array(40).fill(FALHA))") == 0)
     checa("retrato ao parar", pg.evaluate("contarGravacoes([MIN, MIN, PAUSADO_COM_HASH, PAUSADO_COM_HASH])") == 2)
     r = pg.evaluate("JSON.parse(localStorage.getItem('min-kx-app'))")
     checa("retrato tem o que o celular mostra", r and r["v"] == 1 and r["estado"] == "pausada" and r["placas"][0]["temp"] == 63 and "hoje" in r and "linha" in r, r)
@@ -82,6 +93,7 @@ def kryptex_app(p):
     t = pg.inner_text("#agora")
     checa("tela ao vivo", all(s in t for s in ["Minerando", "Pearl", "SRBMiner", "286 W", "63 °C", "memória 78 °C", "54%", "113 TH/s", "lucro"]), t[:400])
     checa("proteção na tela", "85 °C" in t and "100 °C" in t, t[-300:])
+    checa("ritmo de agora", "ritmo de agora" in t.lower() and "R$ 14,72/dia" in t, t[:500])
     checa("estado no menu", "Minerando" in pg.inner_text("#vivo"))
     pg.evaluate("window.__acoes = []")
     pg.click("details.pausar summary"); pg.click('[data-pausa="60"]'); pg.wait_for_timeout(200)
@@ -154,6 +166,23 @@ def celular(p):
     checa("recado some quando o retrato muda de estado", pgc.inner_text("#ag-status").strip() == "", pgc.inner_text("#ag-status"))
     pgc.click("[data-voltar]"); pgc.wait_for_timeout(200)
     checa("voltar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-voltar", {}])
+    # o PC grava o retrato a cada 30 min quando nada muda: com 20 min ele ainda vale (estado, botões e topo)
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify({...RETRATO, quando: AGORA - 20*60e3})); recarregarDados(['min-kx-app'])")
+    t = pgc.inner_text("#agora")
+    checa("retrato de 20 min ainda vale", "Minerando" in t and "Última leitura" not in t and pgc.is_visible("details.pausar") and "Minerando" in pgc.inner_text("#g-chip"), t[:200])
+    # retrato vazio (de um PC em que o app da Kryptex nunca respondeu): o celular mostra a estimativa
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify({...RETRATO, estado:'', placas:[]})); recarregarDados(['min-kx-app'])")
+    checa("retrato vazio: estimativa", "O PC ainda não mandou" in pgc.inner_text("#agora") and "fechado" not in pgc.inner_text("#agora").lower() and "R$ 0,00" not in pgc.inner_text("#g-chip"), [pgc.inner_text("#agora")[:160], pgc.inner_text("#g-chip")])
+    # ao abrir o app, a ponte ainda não tem canal: o pedido automático falha sem gastar os 10 min e sai quando a ponte fica pronta
+    pgc.evaluate("""(() => { localStorage.setItem('min-kx-app', JSON.stringify(RETRATO_DE_ONTEM)); recarregarDados(['min-kx-app']); kxaPedido.auto = 0; window.__falhas = 0;
+      const orig = window.desktop.pedirAoPc; window.__pedirOk = orig;
+      window.desktop.pedirAoPc = async (nome, args) => { if (!window.__pronto) { window.__falhas++; throw new Error('este celular ainda não está ligado ao PC'); } return orig(nome, args); }; })()""")
+    n0 = pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length")
+    pgc.evaluate("irPara('diario'); irPara('resumo')"); pgc.wait_for_timeout(200)
+    checa("ponte sem canal: não gasta o pedido automático", pgc.evaluate("window.__falhas") == 1 and pgc.evaluate("kxaPedido.auto") == 0, pgc.evaluate("[window.__falhas, kxaPedido.auto]"))
+    pgc.evaluate("window.__pronto = true; remotoInfo = {ok:false}; remotoEstado({ok:true, texto:'Ligado ao PC'})"); pgc.wait_for_timeout(300)
+    checa("ponte pronta: pede o retrato", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == n0 + 1)
+    pgc.evaluate("window.desktop.pedirAoPc = window.__pedirOk")
     checa("sem erros no celular", not erros(pgc), erros(pgc)[:3])
     # no PC: os três pedidos do celular
     pg = abrir(p, dados=DADOS, pc=True)

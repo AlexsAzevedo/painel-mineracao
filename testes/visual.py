@@ -52,7 +52,10 @@ def menu(p):
 
 
 def resumo(p):
+    fonte = open(PAGINA, encoding="utf-8").read()
+    checa("textos levam a Premissas (conta da Kryptex)", "Resumo › Sua conta da Kryptex" not in fonte, fonte.count("Resumo › Sua conta da Kryptex"))
     pg = abrir(p, dados=DADOS)
+    checa("novidade avisa do ícone perto do relógio", pg.evaluate("NOVIDADES[0].v === '1.6.0' && NOVIDADES[0].itens.join(' ').includes('ícone perto do relógio')"))
     ids = pg.eval_on_selector_all("#v-resumo [id]", "e=>e.map(x=>x.id)")
     checa("ordem", [i for i in ids if i in ("agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p")] == ["agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p"], ids)
     m = pg.evaluate("resumoMes()")
@@ -115,6 +118,11 @@ def ofertas(p):
     checa("filtros numa linha (fichas)", pgc.evaluate("getComputedStyle(document.getElementById('of-filtros')).flexWrap") == "nowrap")
     checa("explicação no Saiba mais", pgc.evaluate("!!document.querySelector('#v-ofertas details.saiba')"))
     checa("sem rolagem lateral", pgc.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+    for larg in (1366, 1280, 960, 900, 360):
+        pgl = abrir(p, largura=larg, altura=900, dados=DADOS, celular=True, hash="ofertas")
+        checa(f"botões do cartão numa linha ({larg})", pgl.evaluate("""[...document.querySelectorAll('#of-lista .of .of-acoes')].every(a => new Set([...a.children].map(c => Math.round(c.getBoundingClientRect().top))).size === 1
+            && [...a.children].every(c => c.scrollWidth <= c.clientWidth + 1))"""),
+              pgl.evaluate("[...document.querySelector('#of-lista .of .of-acoes').children].map(c => [Math.round(c.getBoundingClientRect().top), c.textContent.trim()])"))
     # Ver detalhes (no menu ⋯ do cartão): a lista é desenhada de novo e o foco continua no mesmo cartão
     k = pgc.evaluate("document.querySelector('#of-lista .of').dataset.k")
     pgc.evaluate("document.querySelector('#of-lista .of details.of-mais').open = true")

@@ -561,7 +561,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         kxApp.estado.modo = "fechado";
         await lerKxApp();
         r.kxApp.fechou = { estado: await js(`kxa.estado`), avisos: avisosDesde(kxF) };
-        await js(`kxa.ultimaOk -= 5*60e3; true`);   /* passaram 5 minutos */
+        await js(`kxa.ultimaOk -= 5*60e3; kxa.primeiraFalha -= 5*60e3; true`);   /* passaram 5 minutos sem resposta */
         await lerKxApp();
         r.kxApp.fechado = { estado: await js(`kxa.estado`), avisos: avisosDesde(kxF), agora: await js(textoAgora) };
         await foto("kxapp_fechado");

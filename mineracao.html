@@ -95,6 +95,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .ag-n{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:12px;background:var(--sunk);min-width:0}
 .ag-n b{font-family:var(--num);font-weight:600;font-size:1.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-nums.velho b{color:var(--muted)}
+.ag-ritmo{color:var(--muted);font-size:.8rem}
 .ag-n small{color:var(--muted);font-size:.76rem}
 .ag-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 .ag-prot{color:var(--muted);font-size:.8rem}
@@ -746,7 +747,9 @@ a.of-tit:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border
 .of-prazo span.w{background:var(--warn)}
 .of-prazo span.b{background:var(--bad)}
 .of-prazo i{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:var(--fg);opacity:.55}
-.of-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-top:auto;padding-top:4px}
+.of-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-top:auto;padding-top:4px;container-type:inline-size}
+/* cartão estreito (3 colunas em 1366 px, 2 em 900 px, celular pequeno): "Vendedor" no lugar de "Falar com o vendedor", e os três botões numa linha */
+@container (max-width:335px){.of-acoes .vd-l{display:none}.of-acoes .vd-v{text-transform:capitalize}.of-acoes a.vendedor{flex:1 1 auto}}
 a.vendedor{display:inline-flex;align-items:center;justify-content:center;gap:4px;font-weight:700;font-size:.86rem;color:var(--onaccent);background:var(--accent);border-radius:12px;padding:0 10px;min-height:42px;text-decoration:none;flex:1 1 150px;white-space:nowrap}
 a.vendedor:hover{filter:brightness(1.06)}
 a.vendedor .ext{color:inherit;opacity:.8}
@@ -1101,7 +1104,7 @@ details.saiba > :not(summary){margin-bottom:14px}
         </article>
         <article class="painel" id="kxa-p" aria-labelledby="t-kxa" hidden>
           <div class="painel-h"><h2 id="t-kxa">App da Kryptex neste PC</h2><small class="hint" id="kxa-quando"></small></div>
-          <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Ele só pausa quando você pede ou pela proteção de temperatura.</p>
+          <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Ele só pausa quando você pede ou pela proteção de temperatura. Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
           <label class="check"><input type="checkbox" id="kxa-ligado"> Ler o app da Kryptex deste PC</label>
           <label class="check"><input type="checkbox" id="kxa-protecao"> Pausar sozinho se a placa esquentar demais (volta em 15 minutos; se esquentar de novo, fica pausada até você voltar)</label>
           <div class="kxa-lims">
@@ -1205,7 +1208,7 @@ details.saiba > :not(summary){margin-bottom:14px}
             <label class="check"><input type="checkbox" id="cel-resumo"><span>Resumo todo dia às <input type="time" id="cel-hora" value="08:00" aria-label="Hora do resumo"><br><small>Lucro, ganho anotado, quanto já recuperou e as melhores ofertas. O botão Atualizar, no aviso, pede um resumo novo na hora.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-ofertas"><span>Ofertas boas que a busca automática encontrar<br><small id="cel-ofertas-h">Os mesmos avisos que aparecem no Windows, com o link do anúncio.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-sinal"><span>Avisar se este computador ficar mais de 45 minutos sem dar sinal<br><small>Desligado, travado ou sem internet: a mineração parou. Sair pelo painel não avisa.</small></span></label>
-            <label class="check"><input type="checkbox" id="cel-maquinas"><span>Máquina parada ou rendendo menos<br><small id="cel-maquinas-h">Vem da sua conta da Kryptex, que o painel lê de meia em meia hora (Resumo › Sua conta da Kryptex).</small></span></label>
+            <label class="check"><input type="checkbox" id="cel-maquinas"><span>Máquina parada ou rendendo menos<br><small id="cel-maquinas-h">Vem do app da Kryptex deste PC (a cada minuto) e da sua conta da Kryptex (de meia em meia hora), as duas em Premissas.</small></span></label>
           </div>
           <p class="hint" style="margin:0">Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos (para fechar de vez: botão direito no ícone › Sair). Abrir junto com o Windows: em Premissas › Este computador.</p>
           <div class="acoes"><button type="button" id="cel-resumo-agora">Mandar o resumo agora</button><button type="button" class="link" id="cel-trocar">Gerar outro nome</button><button type="button" class="link" id="cel-desligar">Desligar os avisos</button></div>
@@ -3689,7 +3692,7 @@ if(DESKTOP){
     const st = (t, tipo) => status2("pc-status", t, tipo);
     try{
       if(b.dataset.pc==="facebook"){ st("Entre na sua conta na janela do Facebook e feche a janela quando terminar."); await window.desktop.entrarFacebook(); st("Pronto: os links de anúncio e as buscas do Marketplace usam essa conta.", "ok"); }
-      else if(b.dataset.pc==="kryptex"){ st("Entre na sua conta na janela da Kryptex e feche a janela quando terminar."); await entrarKryptex(); st(kx.estado==="ok" ? "Pronto: o painel está lendo a sua conta da Kryptex (Resumo › Sua conta da Kryptex)." : "Janela fechada. Veja como ficou em Resumo › Sua conta da Kryptex.", kx.estado==="ok" ? "ok" : ""); }
+      else if(b.dataset.pc==="kryptex"){ st("Entre na sua conta na janela da Kryptex e feche a janela quando terminar."); await entrarKryptex(); st(kx.estado==="ok" ? "Pronto: o painel está lendo a sua conta da Kryptex (Premissas › Sua conta da Kryptex)." : "Janela fechada. Veja como ficou em Premissas › Sua conta da Kryptex.", kx.estado==="ok" ? "ok" : ""); }
       else if(b.dataset.pc==="navegador"){ await window.desktop.mostrarNavegador(); st("O navegador escondido está aberto. Se algum site pedir verificação, resolva por lá e feche a janela."); }
       else if(b.dataset.pc==="exportar"){ const onde = await window.desktop.salvarArquivo(`painel-mineracao-${hojeISO()}.json`, JSON.stringify(backupDados(), null, 1)); st(onde ? `Backup salvo em ${onde}` : "Backup cancelado.", onde ? "ok" : ""); }
       else if(b.dataset.pc==="importar"){ const txt = await window.desktop.abrirArquivo(); if(!txt){ st("Importação cancelada."); return; } restaurarBackup(txt); }
@@ -4312,7 +4315,7 @@ function htmlOferta({x, c, r, v}){
       <div class="of-ret"><div class="of-ret-l"><span class="pill ${v.cls}">${v.meses ? "se paga em " + n1(v.meses) + " meses" : esc(v.txt)}</span><small>${v.cls==="g" ? "compensa" : v.cls==="w" ? "apertado" : v.cls==="b" ? "não compensa" : ""} · prazo de ${prazo} meses</small></div>
         <div class="of-prazo" title="Prazo de ${prazo} meses"><span class="${v.cls}" style="width:${larg.toFixed(1)}%"></span><i style="left:${(100/1.5).toFixed(1)}%"></i></div></div>
       <div class="of-acoes">
-        <a class="vendedor" data-of="vendedor" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" aria-label="Falar com o vendedor no ${OF_SITE[x.site]}: ${esc(nome)}">Falar com o vendedor<span class="ext" aria-hidden="true">↗</span></a>
+        <a class="vendedor" data-of="vendedor" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" aria-label="Falar com o vendedor no ${OF_SITE[x.site]}: ${esc(nome)}"><span class="vd-l">Falar com o </span><span class="vd-v">vendedor</span><span class="ext" aria-hidden="true">↗</span></a>
         <button type="button" class="of-bt" data-of="analisar" aria-label="Mandar para Analisar: ${esc(nome)}">Analisar</button>
         <details class="of-mais"><summary aria-label="Mais opções: ${esc(nome)}" title="Mais opções"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary><div class="of-mais-op">
           <button type="button" data-of="det" aria-expanded="${aberto}" aria-label="${aberto ? "Esconder" : "Ver"} detalhes: ${esc(nome)}">${aberto ? "Esconder detalhes" : "Ver detalhes"}</button>
@@ -4740,7 +4743,7 @@ function renderCelular(){
   $("cel-desligado").hidden = lig; $("cel-ligado").hidden = !lig;
   $("cel-topico").textContent = c.topico || "";
   for(const k of ["resumo","ofertas","sinal","maquinas"]) $("cel-"+k).checked = !!c[k];
-  $("cel-maquinas-h").textContent = c.maquinas && !kxCfg().ligado ? "Ligue a leitura da conta da Kryptex (Resumo › Sua conta da Kryptex) para esses avisos chegarem." : "Vem da sua conta da Kryptex, que o painel lê de meia em meia hora (Resumo › Sua conta da Kryptex).";
+  $("cel-maquinas-h").textContent = c.maquinas && !kxCfg().ligado && !(PODE_KXA() && kxaCfg().ligado) ? "Ligue a leitura do app da Kryptex deste PC ou da sua conta da Kryptex (Premissas) para esses avisos chegarem." : "Vem do app da Kryptex deste PC (a cada minuto) e da sua conta da Kryptex (de meia em meia hora), as duas em Premissas.";
   if(document.activeElement!==$("cel-hora")) $("cel-hora").value = c.hora || "08:00";
   $("cel-ofertas-h").textContent = c.ofertas && !alerta.horas ? "Ligue Procurar sozinho, em Ofertas, para a busca rodar sem você." : "Os mesmos avisos que aparecem no Windows, com o link do anúncio.";
   const st = $("cel-status");
@@ -4990,7 +4993,7 @@ function registrarFalhaKx(estado, detalhe){
   /* login: avisa uma vez por dia (não na primeira leitura de todas, quando ainda nem entrou) */
   if(estado==="login" && kx.quando && (antes!=="login" || Date.now() - (kx.loginAvisou||0) > 864e5)){
     kx.loginAvisou = Date.now();
-    avisoKx("login", "A Kryptex pediu para entrar de novo", "Abra o painel e clique em Entrar na Kryptex (Resumo › Sua conta da Kryptex). Até lá o painel não vê se as máquinas param.");
+    avisoKx("login", "A Kryptex pediu para entrar de novo", "Abra o painel e clique em Entrar na Kryptex (Premissas › Sua conta da Kryptex). Até lá o painel não vê se as máquinas param.");
   }
   else if(estado!=="login" && kx.quando && Date.now() - kx.quando > 6*3600e3 && Date.now() - (kx.falhaAvisou||0) > 864e5){
     kx.falhaAvisou = Date.now();
@@ -5073,7 +5076,7 @@ function renderKryptex(){
   }
   $("kx-quando").textContent = kxLendo ? "lendo agora…" : kx.quando ? `lida ${quando(kx.quando)}${pode ? "" : " (o PC confere de meia em meia hora)"}` : "";
   const L = [];
-  if(kx.estado==="login") L.push(`<p class="kx-aviso w">${pode ? "A Kryptex pediu para você entrar na conta. Clique em Entrar na Kryptex, entre e feche a janela." : "A Kryptex pediu para entrar de novo: resolva no PC (Resumo › Sua conta da Kryptex › Entrar na Kryptex)."}</p>`);
+  if(kx.estado==="login") L.push(`<p class="kx-aviso w">${pode ? "A Kryptex pediu para você entrar na conta. Clique em Entrar na Kryptex, entre e feche a janela." : "A Kryptex pediu para entrar de novo: resolva no PC (Premissas › Sua conta da Kryptex › Entrar na Kryptex)."}</p>`);
   else if(kx.estado && kx.estado!=="ok") L.push(`<p class="kx-aviso w">Última tentativa: ${esc(MSG_KX[kx.estado] || "erro")}${kx.msg ? ` (${esc(kx.msg)})` : ""}. ${kx.estado==="formato" ? "Use Copiar o que o painel leu e mande na conversa com o Claude para ajustar a leitura." : kx.estado==="bloqueado" && pode ? "O painel tenta de novo sozinho; se continuar, abra Premissas › Este computador › Mostrar o navegador escondido e resolva a verificação." : "O painel tenta de novo sozinho."}</p>`);
   else if(!kx.quando) L.push(`<p class="sub" style="margin:0">${kxLendo ? "Lendo a sua conta…" : "Ainda não leu a conta."}</p>`);
   if(kx.maquinas.length){
@@ -5133,7 +5136,7 @@ if(PODE_KX()) setInterval(()=>{ verificarKryptex().catch(()=>{}); }, 60e3);
    app fechado), a proteção de temperatura e o retrato que vai para o celular (min-kx-app: só o PC grava, quando o estado
    muda, quando há aviso, depois de pausar ou voltar, quando o celular pede e, fora isso, a cada 30 minutos).
    As leituras de cada minuto (min-kxa-hist, 36 h) ficam só neste PC. */
-const KXA_CADA = 60e3, KXA_GRAVA = 30*60e3, KXA_SALDO = 15*60e3, KXA_HIST = 36*3600e3, KXA_BURACO = 10*60e3, KXA_FECHADO = 5*60e3, KXA_PASSO = 5*60e3, KXA_LONGA = 135*60e3;
+const KXA_CADA = 60e3, KXA_GRAVA = 30*60e3, KXA_VELHO = KXA_GRAVA + 5*60e3, KXA_SALDO = 15*60e3, KXA_HIST = 36*3600e3, KXA_BURACO = 10*60e3, KXA_FECHADO = 5*60e3, KXA_PASSO = 5*60e3, KXA_LONGA = 135*60e3;
 const PAUSAS_KXA = [60, 180, 480, 44640];
 const MOEDAS = {PRL:"Pearl", XMR:"Monero", ETC:"Ethereum Classic", KAS:"Kaspa", RVN:"Ravencoin", ERG:"Ergo", IRON:"Iron Fish", XTM:"Tari", ZEPH:"Zephyr", CFX:"Conflux", NEXA:"Nexa", ALPH:"Alephium", FLUX:"Flux"};
 const MINERADORES = {srbminer:"SRBMiner", lolminer:"lolMiner", xmrig:"XMRig", gminer:"GMiner", trex:"T-Rex", "t-rex":"T-Rex", teamredminer:"TeamRedMiner", rigel:"Rigel", onezerominer:"OneZeroMiner", bzminer:"BzMiner", nbminer:"NBMiner", wildrig:"WildRig"};
@@ -5144,7 +5147,7 @@ function kxaCfg(){
 }
 function mudarKxaCfg(o){ cfg.kxa = {...kxaCfg(), ...o}; salvarCfg(); }
 const novoKxa = () => ({leitura:null, quando:0, ultimaOk:0, jaRespondeu:false, estado:"", minerandoDesde:0, quentes:0, ultimaProtecao:0, protecao:null,
-  semMinerar:{}, avisouParou:{}, minerou:{}, avisouFechado:false, ultimoSaldo:0, gravado:0, lendo:false, falha:""});
+  semMinerar:{}, avisouParou:{}, minerou:{}, avisouFechado:false, primeiraFalha:0, ultimaFalha:0, falhouProtecao:0, ultimoSaldo:0, gravado:0, lendo:false, falha:""});
 var kxa = novoKxa(), kxaHist = (()=>{ const h = lsGet("min-kxa-hist"); return {amostras: h && Array.isArray(h.amostras) ? h.amostras : []}; })();
 var kxaSnap = lsGet("min-kx-app");   /* o último retrato: no celular, o que veio do PC; no PC, o que ele gravou */
 const nomePlaca = p => {
@@ -5224,7 +5227,7 @@ function hash24Kxa(agora){
 function guardarLeitura(l, agora){
   if(!l || !l.ok) return;
   const antes = kxa.estado, primeira = !kxa.jaRespondeu;
-  kxa.leitura = l; kxa.quando = agora; kxa.ultimaOk = agora; kxa.jaRespondeu = true; kxa.avisouFechado = false;
+  kxa.leitura = l; kxa.quando = agora; kxa.ultimaOk = agora; kxa.jaRespondeu = true; kxa.avisouFechado = false; kxa.primeiraFalha = kxa.ultimaFalha = 0;
   if(primeira) try{ sincronizarSegundoPlano(); }catch(e){}
   kxa.estado = estadoKxa(l);
   if(kxa.estado==="minerando"){ if(antes!=="minerando" || !kxa.minerandoDesde) kxa.minerandoDesde = agora; }
@@ -5237,9 +5240,12 @@ function processarLeituraKxa(l, agora){
     kxa.falha = (l && l.msg) || "";
     if(kxa.jaRespondeu){
       kxa.estado = "fechado";
-      if(!kxa.avisouFechado && kxa.ultimaOk && agora - kxa.ultimaOk >= KXA_FECHADO){
+      /* conta desde a primeira falha seguida; um buraco entre falhas (o PC dormiu) recomeça a contagem */
+      if(!kxa.primeiraFalha || (kxa.ultimaFalha && agora - kxa.ultimaFalha > KXA_BURACO)) kxa.primeiraFalha = agora;
+      kxa.ultimaFalha = agora;
+      if(!kxa.avisouFechado && agora - kxa.primeiraFalha >= KXA_FECHADO){
         kxa.avisouFechado = true;
-        aviso("fechado", "O app da Kryptex não está respondendo", `Faz ${Math.round((agora - kxa.ultimaOk)/60e3)} minutos. Se ele foi fechado, a mineração parou: abra o app da Kryptex de novo.`);
+        aviso("fechado", "O app da Kryptex não está respondendo", `Faz ${Math.round((agora - kxa.primeiraFalha)/60e3)} minutos. Se ele foi fechado, a mineração parou: abra o app da Kryptex de novo.`);
       }
     }
     return avisou;
@@ -5283,7 +5289,7 @@ function retratoKxa(agora = Date.now()){
     linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora)};
 }
 function gravarKxa(forcar){
-  if(!PODE_KXA()) return false;
+  if(!PODE_KXA() || !kxa.jaRespondeu) return false;   /* sem nenhuma leitura boa, o celular continua com a estimativa */
   const agora = Date.now(), r = retratoKxa(agora);
   const muda = !kxaSnap || kxaSnap.estado!==r.estado || (kxaSnap.pausaAte||0)!==(r.pausaAte||0);
   if(!forcar && !muda && agora - (kxa.gravado||0) < KXA_GRAVA) return false;
@@ -5299,15 +5305,25 @@ async function lerKryptexApp(motivo){
   finally{ kxa.lendo = false; }
   const agora = Date.now(), antesKx = impressaoKx(), estadoAntes = kxa.estado;
   let avisou = processarLeituraKxa(l, agora);
-  const prot = deveProteger(kxa, l, kxaCfg(), agora);
+  const protAntes = kxa.ultimaProtecao, prot = deveProteger(kxa, l, kxaCfg(), agora);
   if(prot){
     let r = null;
-    try{ r = await window.desktop.kryptexApp.pausar(prot.minutos); }catch(e){ r = null; }
-    const ate = prot.minutos>=44640 ? 0 : agora + prot.minutos*60e3;
-    kxa.protecao = {quando:agora, ate, motivo:prot.motivo};
-    guardarLeitura(r, Date.now());
-    avisoKx("quente", "Pausei a mineração: a placa esquentou demais", `${prot.motivo}. ${ate ? "Volta sozinha às " + new Date(ate).toLocaleTimeString("pt-BR",{hour:"2-digit", minute:"2-digit"}) + "." : "Fica pausada até você voltar pelo painel."}`);
-    avisou = true;
+    try{ r = await window.desktop.kryptexApp.pausar(prot.minutos); }catch(e){ r = {ok:false, msg:String((e && e.message) || e)}; }
+    if(r && (r.feito || (r.ok && r.pausado))){
+      const ate = prot.minutos>=44640 ? 0 : agora + prot.minutos*60e3;
+      kxa.protecao = {quando:agora, ate, motivo:prot.motivo};
+      guardarLeitura(r, Date.now());
+      avisoKx("quente", "Pausei a mineração: a placa esquentou demais", `${prot.motivo}. ${ate ? "Volta sozinha às " + new Date(ate).toLocaleTimeString("pt-BR",{hour:"2-digit", minute:"2-digit"}) + "." : "Fica pausada até você voltar pelo painel."}`);
+      avisou = true;
+    } else {
+      /* o app da Kryptex não aceitou a pausa: não conta como proteção feita (a próxima tentativa é de 15 min de novo) e avisa no máximo a cada 15 minutos */
+      kxa.ultimaProtecao = protAntes;
+      if(agora - (kxa.falhouProtecao||0) >= 15*60e3){
+        kxa.falhouProtecao = agora;
+        avisoKx("quente", "A placa esquentou demais e não consegui pausar", `${prot.motivo}. O app da Kryptex não aceitou a pausa${r && r.msg ? " (" + r.msg + ")" : ""}: pause a mineração no app da Kryptex.`);
+        avisou = true;
+      }
+    }
   }
   if(kxaCfg().ligado && kxCfg().auto && l && l.ok) await anotarSozinhoKx();
   salvarKx(antesKx);
@@ -5357,7 +5373,7 @@ async function pedirRetrato(motivo){
     if(kxaSnap && kxaSnap.v===1 && agora - (kxaSnap.quando||0) <= 10*60e3) return;
     if(agora - kxaPedido.auto < 10*60e3) return;
     kxaPedido.auto = agora;
-    try{ await pedirAoPc("kryptex-agora", {}); }catch(e){}
+    try{ await pedirAoPc("kryptex-agora", {}); }catch(e){ kxaPedido.auto = 0; }   /* tenta de novo quando a ponte ficar pronta ou ao voltar ao Resumo */
     return;
   }
   if(agora - kxaPedido.botao < 2*60e3){ status2("ag-status", "Acabou de pedir: a leitura nova chega em instantes."); return; }
@@ -5444,8 +5460,10 @@ function recarregarDados(ks){
    s = {ok, texto (o selo do canto), aviso (a faixa de cima; vazio esconde)} */
 var remotoInfo = null;
 function remotoEstado(s){
+  const antes = !!(remotoInfo && remotoInfo.ok);
   remotoInfo = s || {};
   const ok = !!remotoInfo.ok;
+  if(ok && !antes && painelPronto && !$("v-resumo").hidden) pedirRetrato("auto").catch(()=>{});   /* a ponte ficou pronta com o Resumo aberto */
   setSync(ok, remotoInfo.texto || (ok ? "Ligado ao PC" : "Sem conexão com o PC"));
   let b = $("remoto-aviso");
   if(!b && remotoInfo.aviso){ b = document.createElement("div"); b.id = "remoto-aviso"; b.className = "remoto-aviso"; b.setAttribute("role", "status"); document.body.appendChild(b); }
@@ -5705,7 +5723,7 @@ const NOVIDADES = [
   {v:"1.6.0", itens:[
     "Visual novo: tema escuro, com a opção de tema claro no rodapé do menu (no celular, em Mais). O menu agora vem em grupos (Acompanhar, Comprar e Ajustes) e, no celular, há uma barra embaixo com Resumo, Diário, Placas, Ofertas e Mais.",
     "Resumo novo: a mineração agora, com o ganho e o lucro de hoje; o mês (lucro, recebido, previsto e recuperado); um gráfico do ganho por dia; o retorno das placas; as melhores ofertas perto de você e os avisos recentes.",
-    "App da Kryptex deste PC: com o app da Kryptex aberto no mesmo computador, o painel mostra ao vivo a moeda, o hashrate, a temperatura, o consumo e o ganho de hoje. Dá para pausar por 1, 3 ou 8 horas (ou até você voltar) e voltar a minerar pelo painel, também pelo celular. Ajustes em Premissas › App da Kryptex neste PC.",
+    "App da Kryptex deste PC: com o app da Kryptex aberto no mesmo computador, o painel mostra ao vivo a moeda, o hashrate, a temperatura, o consumo e o ganho de hoje. Dá para pausar por 1, 3 ou 8 horas (ou até você voltar) e voltar a minerar pelo painel, também pelo celular. Ajustes em Premissas › App da Kryptex neste PC. Enquanto lê o app da Kryptex, fechar a janela deixa o painel no ícone perto do relógio e ele abre junto com o Windows, para os avisos e a proteção não pararem (dá para mudar em Premissas › Este computador).",
     "Proteção de temperatura: se a placa passar de 85 °C (ou a memória de 100 °C) em duas leituras seguidas, o painel pausa a mineração por 15 minutos e avisa no Windows e no celular. Também avisa quando a placa para de minerar sem pausa, quando ela volta e quando o app da Kryptex fica 5 minutos sem responder.",
     "Ofertas com foto do anúncio, filtros em fichas e um gráfico de preço × meses para se pagar: cada ponto é um anúncio, e a faixa verde é o seu prazo.",
     "Mudaram de lugar: a conta da Kryptex (site) e o cenário ficam em Premissas, as compras em Todas as placas e os anúncios analisados em Analisar anúncio."]},
@@ -5879,7 +5897,7 @@ function svgLinhaDia(linha, agora){
 function htmlAgoraVivo(r, comAcoes, retrato){
   const agora = Date.now(), c = kxaCfg(), h = r.hoje || {ganho:0, luz:0, lucro:0};
   const p0 = r.placas.find(p=>p.minerando) || r.placas.find(p=>p.tipo==="gpu") || r.placas[0] || null;
-  const velho = !!retrato && agora - (r.quando||0) > 15*60e3, outroDia = isoLocal(new Date(r.quando||agora))!==isoLocal(new Date(agora));
+  const velho = !!retrato && agora - (r.quando||0) > KXA_VELHO, outroDia = isoLocal(new Date(r.quando||agora))!==isoLocal(new Date(agora));
   const antigos = velho || r.estado==="fechado";   /* os números são da última leitura, não de agora */
   const selo = velho ? `<span class="ag-selo n"><i></i>Última leitura há ${duracao(agora - r.quando)}</span>` : r.estado==="minerando" ? `<span class="ag-selo g"><i></i>Minerando</span>` : r.estado==="pausada" ? `<span class="ag-selo w"><i></i>${textoPausa(r.pausaAte, agora)}</span>`
     : r.estado==="parada" ? `<span class="ag-selo b"><i></i>Parada</span>` : `<span class="ag-selo b"><i></i>App da Kryptex fechado</span>`;
@@ -5894,12 +5912,14 @@ function htmlAgoraVivo(r, comAcoes, retrato){
     tile("Consumo", watts>0 ? Math.round(watts) + " W" : "—", `${brl(h.luz)} de luz hoje`),
     tile("Ventoinha", p0 && p0.ventoinha!=null ? Math.round(p0.ventoinha) + "%" : "—", p0 && p0.rpm!=null ? Math.round(p0.rpm).toLocaleString("pt-BR") + " rpm" : "rpm: —")
   ].join("");
+  const rt = r.ritmo || {}, ritmo = !antigos && r.estado==="minerando" && rt.brutoDia>0
+    ? `<span class="ag-ritmo">Ritmo de agora: ${brl(rt.brutoDia)}/dia pela Kryptex · ${rt.lucroDia<-0.005 ? "prejuízo de " + brl(-rt.lucroDia) : "lucro de " + brl(Math.max(0, rt.lucroDia))}/dia</span>` : "";
   const prot = r.protecao && r.estado==="pausada" ? `<p class="ag-frase w">Pausada pela proteção de temperatura: ${esc(r.protecao.motivo)}.</p>` : "";
   const botoes = !comAcoes ? "" : r.estado==="pausada" ? `<button type="button" class="pri" data-voltar>Voltar a minerar</button>`
     : r.estado==="minerando" || r.estado==="parada" ? `<details class="pausar"><summary>Pausar</summary><div class="pausar-op">${PAUSAS_KXA.map(m=>`<button type="button" data-pausa="${m}">${m>=44640 ? "Até eu voltar" : m===60 ? "1 hora" : m/60 + " horas"}</button>`).join("")}</div></details>` : "";
   return `<div class="ag-topo">${selo}${onde ? `<span class="ag-onde">${onde}</span>` : ""}</div>
     <div class="ag-meio"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : antigos ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
-      <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span></div>${svgLinhaDia(r.linha, agora)}</div>
+      <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}</div>${svgLinhaDia(r.linha, agora)}</div>
     <div class="ag-nums${antigos ? " velho" : ""}">${nums}</div>${prot}
     <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a ${c.limTemp} °C ou a memória a ${c.limMem} °C` : "Proteção de temperatura desligada"}</span></div>
     ${retrato ? `<div class="ag-rodape"><span>lido ${haQuanto(r.quando)}, no PC</span><button type="button" class="link" data-kxa-atualizar>Atualizar</button></div>` : ""}`;
@@ -5907,7 +5927,7 @@ function htmlAgoraVivo(r, comAcoes, retrato){
 function renderAgora(){
   const box = $("ag-corpo"); if(!box) return;
   if(PODE_KXA() && kxa && kxaCfg().ligado && kxa.jaRespondeu){ box.innerHTML = htmlAgoraVivo(retratoKxa(), true); return; }
-  if(REMOTO && kxaSnap && kxaSnap.v===1 && Array.isArray(kxaSnap.placas)){ box.innerHTML = htmlAgoraVivo(kxaSnap, !!window.desktop.pedirAoPc && Date.now() - (kxaSnap.quando||0) <= 15*60e3, true); return; }
+  if(REMOTO && kxaSnap && kxaSnap.v===1 && kxaSnap.estado && Array.isArray(kxaSnap.placas)){ box.innerHTML = htmlAgoraVivo(kxaSnap, !!window.desktop.pedirAoPc && Date.now() - (kxaSnap.quando||0) <= KXA_VELHO, true); return; }
   const semPlacas = ganhosEstado==="vazio";
   const frase = DESKTOP ? "Abra o app da Kryptex neste PC para ver a mineração ao vivo." : REMOTO ? "O PC ainda não mandou a leitura do app da Kryptex." : "No aplicativo do PC, este quadro mostra a mineração ao vivo.";
   box.innerHTML = `<div class="ag-topo"><span class="ag-selo n"><i></i>${semPlacas ? "Nenhuma placa cadastrada" : "Sem leitura ao vivo"}</span></div>
@@ -6022,7 +6042,7 @@ function renderGanhos(){
 function renderVivo(){
   const el = $("vivo"), chip = $("g-chip"); if(!el || !chip) return;
   const r = PODE_KXA() && kxa && kxaCfg().ligado && kxa.jaRespondeu ? retratoKxa()
-    : REMOTO && kxaSnap && kxaSnap.v===1 && kxaSnap.hoje && Date.now() - (kxaSnap.quando||0) <= 15*60e3 ? kxaSnap : null;
+    : REMOTO && kxaSnap && kxaSnap.v===1 && kxaSnap.estado && kxaSnap.hoje && Date.now() - (kxaSnap.quando||0) <= KXA_VELHO ? kxaSnap : null;
   if(r){
     const rot = {minerando:["on","Minerando"], pausada:["w","Pausada"], parada:["b","Parada"], fechado:["b","App da Kryptex fechado"]}[r.estado] || ["","—"];
     el.innerHTML = `<span class="vivo-l"><i class="${rot[0]}"></i>${rot[1]}</span><b>${brl(r.hoje.ganho)}</b><small>hoje até ${r.estado==="fechado" && r.quando ? horaMin(r.quando) : "agora"} · ${r.hoje.lucro<-0.005 ? "prejuízo de " + brl(-r.hoje.lucro) : "lucro de " + brl(Math.max(0, r.hoje.lucro))}</small>`;

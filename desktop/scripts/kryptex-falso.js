@@ -4,7 +4,9 @@
    app de verdade nos primeiros segundos), "quente" (86 °C), "parado" (sem minerar e sem pausa) e "fechado" (não responde).
    Guarda cada pedido em `pedidos` ({metodo, caminho, corpo}). */
 module.exports = function criar() {
-  const estado = { modo: "minerando", saldo: 0.0001, temp: 63, tempMem: 78, watts: 286, pausaAte: null };
+  /* formatoPausa: como o GET /pause conta a pausa ("padrao": {pause:true, pause_until}; "so-ate": só {until}; "objeto":
+     {pause:{until}}) — o formato do app de verdade com a placa pausada ainda não foi visto */
+  const estado = { modo: "minerando", saldo: 0.0001, temp: 63, tempMem: 78, watts: 286, pausaAte: null, formatoPausa: "padrao" };
   const pedidos = [];
 
   function dispositivos() {
@@ -45,7 +47,12 @@ module.exports = function criar() {
       if (estado.modo === "fechado") return;   /* não responde: quem pede desiste pelo limite de tempo */
       if (req.method === "GET" && caminho === "/devices") return responder(res, 200, dispositivos());
       if (req.method === "GET" && caminho === "/balance") return responder(res, 200, { total: estado.saldo, withdrawable: 0 });
-      if (req.method === "GET" && caminho === "/pause") return responder(res, 200, estado.modo === "pausado" ? { pause: true, pause_until: estado.pausaAte } : { pause: false });
+      if (req.method === "GET" && caminho === "/pause") {
+        if (estado.modo !== "pausado") return responder(res, 200, { pause: false });
+        if (estado.formatoPausa === "so-ate") return responder(res, 200, { until: estado.pausaAte });
+        if (estado.formatoPausa === "objeto") return responder(res, 200, { pause: { until: estado.pausaAte } });
+        return responder(res, 200, { pause: true, pause_until: estado.pausaAte });
+      }
       if (req.method === "GET" && caminho === "/currency-rates") return responder(res, 200, { brl: 4.965204, btc: 0.00001237, eur: 0.89267, usd: 1 });
       if (req.method === "GET" && caminho === "/configuration") return responder(res, 200, { currency: "brl", language: "pt-BR", os_startup: true, user_active_pause: false, computer_name: "PC-TESTE" });
       if (req.method === "GET" && caminho === "/user") return responder(res, 200, { username: "alex.teste@example.com" });

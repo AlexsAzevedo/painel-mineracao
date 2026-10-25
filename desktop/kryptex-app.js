@@ -93,6 +93,8 @@ function placaDe(d, pausado, desconhecidos) {
   };
 }
 
+const chaves = (o) => (o && typeof o === "object" && !Array.isArray(o) ? Object.keys(o).slice(0, 30).map((k) => String(k).slice(0, 40)) : []);
+
 /* ---------- o que o painel chama ---------- */
 async function ler() {
   const quando = Date.now();
@@ -100,8 +102,11 @@ async function ler() {
   const [devices, balance, pause, rates, conf] = r.map((x) => (x.status === "fulfilled" ? x.value : null));
   if (r[0].status === "rejected") { const e = r[0].reason || {}; return { ok: false, erro: e.tipo || "fechado", msg: String(e.message || e).slice(0, 160) }; }
   if (!Array.isArray(devices)) return { ok: false, erro: "formato", msg: "o app da Kryptex não mandou a lista de placas" };
-  const pausado = !!(pause && (pause.pause === true || pause.paused === true));
-  const pa = pause ? ["pause_until", "paused_until", "until", "resume_at"].map((k) => ms(pause[k])).find((x) => x != null) : null;
+  /* o formato do GET /pause com a placa pausada ainda não foi visto no app de verdade: aceita pause/paused/is_paused,
+     "pause" como objeto e a hora de voltar no futuro */
+  const po = pause && typeof pause === "object" ? pause : {}, sub = po.pause && typeof po.pause === "object" ? po.pause : {};
+  const pa = [po, sub].flatMap((o) => ["pause_until", "paused_until", "until", "resume_at"].map((k) => ms(o[k]))).find((x) => x != null) ?? null;
+  const pausado = [po.pause, po.paused, po.is_paused, sub.paused].some((v) => v === true) || (pa != null && pa > quando);
   const tx = (rates && typeof rates.rates === "object" && rates.rates) || rates || {};
   const desconhecidos = new Set();
   return {
@@ -110,20 +115,22 @@ async function ler() {
     cotacoes: { brl: pos(tx.brl), btc: pos(tx.btc) },
     saldoBtc: balance && num(balance.total) != null && num(balance.total) >= 0 ? num(balance.total) : null,
     placas: devices.slice(0, 16).map((d) => placaDe(d, pausado, desconhecidos)),
-    desconhecidos: [...desconhecidos]
+    desconhecidos: [...desconhecidos],
+    /* para acertar a leitura com o app de verdade: só os nomes das chaves de cada resposta, nunca os valores */
+    formato: { pause: chaves(pause), balance: chaves(balance), cotacoes: chaves(tx), config: chaves(conf) }
   };
 }
 async function pausar(minutos) {
   const m = Number(minutos);
   if (typeof minutos !== "number" || !PAUSAS.includes(m)) throw new Error("tempo de pausa não permitido");
   try { await pedir("PUT", "/pause", { pause_for: m * 60000 }); }
-  catch (e) { return { ok: false, erro: e.tipo || "fechado", msg: String(e.message || e).slice(0, 160) }; }
-  return ler();
+  catch (e) { return { ok: false, feito: false, erro: e.tipo || "fechado", msg: String(e.message || e).slice(0, 160) }; }
+  return { ...(await ler()), feito: true };   /* feito: o app aceitou a pausa (mesmo se a leitura logo depois falhar) */
 }
 async function voltar() {
   try { await pedir("PUT", "/pause", { pause: false }); }
-  catch (e) { return { ok: false, erro: e.tipo || "fechado", msg: String(e.message || e).slice(0, 160) }; }
-  return ler();
+  catch (e) { return { ok: false, feito: false, erro: e.tipo || "fechado", msg: String(e.message || e).slice(0, 160) }; }
+  return { ...(await ler()), feito: true };
 }
 
 module.exports = { ler, pausar, voltar, PAUSAS };
