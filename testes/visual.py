@@ -58,6 +58,7 @@ def resumo(p):
     m = pg.evaluate("resumoMes()")
     checa("o mês", abs(m["recebido"] - DADOS_ESPERADO["recebido_mes"]) < 0.01 and m["dias"] == 14 and abs(m["lucro"] - (m["recebido"] - m["luz"])) < 0.01, m)
     checa("4 cartões do mês", pg.eval_on_selector_all("#r-mes .kpi .lbl", "e=>e.map(x=>x.textContent)") == ["Lucro do mês", "Recebido", "Previsto", "Recuperado"])
+    checa("recuperado diz que é estimado (o real fica no Retorno)", "estimativa" in pg.inner_text("#r-mes .kpi:nth-child(4) small"), pg.inner_text("#r-mes .kpi:nth-child(4) small"))
     checa("14 dias no gráfico", pg.eval_on_selector_all("#r-graf .bar-hit", "e=>e.length") == 14)
     checa("Diário igual", pg.evaluate("irPara('diario'), document.querySelectorAll('#d-graf .bar-hit').length") == DADOS_ESPERADO["dias_grafico_diario"])
     checa("compras em Todas as placas", pg.evaluate("!!document.querySelector('#v-placas #r-compras') && document.querySelectorAll('#r-compras li').length > 0"))
@@ -78,6 +79,13 @@ def resumo(p):
     checa("aviso de dias para anotar", pgc.evaluate("kx.dias={'2026-10-24':{btc:1e-5,valor:14,moeda:'BRL',horas:24,aproximado:false,fonte:'saldo'}}, diario=diario.filter(e=>e.data!=='2026-10-24'), renderResumo(), !document.getElementById('kx-aviso-sug').hidden"))
     checa("sem rolagem lateral 390", pgc.evaluate("document.documentElement.scrollWidth <= innerWidth"))
     checa("sem erros (celular)", not erros(pgc), erros(pgc)[:3])
+    for larg in (1366, 1280):
+        pgp = abrir(p, largura=larg, altura=1200, dados=DADOS, pc=True)
+        checa(f"prazo das ofertas sem cortar ({larg})", pgp.evaluate("""(() => { const ps = [...document.querySelectorAll('#r-ofertas .of-mini .pill')];
+            return ps.length === 3 && ps.every(e => e.scrollWidth <= e.clientWidth + 1 && e.getBoundingClientRect().right <= e.closest('.of-mini').getBoundingClientRect().right); })()"""),
+            pgp.evaluate("[...document.querySelectorAll('#r-ofertas .of-mini .pill')].map(e=>[e.scrollWidth, e.clientWidth])"))
+        checa(f"Agora sem espaço vazio embaixo ({larg})", pgp.evaluate("""(() => { const a = document.getElementById('agora'), c = document.getElementById('ag-corpo');
+            return a.getBoundingClientRect().bottom - c.getBoundingClientRect().bottom <= parseFloat(getComputedStyle(a).paddingBottom) + 2; })()"""))
 
 
 def ofertas(p):

@@ -72,6 +72,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .faixa-sug{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-radius:14px;background:var(--accent-soft);color:var(--fg)}
 .faixa-sug .link{margin-left:auto}
 .agora{gap:12px;padding:22px 24px}
+.agora .status:empty{min-height:0;margin-top:-12px}   /* sem recado, a linha não deixa espaço vazio (continua lá para o leitor de tela) */
 .ag-topo{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .ag-selo{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:999px;font-weight:600;font-size:.82rem;background:var(--sunk);color:var(--muted)}
 .ag-selo i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
@@ -119,7 +120,7 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .of-mini-c{display:flex;flex-direction:column;gap:3px;padding:10px 12px 12px;min-width:0}
 .of-mini-c b{font-family:var(--num);font-weight:600;font-size:1.05rem}
 .of-mini-c .t{font-size:.84rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.of-mini-c .pill{align-self:flex-start;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.74rem}
+.of-mini-c .pill{align-self:flex-start;max-width:100%;font-size:.74rem;line-height:1.3;border-radius:10px;padding:3px 9px}
 .avisos-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .av{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
 .av:first-child{border-top:0;padding-top:0}
@@ -5833,7 +5834,7 @@ function renderMes(){
     ["Lucro do mês", m.dias ? brl(m.lucro) : "—", m.dias ? `luz: ${brl(m.luz)}` : `anote os ganhos de ${nome} no Diário`, true, m.dias && m.lucro<0],
     ["Recebido", brl(m.recebido), m.dias ? `em ${m.dias} ${plural(m.dias,"dia")} de ${nome}` : "nenhum dia anotado", false],
     ["Previsto", brl0(m.previsto), "de lucro por mês, pela estimativa", false, m.previsto<0],
-    ["Recuperado", brl0(m.recup), m.custo>0 ? `${Math.min(100, m.recup/m.custo*100).toFixed(0)}% de ${brl0(m.custo)}` : "—", false]
+    ["Recuperado", brl0(m.recup), m.custo>0 ? `${Math.min(100, m.recup/m.custo*100).toFixed(0)}% de ${brl0(m.custo)}, pela estimativa` : "—", false]
   ].map(([l,v,sub,h,neg])=>`<div class="kpi${h?" hl":""}"><span class="lbl">${l}</span><b${neg?' class="neg"':""}>${v}</b><small>${sub}</small></div>`).join("");
 }
 /* Agora: a mineração ao vivo (app da Kryptex) ou, sem leitura, a estimativa do setup */
@@ -5931,7 +5932,7 @@ function htmlOfertaMini({x, c, v}){
   const foto = fotoValida(x.foto);
   return `<button type="button" class="of-mini" data-of-ver="${esc(x.k)}" aria-label="${esc((c ? c.curto : "Placa") + " por " + brl0(x.preco) + (v.meses ? ", se paga em " + n1(v.meses) + " meses" : ""))}">
     <span class="of-img">${ICONE_PLACA}${foto ? `<img class="of-foto" src="${esc(foto)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}</span>
-    <span class="of-mini-c"><b>${brl0(x.preco)}</b><span class="t">${esc(c ? c.curto : x.titulo || "Placa")}</span><span class="pill ${v.cls}">${v.meses ? "se paga em " + n1(v.meses) + " meses" : esc(v.txt)}</span></span></button>`;
+    <span class="of-mini-c"><b>${brl0(x.preco)}</b><span class="t">${esc(c ? c.curto : x.titulo || "Placa")}</span><span class="pill ${v.cls}">${v.meses ? "se paga em " + n1(v.meses) + "&nbsp;meses" : esc(v.txt)}</span></span></button>`;
 }
 function renderOfertasResumo(){
   const painel = $("r-of-p"); if(!painel) return;
