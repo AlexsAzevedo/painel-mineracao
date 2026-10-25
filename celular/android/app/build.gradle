@@ -1,6 +1,6 @@
 apply plugin: 'com.android.application'
 
-// a versão vem de celular/package.json (a mesma do painel do PC): 1.4.0 → versionName "1.4.0", versionCode 10400
+// a versão do app vem de celular/package.json (sobe só quando o app muda): 1.4.0 → versionName "1.4.0", versionCode 10400
 def pacote = new groovy.json.JsonSlurper().parse(file('../../package.json'))
 def partes = pacote.version.tokenize('.').collect { it as int }
 

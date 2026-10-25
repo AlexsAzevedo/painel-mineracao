@@ -22,8 +22,8 @@
 
 ## Publicar uma versão
 
-1. Suba a versão em `desktop/package.json` e `celular/package.json` e no topo dos dois `package-lock.json` (PC e celular têm sempre a mesma versão; o workflow confere).
+1. Suba a versão em `desktop/package.json` e no topo de `desktop/package-lock.json`. O app do celular tem a versão dele, em `celular/package.json` e no topo de `celular/package-lock.json`: suba só quando o app mudar (o que aparece ou funciona no celular). O `.apk` sai em toda versão, com a versão do app no rótulo (`Painel-de-Mineracao.apk (app X.Y.Z)`), e o app só avisa de versão nova quando ela sobe.
 2. Ponha as novidades no começo de `NOVIDADES`, em `mineracao.html`, e escreva `notas/vX.Y.Z.md` (o texto da release, no formato das anteriores).
-3. Teste e faça push no `main`. O workflow `.github/workflows/publicar.yml` monta o instalador e o app do celular e cria a release `vX.Y.Z` com o `.exe`, o `.blockmap`, o `latest.yml` e o `Painel-de-Mineracao.apk` (o PC aponta para `releases/latest/download/Painel-de-Mineracao.apk`). Os painéis instalados se atualizam sozinhos; o app do celular avisa da versão nova. Se a release já existe sem o `.apk`, o workflow só acrescenta o `.apk`.
+3. Teste e faça push no `main`. O workflow `.github/workflows/publicar.yml` monta o instalador e o app do celular e cria a release `vX.Y.Z` com o `.exe`, o `.blockmap`, o `latest.yml` e o `Painel-de-Mineracao.apk` (o PC aponta para `releases/latest/download/Painel-de-Mineracao.apk`). Os painéis instalados se atualizam sozinhos; o app do celular avisa quando a versão do app sobe. Se a release já existe sem o `.apk`, o workflow só acrescenta o `.apk`.
 
 Daqui não dá para criar releases pela API do GitHub: quem publica é o workflow. A API de Actions também é bloqueada; acompanhe o andamento por `repos/AlexsAzevedo/painel-mineracao/commits/<sha>/check-runs`.

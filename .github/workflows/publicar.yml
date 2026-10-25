@@ -3,6 +3,8 @@ name: Publicar versão
 # Toda vez que a versão em desktop/package.json muda no main, o GitHub monta o instalador do Windows e o app do
 # celular (Android) e publica a release com o instalador, o .blockmap, o latest.yml e o Painel-de-Mineracao.apk,
 # usando o texto de notas/vX.Y.Z.md. Os painéis instalados encontram a versão nova sozinhos.
+# O app do celular tem a versão dele (celular/package.json), que só sobe quando o app muda: ela vai no rótulo do
+# .apk ("Painel-de-Mineracao.apk (app X.Y.Z)"), e o app só avisa de versão nova quando ela sobe.
 # O .apk só sai com a chave de assinatura nos segredos do repositório (ANDROID_KEYSTORE_B64 e ANDROID_KEYSTORE_SENHA).
 # Se a versão já tem release, só confere se falta o .apk (segredos postos depois): aí monta e acrescenta o .apk.
 on:
@@ -20,21 +22,24 @@ concurrency:
 
 jobs:
   publicar:
-    runs-on: ubuntu-latest
+    # fixo no Ubuntu 24.04: o app do celular usa o Android SDK que vem nessa imagem
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       GH_TOKEN: ${{ github.token }}
       TEM_CHAVE: ${{ secrets.ANDROID_KEYSTORE_B64 != '' && secrets.ANDROID_KEYSTORE_SENHA != '' && 'sim' || 'nao' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Conferir a versão
         id: v
         run: |
           versao=$(jq -r .version desktop/package.json)
+          app=$(jq -r .version celular/package.json)
           echo "versao=$versao" >> "$GITHUB_OUTPUT"
-          if [ "$(jq -r .version celular/package.json)" != "$versao" ]; then
-            echo "::error::A versão do app do celular (celular/package.json) é diferente da do PC ($versao)."
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          if ! printf '%s' "$app" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::A versão do app do celular (celular/package.json) não é do tipo X.Y.Z: $app"
             exit 1
           fi
           if gh release view "v$versao" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
@@ -57,7 +62,7 @@ jobs:
             fi
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.v.outputs.publicar == 'sim' || steps.v.outputs.apk == 'sim'
         with:
           node-version: 22
@@ -83,7 +88,7 @@ jobs:
         working-directory: desktop
         run: node scripts/build-win.js
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: steps.v.outputs.apk == 'sim'
         with:
           distribution: temurin
@@ -111,9 +116,10 @@ jobs:
         if: steps.v.outputs.publicar == 'sim'
         env:
           V: ${{ steps.v.outputs.versao }}
+          APP: ${{ steps.v.outputs.app }}
         run: |
           arquivos=("desktop/dist/Painel-de-Mineracao-Setup-$V.exe" "desktop/dist/Painel-de-Mineracao-Setup-$V.exe.blockmap" "desktop/dist/latest.yml")
-          if [ -f Painel-de-Mineracao.apk ]; then arquivos+=("Painel-de-Mineracao.apk"); fi
+          if [ -f Painel-de-Mineracao.apk ]; then arquivos+=("Painel-de-Mineracao.apk#Painel-de-Mineracao.apk (app $APP)"); fi
           gh release create "v$V" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Versão $V" --notes-file "notas/v$V.md" "${arquivos[@]}"
 
@@ -121,4 +127,5 @@ jobs:
         if: steps.v.outputs.publicar == 'nao' && steps.v.outputs.apk == 'sim'
         env:
           V: ${{ steps.v.outputs.versao }}
-        run: gh release upload "v$V" --repo "$GITHUB_REPOSITORY" Painel-de-Mineracao.apk
+          APP: ${{ steps.v.outputs.app }}
+        run: gh release upload "v$V" --repo "$GITHUB_REPOSITORY" "Painel-de-Mineracao.apk#Painel-de-Mineracao.apk (app $APP)"

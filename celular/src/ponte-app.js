@@ -368,15 +368,23 @@
     if (Object.keys(est.pend).length) agendarEnvio(1500);
   }
 
-  /* ---------- versão nova do app (Releases do GitHub), no máximo a cada 12 horas ---------- */
+  /* ---------- versão nova do app (Releases do GitHub), no máximo a cada 12 horas ----------
+     A versão do app vem no rótulo do .apk ("Painel-de-Mineracao.apk (app 1.5.0)"): uma versão nova só do PC não pede
+     para atualizar o app. Releases antigas, sem rótulo, valem pela versão da release. */
+  function versaoDoApk(j) {
+    const apk = (j.assets || []).find((a) => a && a.name === "Painel-de-Mineracao.apk");
+    if (!apk) return "";
+    const m = /\bapp\s+(\d+\.\d+\.\d+)/i.exec(String(apk.label || ""));
+    return m ? m[1] : String(j.tag_name || "").replace(/^v/, "");
+  }
   async function conferirVersaoApp() {
     if (Date.now() - (est.conferiuVersao || 0) < 12 * 3600e3) return;
     est.conferiuVersao = Date.now(); salvar();
     try {
       const r = await fetch(API_VERSAO, { cache: "no-store" });
       if (!r.ok) return;
-      const j = await r.json(), v = String(j.tag_name || "").replace(/^v/, "");
-      if ((j.assets || []).some((a) => a && a.name === "Painel-de-Mineracao.apk") && maisNova(v, VERSAO)) { est.versaoNova = v; salvar(); avisar(); }
+      const v = versaoDoApk(await r.json());
+      est.versaoNova = v && maisNova(v, VERSAO) ? v : ""; salvar(); avisar();
     } catch (e) {}
   }
 
