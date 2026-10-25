@@ -18,7 +18,7 @@
   "use strict";
   const G = globalThis;
   /* chaves de dados que o PC e o celular dividem (iguais às de mineracao.html) */
-  const SINCRONIZADAS = ["min-cfg", "min-placas", "min-anuncios", "min-setup", "min-diario", "min-ofertas", "min-ofertas-marcas", "min-ofertas-alerta", "min-ofertas-modelos", "min-kryptex"];
+  const SINCRONIZADAS = ["min-cfg", "min-placas", "min-anuncios", "min-setup", "min-diario", "min-ofertas", "min-ofertas-marcas", "min-ofertas-alerta", "min-ofertas-modelos", "min-kryptex", "min-kx-app"];
   const VERSAO = 1;
   const MAX_TEXTO = 3900;           /* mensagem comum do ntfy: até 4096 bytes */
   const MAX_ANEXO = 1900 * 1024;    /* anexo no ntfy.sh: até 2 MB */
