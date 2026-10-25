@@ -52,7 +52,7 @@ html = html[:i] + ponte + html[i:]
 
 conexoes = "https://ntfy.sh https://api.github.com" + (" " + re.match(r"https?://[^/]+", ntfy_teste).group(0) if ntfy_teste else "")
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; "
-       f"img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src {conexoes}; "
+       f"img-src 'self' data: blob: https://*.fbcdn.net https://*.olx.com.br; media-src 'self' blob: mediastream:; connect-src {conexoes}; "
        "object-src 'none'; base-uri 'none'; form-action 'none'")
 pagina = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
           '<meta name="viewport" content="width=device-width,initial-scale=1">'

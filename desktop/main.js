@@ -1079,7 +1079,8 @@ async function paginaBuscaFb(rolar) {
     const m = a.href.match(/\/marketplace\/item\/(\d+)/);
     if (!m || vistos.has(m[1])) continue;
     vistos.add(m[1]);
-    itens.push({ id: m[1], linhas: (a.innerText || "").split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 8) });
+    const img = a.querySelector("img");
+    itens.push({ id: m[1], linhas: (a.innerText || "").split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 8), foto: img ? String(img.currentSrc || img.src || "").slice(0, 1500) : "" });
   }
   const local = [...document.querySelectorAll("[aria-label]")].map((e) => e.getAttribute("aria-label")).find((t) => /^(Localização|Location):/i.test(t)) || "";
   return { itens, local, url: location.href };
@@ -1096,7 +1097,9 @@ async function paginaBuscaOlx() {
     const a = s.querySelector('a[data-testid="adcard-link"], a.olx-adcard__link'); if (!a) continue;
     const q = (sel) => { const e = s.querySelector(sel); return e ? e.textContent.trim() : ""; };
     const tx = s.textContent || "";
-    itens.push({ url: a.href, titulo: (a.getAttribute("title") || a.textContent || "").trim(), preco: q(".olx-adcard__price"), antigo: q(".olx-adcard__old-price"),
+    const img = s.querySelector("img"), fonte = s.querySelector("source[srcset]");
+    const foto = String((img && (img.currentSrc || img.src || img.getAttribute("data-src"))) || (fonte ? fonte.getAttribute("srcset").split(/\s|,/)[0] : "") || "").slice(0, 1500);
+    itens.push({ foto, url: a.href, titulo: (a.getAttribute("title") || a.textContent || "").trim(), preco: q(".olx-adcard__price"), antigo: q(".olx-adcard__old-price"),
       local: q(".olx-adcard__location"), data: q(".olx-adcard__date"), entrega: /Entrega Fácil/i.test(tx), garantia: /Garantia da OLX/i.test(tx) });
   }
   return { itens, total: ((document.body.textContent.match(/de ([\d.]+) resultados/) || [])[1] || ""), url: location.href };

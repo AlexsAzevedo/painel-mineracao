@@ -67,7 +67,7 @@ function paginaBuscaFb(q) {
   if (fase.login) return `<!doctype html><html><head><meta charset="utf-8"><title>Facebook – entre ou cadastre-se</title></head><body><form><input name="email"><input name="pass" type="password"><button>Entrar</button></form></body></html>`;
   const min = +q.get("minPrice") || 0, max = +q.get("maxPrice") || Infinity;
   const lista = listaFb().map(([id, l], i) => ({ id, l, i })).filter((x) => { const p = precoDe(x.l); return p >= min && p <= max; });
-  const card = (x) => `<a href="/marketplace/item/${x.id}/?ref=search" style="display:block;height:150px">${x.l.map((s) => `<div>${esc(s)}</div>`).join("")}</a>`;
+  const card = (x) => `<a href="/marketplace/item/${x.id}/?ref=search" style="display:block;height:150px"><img src="https://scontent.teste.fbcdn.net/v/t45/${x.id}.jpg" alt="" width="1" height="1">${x.l.map((s) => `<div>${esc(s)}</div>`).join("")}</a>`;
   const primeiros = lista.filter((x) => x.i < PRIMEIROS).map(card), resto = lista.filter((x) => x.i >= PRIMEIROS).map(card);
   return `<!doctype html><html><head><meta charset="utf-8"><title>Facebook</title></head><body>
     <div role="banner">menu do topo</div><div aria-label="Localização: Itajaí, No raio de ${esc(q.get("radius") || "40")} km">Itajaí · 40 km</div>
@@ -80,7 +80,7 @@ function paginaBuscaFb(q) {
 function paginaBuscaOlx(uf, q) {
   const min = +q.get("ps") || 0, max = +q.get("pe") || Infinity;
   const cards = (OLX[uf] || []).filter((c) => { const p = +c[2].replace(/\D/g, ""); return p >= min && p <= max; }).map(([url, t, p, l, d, ent, gar]) =>
-    `<section class="olx-adcard olx-adcard__horizontal"><div class="olx-adcard__content"><a data-testid="adcard-link" class="olx-adcard__link" title="${esc(t)}" href="${esc(url)}"><h2 class="olx-adcard__title">${esc(t)}</h2></a>
+    `<section class="olx-adcard olx-adcard__horizontal"><picture><img src="https://img.olx.com.br/thumbs500x360/${esc(url.split("-").pop())}.jpg" alt="" width="1" height="1"></picture><div class="olx-adcard__content"><a data-testid="adcard-link" class="olx-adcard__link" title="${esc(t)}" href="${esc(url)}"><h2 class="olx-adcard__title">${esc(t)}</h2></a>
       <div class="olx-adcard__badges">${ent ? "<div>Entrega Fácil</div>" : ""}${gar ? "<div>Garantia da OLX</div>" : ""}</div>
       <h3 class="olx-adcard__price">${esc(p)}</h3><p class="olx-adcard__location">${esc(l)}</p><p class="olx-adcard__date">${esc(d)}</p></div></section>`);
   return `<!doctype html><html><head><meta charset="utf-8"><title>"${esc(q.get("q") || "")}" | OLX</title></head><body><main><p>1 - ${cards.length} de ${cards.length} resultados</p>${cards.join("")}</main></body></html>`;

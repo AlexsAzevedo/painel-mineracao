@@ -681,50 +681,89 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 @keyframes of-indef{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
 @media (prefers-reduced-motion: reduce){.of-prog.indef span{animation:none;width:100%;opacity:.45}}
 #of-status:empty{display:none}
-.of-filtros{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
-.of-filtros > label{display:flex;flex-direction:column;gap:4px}
-.of-filtros select{width:auto}
-.of-filtros .checks{flex-direction:row;flex-wrap:wrap;gap:6px 14px}
-.of-filtros .cont{margin-left:auto;align-self:center}
-.of-lista{background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}
-.of{display:grid;grid-template-columns:minmax(0,1fr) 150px 112px;gap:4px 16px;align-items:center;padding:14px 18px;border-top:1px solid var(--line)}
-.of:first-child{border-top:0}
-.of-a{min-width:0;display:flex;flex-direction:column;gap:2px}
-.of-modelo{font-family:var(--mono);font-size:.76rem;font-weight:600;color:var(--accent)}
-.of-tit{font-weight:600;color:var(--fg);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;overflow-wrap:anywhere;line-height:1.35}
-a.of-tit:hover{color:var(--accent);text-decoration-color:currentColor}
+/* filtros como fichas numa linha (rola de lado no celular) */
+.of-filtros{display:flex;flex-wrap:nowrap;gap:8px;align-items:center;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin}
+.chip{position:relative;flex:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:.86rem;font-weight:600;white-space:nowrap;cursor:pointer}
+.chip input[type=checkbox]{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.chip:has(input:checked){background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.chip:has(input:checked)::before{content:"";width:9px;height:5px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg) translateY(-2px)}
+.chip:has(input:focus-visible),.chip:has(select:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.chip-sel{padding:0 32px 0 2px}
+.chip-sel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;color:inherit;font:inherit;width:auto;padding:0 0 0 12px;min-height:38px;cursor:pointer;outline:none}
+.chip-sel::after{content:"";position:absolute;right:15px;top:50%;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.of-cont{margin:-6px 2px 0;color:var(--muted);font-size:.84rem}
+.of-leg svg{flex:none}
+/* cartões das ofertas */
+.of-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;min-width:0}
+.of{display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--line);background:var(--surface);min-width:0}
+.of .of-img{aspect-ratio:16/9;border-radius:15px 15px 0 0}
+.of-site{position:absolute;left:10px;bottom:10px;padding:3px 10px;border-radius:999px;background:var(--scrim);color:var(--onscrim);font-size:.72rem;font-weight:600}
+.of-salvar{position:absolute;right:8px;top:8px;width:40px;height:40px;border-radius:50%;border:0;background:var(--scrim);color:var(--onscrim);display:grid;place-items:center;cursor:pointer;padding:0}
+.of-salvar svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linejoin:round}
+.of-salvar[aria-pressed="true"]{color:var(--accent)}
+.of-salvar[aria-pressed="true"] svg{fill:currentColor}
+.of-salvar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.of-c{display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px;min-width:0;flex:1}
+.of-l1{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.of-modelo{padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:.76rem;font-weight:700}
+.of-quando{margin-left:auto;color:var(--muted);font-size:.76rem}
+.of-tit{font-weight:600;color:var(--fg);text-decoration:none;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+a.of-tit:hover{color:var(--accent);text-decoration:underline}
+a.of-tit:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .of-tit .ext,.vendedor .ext{font-size:.8em;margin-left:3px;color:var(--muted)}
-a.vendedor{display:inline-flex;align-items:center;font-weight:600;font-size:.8rem;color:var(--bg);background:var(--accent);border-radius:6px;padding:3px 10px;text-decoration:none;margin-right:4px}
-a.vendedor:hover{filter:brightness(1.08);text-decoration:underline}
-a.vendedor .ext{color:inherit;opacity:.8}
-a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.acoes a.vendedor{font-size:.9rem;padding:7px 14px}
 .of-sub{color:var(--muted);font-size:.8rem}
-.of-tags{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:3px 0 0;padding:0}
-.of-tags li{font-size:.68rem;font-weight:600;letter-spacing:.03em;border-radius:4px;padding:0 6px;background:var(--sunk);color:var(--muted)}
+.of-sub a{color:var(--accent)}
+.of-tags{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:0;padding:0}
+.of-tags li{font-size:.7rem;font-weight:600;border-radius:6px;padding:2px 7px;background:var(--sunk);color:var(--muted)}
 .of-tags li.g{background:var(--good-soft);color:var(--good)}
 .of-tags li.w{background:var(--warn-soft);color:var(--warn)}
 .of-tags li.b{background:var(--bad-soft);color:var(--bad)}
 .of-tags li.a{background:var(--accent-soft);color:var(--accent)}
-.of-preco{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
-.of-preco b{font-size:1.05rem;font-weight:600}
-.of-preco s{display:block;color:var(--muted);font-size:.74rem}
-.of-preco small{display:block;font-family:var(--body);color:var(--muted);font-size:.74rem}
-.of-ret{text-align:right}
-.of-ret small{display:block;color:var(--muted);font-size:.72rem;margin-top:2px}
-.of-acoes{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:2px 4px;margin:2px 0 0 -8px}
-.of-acoes button{padding:3px 8px;font-size:.8rem}
-.of-acoes button[aria-pressed="true"]{color:var(--good)}
-.of-det{grid-column:1/-1;background:var(--sunk);border-radius:10px;padding:12px 14px;font-size:.86rem;display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.of-preco{display:flex;align-items:flex-end;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
+.of-preco .pv{display:flex;align-items:baseline;gap:8px}
+.of-preco .pv b{font-family:var(--num);font-weight:600;font-size:1.45rem;line-height:1.05}
+.of-preco s{color:var(--muted);font-size:.82rem}
+.of-preco .pl{display:flex;flex-direction:column;align-items:flex-end;text-align:right;color:var(--muted);font-size:.78rem;line-height:1.35}
+.of-preco .pl b{color:var(--fg);font-weight:600}
+.of-ret{display:flex;flex-direction:column;gap:7px}
+.of-ret-l{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.of-ret small{color:var(--muted);font-size:.76rem}
+.of-prazo{position:relative;height:8px;border-radius:4px;background:var(--sunk)}
+.of-prazo span{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--muted)}
+.of-prazo span.g{background:var(--good)}
+.of-prazo span.w{background:var(--warn)}
+.of-prazo span.b{background:var(--bad)}
+.of-prazo i{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:var(--fg);opacity:.55}
+.of-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-top:auto;padding-top:4px}
+a.vendedor{display:inline-flex;align-items:center;justify-content:center;gap:4px;font-weight:700;font-size:.86rem;color:var(--onaccent);background:var(--accent);border-radius:12px;padding:0 10px;min-height:42px;text-decoration:none;flex:1 1 150px;white-space:nowrap}
+a.vendedor:hover{filter:brightness(1.06)}
+a.vendedor .ext{color:inherit;opacity:.8}
+a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.acoes a.vendedor{flex:0 0 auto}
+.of-bt{min-height:42px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--fg);font:inherit;font-weight:600;font-size:.86rem;cursor:pointer}
+.of-bt:hover{background:var(--sunk)}
+details.of-mais{position:relative}
+details.of-mais summary{list-style:none;cursor:pointer;min-height:42px;width:44px;justify-content:center;border:1px solid var(--line);border-radius:12px;display:inline-flex;align-items:center;box-sizing:border-box}
+details.of-mais summary svg{width:20px;height:20px;fill:currentColor}
+details.of-mais summary::-webkit-details-marker{display:none}
+details.of-mais summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.of-mais-op{position:absolute;right:0;bottom:calc(100% + 6px);z-index:15;display:flex;flex-direction:column;min-width:180px;padding:6px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 18px 40px -16px var(--shadow)}
+.of-mais-op button{all:unset;box-sizing:border-box;min-height:40px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:.88rem}
+.of-mais-op button:hover,.of-mais-op button:focus-visible{background:var(--sunk)}
+.of-det{background:var(--sunk);border-radius:10px;padding:12px 14px;font-size:.86rem;display:flex;flex-direction:column;gap:8px}
 .of-det p{margin:0}
 .of-det .desc{white-space:pre-line;color:var(--fg);max-height:9.5em;overflow:auto}
 .of-det dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0}
 .of-det dt{color:var(--muted)}
 .of-det dd{margin:0}
 .of.desc{opacity:.5}
-.of.salvo{box-shadow:inset 3px 0 0 var(--accent)}
-.of-vazio{padding:28px 18px;text-align:center;color:var(--muted)}
-@media (max-width:760px){.of{grid-template-columns:minmax(0,1fr) auto}.of-a{grid-column:1/-1}.of-preco{text-align:left}.of-filtros .cont{margin-left:0}}
+.of.salvo{box-shadow:inset 0 3px 0 var(--accent)}
+.of-vazio{grid-column:1/-1;padding:28px 18px;text-align:center;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:16px}
+details.saiba{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:0 16px}
+details.saiba > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;color:var(--fg)}
+details.saiba[open] > summary{border-bottom:1px solid var(--line);margin-bottom:12px}
+details.saiba > :not(summary){margin-bottom:14px}
+@media (max-width:899px){.of-lista{grid-template-columns:1fr}}
 
 /* assistente da primeira vez */
 .bv{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--side-bg) 86%,transparent);display:flex;justify-content:center;align-items:flex-start;padding:max(24px,6vh) 16px 24px;overflow:auto}
@@ -849,7 +888,7 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     </section>
 
     <section class="view" id="v-ofertas" aria-labelledby="t-ofertas" hidden>
-      <header class="vh"><div><h1 id="t-ofertas" tabindex="-1">Ofertas</h1><p class="sub">Procura no Facebook Marketplace e na OLX as placas que se pagam mais rápido perto de você, mostra a distância e em quantos meses cada anúncio se paga com a sua luz.</p></div></header>
+      <header class="vh"><div><h1 id="t-ofertas" tabindex="-1">Ofertas</h1><p class="sub">Placas à venda perto de você no Marketplace e na OLX, e em quanto tempo cada uma se paga com a sua luz.</p></div></header>
       <div class="painel">
         <div class="of-barra">
           <div class="of-onde"><span class="lbl">Perto de</span><b id="of-cidade">—</b><button type="button" class="link" id="of-mudar">Mudar cidade</button></div>
@@ -888,30 +927,37 @@ a.vendedor:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         <p class="status" id="of-status" role="status" aria-live="polite"></p>
         <ul class="avisos" id="of-avisos" hidden></ul>
       </div>
-      <div class="of-filtros" id="of-filtros" hidden>
-        <label><span class="lbl">Ordenar por</span><select id="of-ordem">
+      <div class="of-filtros" id="of-filtros" role="group" aria-label="Filtros das ofertas" hidden>
+        <label class="chip"><input type="checkbox" id="of-so-compensa" checked><span>Só os que compensam</span></label>
+        <label class="chip chip-sel"><span class="sr">Ordenar por</span><select id="of-ordem">
           <option value="meses">Se paga mais rápido</option>
           <option value="preco">Menor preço</option>
           <option value="km">Mais perto</option>
           <option value="lucro">Mais lucro por mês</option>
           <option value="novos">Mais novos primeiro</option>
         </select></label>
-        <label><span class="lbl">Modelo</span><select id="of-modelo"><option value="">Todos</option></select></label>
-        <div class="checks">
-          <label class="check"><input type="checkbox" id="of-so-compensa" checked> Só os que compensam</label>
-          <label class="check"><input type="checkbox" id="of-sem-troca"> Esconder quem quer troca</label>
-          <label class="check"><input type="checkbox" id="of-salvos"> Só os salvos</label>
-          <label class="check"><input type="checkbox" id="of-desc"> Mostrar descartados</label>
-        </div>
-        <span class="cont" id="of-cont"></span>
+        <label class="chip chip-sel"><span class="sr">Modelo</span><select id="of-modelo"><option value="">Todos os modelos</option></select></label>
+        <label class="chip"><input type="checkbox" id="of-sem-troca"><span>Sem troca</span></label>
+        <label class="chip"><input type="checkbox" id="of-salvos"><span>Só os salvos</span></label>
+        <label class="chip"><input type="checkbox" id="of-desc"><span>Descartados</span></label>
       </div>
+      <p class="of-cont" id="of-cont"></p>
+      <article class="painel of-graf-p" id="of-graf-p" aria-labelledby="t-ofgraf" hidden>
+        <div class="painel-h"><h2 id="t-ofgraf">Preço × tempo para se pagar</h2></div>
+        <p class="nota-mini">Cada ponto é um anúncio da lista. Na faixa verde, ele se paga dentro do seu prazo.</p>
+        <div class="graf" id="of-graf"></div>
+        <div class="legenda of-leg" id="of-leg"></div>
+      </article>
       <div class="of-lista" id="of-lista"></div>
-      <div class="note">
-        <span><b>Se paga em:</b> preço do anúncio ÷ lucro da placa por mês (receita da Kryptex com a sua margem de segurança, menos a luz). “Compensa” é quando se paga dentro do seu prazo (Premissas › Recuperar em); “apertado” vai até 20% além.</span>
-        <span><b>Distância:</b> em linha reta entre as cidades, com 25% a mais para aproximar a estrada. O Marketplace procura em volta da localização da sua conta do Facebook; a OLX, no seu estado e nos vizinhos que caem dentro do raio.</span>
-        <span><b>O que fica de fora:</b> PCs e notebooks completos, placas com defeito ou “para peças”, pedidos de compra, quem só aceita troca e anúncios fora do raio.</span>
-        <span><b>Antes de pagar:</b> teste a placa na hora (10 a 15 minutos minerando ou num benchmark, de olho na temperatura e nas ventoinhas), não pague nada adiantado e desconfie de preço muito abaixo do normal. Na OLX, comprar pelo botão “Comprar” dá a Garantia da OLX.</span>
-      </div>
+      <details class="saiba">
+        <summary>Saiba mais: como as contas são feitas</summary>
+        <div class="note">
+          <span><b>Se paga em:</b> preço do anúncio ÷ lucro da placa por mês (receita da Kryptex com a sua margem de segurança, menos a luz). “Compensa” é quando se paga dentro do seu prazo (Premissas › Recuperar em); “apertado” vai até 20% além.</span>
+          <span><b>Distância:</b> em linha reta entre as cidades, com 25% a mais para aproximar a estrada. O Marketplace procura em volta da localização da sua conta do Facebook; a OLX, no seu estado e nos vizinhos que caem dentro do raio.</span>
+          <span><b>O que fica de fora:</b> PCs e notebooks completos, placas com defeito ou “para peças”, pedidos de compra, quem só aceita troca e anúncios fora do raio.</span>
+          <span><b>Antes de pagar:</b> teste a placa na hora (10 a 15 minutos minerando ou num benchmark, de olho na temperatura e nas ventoinhas), não pague nada adiantado e desconfie de preço muito abaixo do normal. Na OLX, comprar pelo botão “Comprar” dá a Garantia da OLX.</span>
+        </div>
+      </details>
     </section>
 
     <section class="view" id="v-anuncio" aria-labelledby="t-anuncio" hidden>
@@ -3963,14 +4009,14 @@ function anuncioFb(it){
   const lugar = [...L].reverse().find(s=>/,\s?[A-Z]{2}$/.test(s)) || "";
   const titulo = L.find(s=>!/^R\$\s?\d/.test(s) && s!==lugar && !/^(Acabou de chegar|Gratuito|Grátis|Free|Just listed)$/i.test(s) && !/^·/.test(s)) || "";
   return {site:"fb", id, url:`https://www.facebook.com/marketplace/item/${id}/`, titulo:titulo.slice(0,160), preco:precos[0]||0, antigo:precos[1]>precos[0] ? precos[1] : 0,
-    cidade: lugar ? lugar.replace(/,\s?[A-Z]{2}$/,"").trim() : "", uf: lugar ? lugar.slice(-2) : ""};
+    cidade: lugar ? lugar.replace(/,\s?[A-Z]{2}$/,"").trim() : "", uf: lugar ? lugar.slice(-2) : "", foto: fotoValida(it.foto)};
 }
 function anuncioOlx(it, uf){
   const url = linkSeguro(String(it && it.url || "").split(/[?#]/)[0]); if(!/^https:\/\/[a-z]+\.olx\.com\.br\//.test(url)) return null;
   const id = (/-(\d{6,})$/.exec(url)||[])[1]; if(!id) return null;
   const local = String(it.local||"").trim();
   return {site:"olx", id, url, titulo:String(it.titulo||"").trim().slice(0,160), preco:precoBR(it.preco), antigo:precoBR(it.antigo), cidade:local.split(",")[0].trim(), uf,
-    data:String(it.data||"").trim().slice(0,40), entrega:!!it.entrega, garantia:!!it.garantia};
+    data:String(it.data||"").trim().slice(0,40), entrega:!!it.entrega, garantia:!!it.garantia, foto: fotoValida(it.foto)};
 }
 /* o que não é uma placa avulsa à venda */
 const OF_FORA = [
@@ -4214,30 +4260,45 @@ async function mandarAnalisar(x){
   await addAnuncio(a);
   irPara("anuncio", true);
 }
+const ICONE_SALVAR = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>`;
+/* quanto o anúncio está abaixo (ou acima) do preço típico de usada do modelo */
+function textoTipico(c, preco){
+  const t = c ? precoTipico(c) : 0; if(!(t>0) || !(preco>0)) return "";
+  const d = preco/t - 1;
+  return d <= -0.03 ? `${Math.round(-d*100)}% abaixo do típico` : d >= 0.03 ? `${Math.round(d*100)}% acima do típico` : "no preço típico";
+}
 function htmlOferta({x, c, r, v}){
   const salvo = !!ofMarcas.salvos[x.k], desc = !!ofMarcas.descartados[x.k], aberto = ofEst.abertos.has(x.k);
-  const sites = [OF_SITE[x.site], ...(x.tambem||[]).map(t=>OF_SITE[t.site])];
-  const lugar = [x.cidade ? x.cidade + (x.uf ? "/"+x.uf : "") : "cidade ?", x.km!=null ? (x.km<5 ? "na sua cidade" : `~${x.km} km`) : "", [...new Set(sites)].join(" e "), x.data || ""].filter(Boolean).join(" · ");
+  const sites = [...new Set([OF_SITE[x.site], ...(x.tambem||[]).map(t=>OF_SITE[t.site])])];
+  const lugar = [x.cidade ? x.cidade + (x.uf ? "/"+x.uf : "") : "cidade ?", x.km!=null ? (x.km<5 ? "na sua cidade" : `~${x.km} km`) : ""].filter(Boolean).join(" · ");
   const outros = (x.tambem||[]).map(t=>`<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${t.site===x.site ? "outro anúncio igual" : "ver na "+OF_SITE[t.site]}</a>`).join(" · ");
   const tags = [...(x.novo ? [["a","Anúncio novo"]] : []), ...(x.caiu ? [["g","Baixou de preço"]] : []), ...x.flags.map(f=>OF_TAG[f]).filter(Boolean)];
   const velho = Math.max(x.antigo||0, x.caiu||0);
   const nome = `${c ? c.curto : "placa"} por ${brl0(x.preco)}`;
+  const foto = fotoValida(x.foto), prazo = +cfg.meses || 12, tip = textoTipico(c, x.preco);
+  const larg = v.meses!=null ? Math.min(1, v.meses/(prazo*1.5))*100 : 100;
   return `<article class="of${salvo?" salvo":""}${desc?" desc":""}" data-k="${esc(x.k)}">
-    <div class="of-a"><span class="of-modelo">${esc(c ? c.curto : "?")}</span>
+    <div class="of-img">${ICONE_PLACA}${foto ? `<img class="of-foto" src="${esc(foto)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ""}
+      <span class="of-site">${sites.join(" e ")}</span>
+      <button type="button" class="of-salvar" data-of="salvar" aria-pressed="${salvo}" aria-label="${salvo ? "Salvo" : "Salvar"}: ${esc(nome)}">${ICONE_SALVAR}</button>
+    </div>
+    <div class="of-c">
+      <div class="of-l1"><span class="of-modelo">${esc(c ? c.curto : "?")}</span>${tags.length ? `<ul class="of-tags">${tags.map(([cl,t])=>`<li class="${cl}">${t}</li>`).join("")}</ul>` : ""}${x.data ? `<span class="of-quando">${esc(x.data)}</span>` : ""}</div>
       <a class="of-tit" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" title="Abrir o anúncio no ${OF_SITE[x.site]}">${esc(x.titulo || "(sem título)")}<span class="ext" aria-hidden="true">↗</span></a>
       <span class="of-sub">${esc(lugar)}${outros ? " · " + outros : ""}</span>
-      ${tags.length ? `<ul class="of-tags">${tags.map(([cl,t])=>`<li class="${cl}">${t}</li>`).join("")}</ul>` : ""}
+      <div class="of-preco"><span class="pv"><b>${brl0(x.preco)}</b>${velho>x.preco ? `<s>${brl0(velho)}</s>` : ""}</span><span class="pl"><span>lucro <b>${r ? brl0(r.lucro) : "—"}</b>/mês</span>${tip ? `<span>${tip}</span>` : ""}</span></div>
+      <div class="of-ret"><div class="of-ret-l"><span class="pill ${v.cls}">${v.meses ? "se paga em " + n1(v.meses) + " meses" : esc(v.txt)}</span><small>${v.cls==="g" ? "compensa" : v.cls==="w" ? "apertado" : v.cls==="b" ? "não compensa" : ""} · prazo de ${prazo} meses</small></div>
+        <div class="of-prazo" title="Prazo de ${prazo} meses"><span class="${v.cls}" style="width:${larg.toFixed(1)}%"></span><i style="left:${(100/1.5).toFixed(1)}%"></i></div></div>
+      <div class="of-acoes">
+        <a class="vendedor" data-of="vendedor" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" aria-label="Falar com o vendedor no ${OF_SITE[x.site]}: ${esc(nome)}">Falar com o vendedor<span class="ext" aria-hidden="true">↗</span></a>
+        <button type="button" class="of-bt" data-of="analisar" aria-label="Mandar para Analisar: ${esc(nome)}">Analisar</button>
+        <details class="of-mais"><summary aria-label="Mais opções: ${esc(nome)}" title="Mais opções"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></summary><div class="of-mais-op">
+          <button type="button" data-of="det" aria-expanded="${aberto}" aria-label="${aberto ? "Esconder" : "Ver"} detalhes: ${esc(nome)}">${aberto ? "Esconder detalhes" : "Ver detalhes"}</button>
+          <button type="button" data-of="desc" aria-label="${desc ? "Voltar para a lista" : "Descartar"}: ${esc(nome)}">${desc ? "Voltar para a lista" : "Descartar"}</button>
+        </div></details>
+      </div>
+      ${aberto ? `<div class="of-det">${htmlDetalhe(x)}</div>` : ""}
     </div>
-    <div class="of-preco">${velho>x.preco ? `<s>${brl0(velho)}</s>` : ""}<b>${brl0(x.preco)}</b><small>lucro ${r ? brl0(r.lucro) : "—"}/mês</small></div>
-    <div class="of-ret"><span class="pill ${v.cls}">${v.meses ? n1(v.meses)+" meses" : esc(v.txt)}</span><small>${v.cls==="g" ? "compensa" : v.cls==="w" ? "apertado" : v.cls==="b" ? "não compensa" : ""}</small></div>
-    <div class="of-acoes">
-      <a class="vendedor" data-of="vendedor" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer" aria-label="Falar com o vendedor no ${OF_SITE[x.site]}: ${esc(nome)}">Falar com o vendedor<span class="ext" aria-hidden="true">↗</span></a>
-      <button type="button" class="link" data-of="det" aria-expanded="${aberto}" aria-label="${aberto ? "Esconder" : "Ver"} detalhes: ${esc(nome)}">${aberto ? "Esconder detalhes" : "Ver detalhes"}</button>
-      <button type="button" class="link" data-of="salvar" aria-pressed="${salvo}" aria-label="Salvar: ${esc(nome)}">${salvo ? "Salvo" : "Salvar"}</button>
-      <button type="button" class="link" data-of="analisar" aria-label="Mandar para Analisar: ${esc(nome)}">Mandar para Analisar</button>
-      <button type="button" class="link" data-of="desc" aria-label="${desc ? "Voltar para a lista" : "Descartar"}: ${esc(nome)}">${desc ? "Voltar para a lista" : "Descartar"}</button>
-    </div>
-    ${aberto ? `<div class="of-det">${htmlDetalhe(x)}</div>` : ""}
   </article>`;
 }
 function avisosOfertas(){
@@ -4277,13 +4338,14 @@ function renderOfertas(foco){
   $("b-ofertas").textContent = comp || "";
   $("of-filtros").hidden = !itens.length;
   if(!itens.length){
+    renderGrafOfertas([]);
     box.innerHTML = `<div class="of-vazio">${!temCidade() ? "Informe a sua cidade para procurar ofertas perto de você." : ofertas ? "A última busca não achou placas dentro do raio. Tente aumentar a distância, o preço máximo ou marcar mais modelos." : "Clique em Buscar ofertas para procurar placas perto de você. Leva de 1 a 3 minutos."}</div>`;
     return;
   }
   const so = $("of-so-compensa").checked, semTroca = $("of-sem-troca").checked, soSalvos = $("of-salvos").checked, verDesc = $("of-desc").checked, mod = $("of-modelo").value, ordem = $("of-ordem").value;
   const todas = itens.map(x=>{ const c = byId[x.modelo], r = c ? calc(c) : null; return {x, c, r, v:veredito(r, x.preco)}; });
   const modelos = [...new Set(todas.map(l=>l.x.modelo))].map(id=>byId[id]).filter(Boolean).sort((a,b)=>a.nome.localeCompare(b.nome,"pt-BR",{numeric:true}));
-  $("of-modelo").innerHTML = `<option value="">Todos</option>` + modelos.map(c=>`<option value="${c.id}"${c.id===mod?" selected":""}>${esc(c.curto)}</option>`).join("");
+  $("of-modelo").innerHTML = `<option value="">Todos os modelos</option>` + modelos.map(c=>`<option value="${c.id}"${c.id===mod?" selected":""}>${esc(c.curto)}</option>`).join("");
   const inf = v => v==null ? Infinity : v;
   const ORD = {meses:(a,b)=>inf(a.v.meses)-inf(b.v.meses) || a.x.preco-b.x.preco, preco:(a,b)=>a.x.preco-b.x.preco, km:(a,b)=>inf(a.x.km)-inf(b.x.km) || inf(a.v.meses)-inf(b.v.meses),
     lucro:(a,b)=>(b.r ? b.r.lucro : 0)-(a.r ? a.r.lucro : 0) || inf(a.v.meses)-inf(b.v.meses), novos:(a,b)=>(b.x.novo?1:0)-(a.x.novo?1:0) || (b.x.achado||0)-(a.x.achado||0) || inf(a.v.meses)-inf(b.v.meses)};
@@ -4292,8 +4354,82 @@ function renderOfertas(foco){
   const o = ofertas;
   $("of-cont").textContent = `${linhas.length} de ${itens.length} ${plural(itens.length,"anúncio")} · ${comp} ${plural(comp,"compensa","compensam")} · busca de ${quando(o.quando)} até ${o.raio} km de ${o.cidade || "—"}`;
   box.innerHTML = linhas.length ? linhas.map(htmlOferta).join("") : `<div class="of-vazio">Nenhum anúncio com esses filtros.</div>`;
+  renderGrafOfertas(linhas);
   if(foco && foco.k){ const el = box.querySelector(`.of[data-k="${CSS.escape(foco.k)}"] [data-of="${foco.of}"]`); if(el) el.focus({preventScroll:true}); }
 }
+/* gráfico das ofertas: um ponto por anúncio da lista (x = preço, y = meses para se pagar). Círculo cheio = compensa,
+   anel = apertado, X = não compensa (com a palavra na legenda e na dica, nunca só a cor); faixa verde até o prazo. */
+let ofGrafLinhas = [];
+function renderGrafOfertas(linhas){
+  const box = $("of-graf"), painel = $("of-graf-p"); if(!box || !painel) return;
+  ofGrafLinhas = linhas;
+  const pts = linhas.filter(l=>l.x.preco>0).map((l,i)=>({l, i, preco:l.x.preco, meses:l.v.meses, cls:l.v.cls}));
+  painel.hidden = !pts.length;
+  if(!pts.length){ box.innerHTML = ""; $("of-leg").innerHTML = ""; return; }
+  const prazo = +cfg.meses || 12, W = Math.max(280, Math.round(box.clientWidth || 640)), H = 236, mL = 34, mR = 14, mT = 24, mB = 30;
+  box.dataset.larg = String(W);
+  const comMeses = pts.filter(p=>p.meses!=null).map(p=>p.meses);
+  const topo = Math.max(prazo*1.6, Math.min(prazo*3, Math.max(0, ...comMeses)*1.08)), passoY = topo>36 ? 12 : 6, topoY = Math.ceil(topo/passoY)*passoY;
+  const pMin = Math.min(...pts.map(p=>p.preco)), pMax = Math.max(...pts.map(p=>p.preco));
+  /* marcas do eixo do preço: no máximo uma a cada ~80 px, para os rótulos não encavalarem no celular */
+  const maxMarcas = Math.max(2, Math.floor((W - mL - mR)/80));
+  let passoX = 10000, x0 = 0, x1 = 10000;
+  for(const st of [100,200,250,500,1000,2000,2500,5000,10000]){
+    const a = Math.max(0, Math.floor(pMin*0.95/st)*st), b = Math.max(a + st, Math.ceil(pMax*1.04/st)*st);
+    if((b - a)/st <= maxMarcas){ passoX = st; x0 = a; x1 = b; break; }
+  }
+  const X = v => mL + (v - x0)/(x1 - x0)*(W - mL - mR), Y = m => mT + (H - mT - mB)*(1 - Math.min(m, topoY)/topoY);
+  const yb = H - mB, yp = Y(prazo);
+  let g = `<rect x="${mL}" y="${yp.toFixed(1)}" width="${(W - mL - mR).toFixed(1)}" height="${(yb - yp).toFixed(1)}" fill="var(--good-soft)"/>`;
+  for(let m = 0; m <= topoY + 1e-9; m += passoY) g += `<line x1="${mL}" x2="${W - mR}" y1="${Y(m).toFixed(1)}" y2="${Y(m).toFixed(1)}" stroke="var(${m===0 ? "--viz-axis" : "--viz-grid"})" stroke-width="1"/><text x="${mL - 6}" y="${(Y(m) + 4).toFixed(1)}" text-anchor="end">${m}</text>`;
+  g += `<text x="0" y="10">meses</text>`;
+  g += `<line x1="${mL}" x2="${W - mR}" y1="${yp.toFixed(1)}" y2="${yp.toFixed(1)}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  const rotX = v => v>=1000 ? `R$ ${(v/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} mil` : `R$ ${v}`;
+  for(let v = x0; v <= x1 + 1e-9; v += passoX) g += `<text x="${X(v).toFixed(1)}" y="${H - 9}" text-anchor="${v===x0 ? "start" : v + passoX > x1 ? "end" : "middle"}">${rotX(v)}</text>`;
+  let marcas = "", rotulos = "";
+  const yDe = p => p.meses==null ? mT + 4 : Y(p.meses);
+  for(const p of [...pts].sort((a,b)=>({b:0, w:1, g:2}[a.cls]??0) - ({b:0, w:1, g:2}[b.cls]??0))){
+    const cx = X(p.preco), cy = yDe(p);
+    marcas += p.cls==="g" ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" fill="var(--good)" stroke="var(--surface)" stroke-width="2"/>`
+      : p.cls==="w" ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="5.5" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.5"/>`
+      : `<path d="M${(cx-4.5).toFixed(1)},${(cy-4.5).toFixed(1)} L${(cx+4.5).toFixed(1)},${(cy+4.5).toFixed(1)} M${(cx+4.5).toFixed(1)},${(cy-4.5).toFixed(1)} L${(cx-4.5).toFixed(1)},${(cy+4.5).toFixed(1)}" stroke="var(--bad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>`;
+  }
+  /* o nome nos 3 que se pagam mais rápido, sem encavalar */
+  const caixas = [];
+  for(const p of pts.filter(p=>p.meses!=null).sort((a,b)=>a.meses - b.meses).slice(0,3)){
+    const nome = p.l.c ? p.l.c.curto : "Placa", w = nome.length*6.4, cx = X(p.preco), cy = yDe(p);
+    const dir = cx + 10 + w < W - mR, tx = dir ? cx + 10 : cx - 10 - w, ty = cy + 4;
+    if(caixas.some(c=>tx < c.x + c.w && tx + w > c.x && Math.abs(ty - c.y) < 13)) continue;
+    caixas.push({x:tx, y:ty, w});
+    rotulos += `<text class="v" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}">${esc(nome)}</text>`;
+  }
+  const hits = pts.map(p=>`<circle class="pt-hit" tabindex="0" data-i="${p.i}" cx="${X(p.preco).toFixed(1)}" cy="${yDe(p).toFixed(1)}" r="12" aria-label="${esc((p.l.c ? p.l.c.curto : "Placa") + " por " + brl0(p.preco) + ": " + (p.meses!=null ? "se paga em " + n1(p.meses) + " meses" : "não se paga") + ", " + ({g:"compensa", w:"apertado", b:"não compensa"}[p.cls] || ""))}"/>`).join("");
+  const n = k => pts.filter(p=>p.cls===k).length, melhor = pts.filter(p=>p.meses!=null).sort((a,b)=>a.meses - b.meses)[0];
+  const resumo = `${pts.length} ${plural(pts.length, "anúncio")}: ${n("g")} ${plural(n("g"), "compensa", "compensam")}, ${n("w")} ${plural(n("w"), "apertado")} e ${n("b")} não ${plural(n("b"), "compensa", "compensam")}.${melhor ? ` O que se paga mais rápido: ${melhor.l.c ? melhor.l.c.curto : "placa"} por ${brl0(melhor.preco)}, em ${n1(melhor.meses)} meses.` : ""}`;
+  box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(resumo)}">${g}${marcas}${rotulos}${hits}</svg><div class="tip" hidden></div>`;
+  $("of-leg").innerHTML = `<span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--good)"/></svg>compensa · ${n("g")}</span><span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.4" fill="none" stroke="var(--warn)" stroke-width="2"/></svg>apertado · ${n("w")}</span><span><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"/></svg>não compensa · ${n("b")}</span><span><svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><path d="M1 6h16" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/></svg>seu prazo: ${prazo} meses</span>`;
+  const tip = box.querySelector(".tip");
+  const mostrar = el => {
+    const p = pts.find(q=>q.i===+el.dataset.i); if(!p) return;
+    tip.replaceChildren();
+    const lin = (cls, txt) => { const e = document.createElement("span"); e.className = cls; e.textContent = txt; tip.append(e); };
+    lin("t", `${p.l.c ? p.l.c.curto : "Placa"}${p.l.x.cidade ? " · " + p.l.x.cidade : ""}`);
+    lin("r", `${brl0(p.preco)} · ${p.meses!=null ? "se paga em " + n1(p.meses) + " meses" : "não se paga"}`);
+    lin("t", {g:"compensa", w:"apertado", b:"não compensa"}[p.cls] || "");
+    tip.hidden = false;
+    const cx = +el.getAttribute("cx"), cy = +el.getAttribute("cy"), tw = tip.offsetWidth;
+    tip.style.left = Math.min(W - tw, Math.max(0, cx - tw/2)) + "px"; tip.style.top = Math.max(0, cy - tip.offsetHeight - 12) + "px";
+  };
+  const esconder = () => { tip.hidden = true; };
+  box.querySelectorAll(".pt-hit").forEach(el=>{
+    el.addEventListener("pointerenter", ()=>mostrar(el)); el.addEventListener("focus", ()=>mostrar(el));
+    el.addEventListener("pointerleave", esconder); el.addEventListener("blur", esconder);
+    const ir = () => { const p = pts.find(q=>q.i===+el.dataset.i); if(!p) return; destacarOferta(p.l.x.k); setTimeout(()=>document.querySelectorAll(".of.destaque").forEach(e=>e.classList.remove("destaque")), 2000); };
+    el.addEventListener("click", ir);
+    el.addEventListener("keydown", e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); ir(); } });
+  });
+}
+if("ResizeObserver" in window) new ResizeObserver(()=>{ const w = Math.round($("of-graf").clientWidth); if(w && Math.abs(w - (+$("of-graf").dataset.larg||0))>8 && !$("v-ofertas").hidden) renderGrafOfertas(ofGrafLinhas); }).observe($("of-graf"));
 function salvarOfUi(){ lsSet("min-ofertas-ui", {teto:$("of-teto").value, fb:$("of-fb").checked, olx:$("of-olx").checked, ordem:$("of-ordem").value, so:$("of-so-compensa").checked, semTroca:$("of-sem-troca").checked}); }
 (()=>{ const u = lsGet("min-ofertas-ui"); if(!u) return;
   $("of-teto").value = u.teto || ""; $("of-fb").checked = u.fb!==false; $("of-olx").checked = u.olx!==false; $("of-so-compensa").checked = u.so!==false; $("of-sem-troca").checked = !!u.semTroca;
@@ -4312,6 +4448,7 @@ $("of-mods").addEventListener("change", e=>{
 $("of-sugerir").addEventListener("click", ()=>{ ofSel = null; lsDel("min-ofertas-modelos"); renderOfModelos(); $("of-mods").querySelector("input")?.focus(); });
 $("of-lista").addEventListener("click", e=>{
   const b = e.target.closest("[data-of]"); if(!b) return;
+  const menu = b.closest("details.of-mais"); if(menu) menu.open = false;
   const k = b.closest(".of")?.dataset.k, x = ofertas && ofertas.itens.find(i=>i.k===k); if(!x) return;
   const acao = b.dataset.of;
   if(acao==="det") verDetalhes(x);

@@ -80,8 +80,45 @@ def resumo(p):
     checa("sem erros (celular)", not erros(pgc), erros(pgc)[:3])
 
 
+def ofertas(p):
+    pgc = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, hash="ofertas")
+    checa("cartões", pgc.eval_on_selector_all("#of-lista .of", "e=>e.length") == DADOS_ESPERADO["ofertas_filtradas"])
+    checa("foto válida", pgc.evaluate("[fotoValida('https://scontent-gru2-1.xx.fbcdn.net/v/t45/a.jpg'), fotoValida('http://x.fbcdn.net/a.jpg'), fotoValida('https://evil.com/a.jpg'), fotoValida('https://img.olx.com.br/thumbs/a.jpg'), fotoValida('https://fbcdn.net.evil.com/a.jpg')]")
+          == ["https://scontent-gru2-1.xx.fbcdn.net/v/t45/a.jpg", "", "", "https://img.olx.com.br/thumbs/a.jpg", ""])
+    checa("sem foto: desenho", pgc.evaluate("[...document.querySelectorAll('#of-lista .of')].filter(a=>!a.querySelector('img.of-foto')).length") == DADOS_ESPERADO["ofertas_sem_foto_visiveis"])
+    checa("todo cartão tem o desenho por baixo", pgc.evaluate("[...document.querySelectorAll('#of-lista .of')].every(a=>a.querySelector('.of-img .of-ph'))"))
+    for i in range(DADOS_ESPERADO["ofertas_filtradas"]):   # as fotos carregam quando o cartão aparece (loading=lazy)
+        pgc.evaluate(f"document.querySelectorAll('#of-lista .of')[{i}].scrollIntoView()"); pgc.wait_for_timeout(120)
+    pgc.wait_for_timeout(600)   # as fotos de teste apontam para endereços que não respondem
+    checa("foto_quebrada", pgc.evaluate("[...document.querySelectorAll('img.of-foto')].every(i=>i.hidden)") and not erros(pgc), erros(pgc)[:3])
+    checa("cartão: preço típico, lucro e prazo", all(s in pgc.inner_text("#of-lista .of") for s in ["R$ 1.480", "lucro", "abaixo do típico", "meses"]), pgc.inner_text("#of-lista .of")[:300])
+    checa("cartão: barra do prazo", pgc.evaluate("!!document.querySelector('#of-lista .of .of-prazo span')"))
+    checa("barra de busca inteira", pgc.evaluate("document.querySelector('#v-ofertas .of-barra').getBoundingClientRect().height") > 30)
+    checa("gráfico", pgc.eval_on_selector_all("#of-graf .pt-hit", "e=>e.length") == DADOS_ESPERADO["ofertas_filtradas"])
+    checa("gráfico: resumo para leitor de tela", "anúncios" in (pgc.get_attribute("#of-graf svg", "aria-label") or ""))
+    checa("gráfico: legenda", all(s in pgc.inner_text("#of-leg") for s in ["compensa", "apertado"]))
+    pgc.focus("#of-graf .pt-hit")
+    checa("dica", pgc.is_visible("#of-graf .tip") and "R$" in pgc.inner_text("#of-graf .tip"))
+    pgc.click("#of-graf .pt-hit")
+    checa("leva ao cartão", pgc.evaluate("!!document.querySelector('.of.destaque')"))
+    pgc.evaluate("document.getElementById('of-so-compensa').click()")
+    checa("filtro muda o gráfico", pgc.eval_on_selector_all("#of-graf .pt-hit", "e=>e.length") == 12)
+    checa("seletores antigos", pgc.evaluate("!!document.querySelector('#of-lista .of .of-tit') && !!document.querySelector('.of-ret .pill') && !!document.querySelector('.of-preco s') && !!document.querySelector('[data-of=\"det\"]') && !!document.querySelector('[data-of=\"desc\"]')"))
+    checa("filtros numa linha (fichas)", pgc.evaluate("getComputedStyle(document.getElementById('of-filtros')).flexWrap") == "nowrap")
+    checa("explicação no Saiba mais", pgc.evaluate("!!document.querySelector('#v-ofertas details.saiba')"))
+    checa("sem rolagem lateral", pgc.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+    # foto que carrega
+    import copy
+    d2 = copy.deepcopy(DADOS); d2["min-ofertas"]["itens"][1]["foto"] = OLX + "ok.jpg"
+    pg2 = abrir(p, largura=1366, altura=900, dados=d2, celular=True, hash="ofertas")
+    pg2.wait_for_timeout(800)
+    checa("foto que carrega aparece", pg2.evaluate("(() => { const i = document.querySelector('img.of-foto[src$=\"ok.jpg\"]'); return !!i && !i.hidden && i.naturalWidth > 0; })()"))
+    checa("sem erros (ofertas)", not erros(pg2), erros(pg2)[:3])
+
+
 with sync_playwright() as p:
     tema(p)
     menu(p)
     resumo(p)
+    ofertas(p)
 fim()
