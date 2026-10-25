@@ -95,6 +95,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .ag-n small{color:var(--muted);font-size:.76rem}
 .ag-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 .ag-prot{color:var(--muted);font-size:.8rem}
+.ag-rodape{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--line);padding-top:10px}
+.ag-rodape .link{margin-left:auto}
 details.pausar{position:relative}
 details.pausar summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:600}
 details.pausar summary::-webkit-details-marker{display:none}
@@ -5152,6 +5154,7 @@ async function lerKryptexApp(motivo){
 async function pausarKryptex(minutos){
   minutos = +minutos;
   if(!PAUSAS_KXA.includes(minutos)) return false;
+  if(REMOTO) return pedirKryptexAoPc("kryptex-pausar", {minutos}, "Pedindo ao PC para pausar…");
   status2("ag-status", "Pausando…");
   let l = null;
   try{ l = await window.desktop.kryptexApp.pausar(minutos); }catch(e){ l = {ok:false, msg:String((e && e.message) || e)}; }
@@ -5161,6 +5164,7 @@ async function pausarKryptex(minutos){
   return true;
 }
 async function voltarKryptex(){
+  if(REMOTO) return pedirKryptexAoPc("kryptex-voltar", {}, "Pedindo ao PC para voltar a minerar…");
   status2("ag-status", "Voltando a minerar…");
   let l = null;
   try{ l = await window.desktop.kryptexApp.voltar(); }catch(e){ l = {ok:false, msg:String((e && e.message) || e)}; }
@@ -5169,6 +5173,33 @@ async function voltarKryptex(){
   status2("ag-status", "Pronto: o app da Kryptex voltou a minerar.", "ok");
   return true;
 }
+/* no celular: o retrato do app da Kryptex vem do PC (min-kx-app). Ao abrir o Resumo com o retrato com mais de 10 minutos,
+   pede um novo (no máximo 1 vez a cada 10 minutos); o botão Atualizar pede no máximo 1 vez a cada 2 minutos. */
+const kxaPedido = {auto:0, botao:0};
+async function pedirKryptexAoPc(nome, args, msg){
+  if(!REMOTO || !window.desktop.pedirAoPc) return false;
+  status2("ag-status", msg);
+  try{
+    const r = await pedirAoPc(nome, args);
+    status2("ag-status", (r && r.texto) || (r && r.ok ? "Pronto." : "O PC não conseguiu."), r && r.ok ? "ok" : "erro");
+    return !!(r && r.ok);
+  }catch(e){ status2("ag-status", `Não deu: ${(e && e.message) || e}.`, "erro"); return false; }
+}
+async function pedirRetrato(motivo){
+  if(!REMOTO || !window.desktop.pedirAoPc) return;
+  const agora = Date.now();
+  if(motivo==="auto"){
+    if(kxaSnap && kxaSnap.v===1 && agora - (kxaSnap.quando||0) <= 10*60e3) return;
+    if(agora - kxaPedido.auto < 10*60e3) return;
+    kxaPedido.auto = agora;
+    try{ await pedirAoPc("kryptex-agora", {}); }catch(e){}
+    return;
+  }
+  if(agora - kxaPedido.botao < 2*60e3){ status2("ag-status", "Acabou de pedir: a leitura nova chega em instantes."); return; }
+  kxaPedido.botao = agora;
+  await pedirKryptexAoPc("kryptex-agora", {}, "Pedindo a leitura ao PC…");
+}
+document.addEventListener("click", e=>{ if(e.target.closest("[data-kxa-atualizar]")) pedirRetrato("botao"); });
 document.addEventListener("click", e=>{
   const p = e.target.closest("[data-pausa]"), v = e.target.closest("[data-voltar]");
   if(!p && !v) return;
@@ -5279,6 +5310,21 @@ async function executarPedidoRemoto(p){
     if(ofEst.rodando) ofEst.parar = true;
     if(atualizandoDados) pararDados = true;
     return {ok:true, texto:"Parando depois da página atual…"};
+  }
+  if(nome==="kryptex-agora" || nome==="kryptex-pausar" || nome==="kryptex-voltar"){
+    if(!PODE_KXA()) return {ok:false, texto:"Este PC não tem o app da Kryptex para ler."};
+    if(nome==="kryptex-agora"){
+      await lerKryptexApp("celular"); gravarKxa(true);
+      return kxa.leitura && kxa.estado!=="fechado" && !kxa.falha ? {ok:true, texto:"Leitura nova do app da Kryptex."} : {ok:false, texto:`O PC não conseguiu ler o app da Kryptex${kxa.falha ? ": " + kxa.falha : ""}.`};
+    }
+    if(nome==="kryptex-pausar"){
+      const m = +a.minutos;
+      if(!PAUSAS_KXA.includes(m)) return {ok:false, texto:"Tempo de pausa não permitido."};
+      const ok = await pausarKryptex(m);
+      return {ok, texto: ok ? "Pausado no PC." : "O app da Kryptex não pausou."};
+    }
+    const ok = await voltarKryptex();
+    return {ok, texto: ok ? "O PC voltou a minerar." : "O app da Kryptex não respondeu."};
   }
   if(!DESKTOP) return {ok:false, texto:"Só o painel do PC atende pedidos."};
   if(!$("bv").hidden) return {ok:false, texto:"O painel do PC está na configuração inicial. Termine a configuração no PC e tente de novo."};
@@ -5635,6 +5681,14 @@ function renderMes(){
 }
 /* Agora: a mineração ao vivo (app da Kryptex) ou, sem leitura, a estimativa do setup */
 const horaMin = t => new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit", minute:"2-digit"});
+/* "agora mesmo", "há 3 min", "há 2 h" ou a data */
+function haQuanto(t){
+  const ms = Date.now() - t;
+  if(ms < 60e3) return "agora mesmo";
+  if(ms < 3600e3) return `há ${Math.round(ms/60e3)} min`;
+  if(ms < 864e5) return `há ${Math.floor(ms/3600e3)} h`;
+  return `em ${new Date(t).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})} às ${horaMin(t)}`;
+}
 function duracao(ms){ const m = Math.max(0, Math.round(ms/60e3)), h = Math.floor(m/60); return h ? `${h} h${m%60 ? " " + (m%60) + " min" : ""}` : `${m} min`; }
 function textoPausa(ate, agora){
   if(!ate) return "Pausada";
@@ -5650,12 +5704,14 @@ function svgLinhaDia(linha, agora){
   const l = "M" + pts.map(([x,y])=>x.toFixed(1)+","+y.toFixed(1)).join(" L");
   return `<svg class="ag-linha" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Ganho de hoje até ${horaMin(fim)}: ${brl(linha[linha.length-1][1])}"><path d="${l} L${pts[pts.length-1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z" fill="var(--accent-soft)"/><path d="${l}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
 }
-function htmlAgoraVivo(r, comAcoes){
+function htmlAgoraVivo(r, comAcoes, retrato){
   const agora = Date.now(), c = kxaCfg(), h = r.hoje || {ganho:0, luz:0, lucro:0};
   const p0 = r.placas.find(p=>p.minerando) || r.placas.find(p=>p.tipo==="gpu") || r.placas[0] || null;
-  const selo = r.estado==="minerando" ? `<span class="ag-selo g"><i></i>Minerando</span>` : r.estado==="pausada" ? `<span class="ag-selo w"><i></i>${textoPausa(r.pausaAte, agora)}</span>`
+  const velho = !!retrato && agora - (r.quando||0) > 15*60e3, outroDia = isoLocal(new Date(r.quando||agora))!==isoLocal(new Date(agora));
+  const selo = velho ? `<span class="ag-selo n"><i></i>Última leitura há ${duracao(agora - r.quando)}</span>` : r.estado==="minerando" ? `<span class="ag-selo g"><i></i>Minerando</span>` : r.estado==="pausada" ? `<span class="ag-selo w"><i></i>${textoPausa(r.pausaAte, agora)}</span>`
     : r.estado==="parada" ? `<span class="ag-selo b"><i></i>Parada</span>` : `<span class="ag-selo b"><i></i>App da Kryptex fechado</span>`;
-  const onde = r.estado==="minerando" && p0 ? `${esc(moedaTxt(p0))}${r.minerandoDesde && agora - r.minerandoDesde >= 60e3 ? " · há " + duracao(agora - r.minerandoDesde) : ""}`
+  const onde = velho ? `lida ${outroDia ? "em " + new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"}) + " " : ""}às ${horaMin(r.quando)}${r.estado==="pausada" ? ", com a mineração pausada" : r.estado==="parada" ? ", com a placa parada" : r.estado==="fechado" ? ", com o app da Kryptex fechado" : ""}`
+    : r.estado==="minerando" && p0 ? `${esc(moedaTxt(p0))}${r.minerandoDesde && agora - r.minerandoDesde >= 60e3 ? " · há " + duracao(agora - r.minerandoDesde) : ""}`
     : r.estado==="fechado" ? `sem resposta desde ${horaMin(r.quando)}` : r.estado==="parada" ? "o app da Kryptex está aberto, mas a placa não está minerando" : "";
   const watts = r.placas.filter(p=>p.minerando && p.watts!=null).reduce((a,p)=>a + p.watts, 0);
   const tile = (rot, val, sub) => `<div class="ag-n"><span class="lbl">${rot}</span><b>${val}</b><small>${sub}</small></div>`;
@@ -5669,14 +5725,16 @@ function htmlAgoraVivo(r, comAcoes){
   const botoes = !comAcoes ? "" : r.estado==="pausada" ? `<button type="button" class="pri" data-voltar>Voltar a minerar</button>`
     : r.estado==="minerando" || r.estado==="parada" ? `<details class="pausar"><summary>Pausar</summary><div class="pausar-op">${PAUSAS_KXA.map(m=>`<button type="button" data-pausa="${m}">${m>=44640 ? "Até eu voltar" : m===60 ? "1 hora" : m/60 + " horas"}</button>`).join("")}</div></details>` : "";
   return `<div class="ag-topo">${selo}${onde ? `<span class="ag-onde">${onde}</span>` : ""}</div>
-    <div class="ag-meio"><div class="ag-hoje"><span class="gh-l">Hoje até agora${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
+    <div class="ag-meio"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : velho ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
       <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span></div>${svgLinhaDia(r.linha, agora)}</div>
     <div class="ag-nums">${nums}</div>${prot}
-    <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a ${c.limTemp} °C ou a memória a ${c.limMem} °C` : "Proteção de temperatura desligada"}</span></div>`;
+    <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a ${c.limTemp} °C ou a memória a ${c.limMem} °C` : "Proteção de temperatura desligada"}</span></div>
+    ${retrato ? `<div class="ag-rodape"><span>lido ${haQuanto(r.quando)}, no PC</span><button type="button" class="link" data-kxa-atualizar>Atualizar</button></div>` : ""}`;
 }
 function renderAgora(){
   const box = $("ag-corpo"); if(!box) return;
   if(PODE_KXA() && kxa && kxaCfg().ligado && kxa.jaRespondeu){ box.innerHTML = htmlAgoraVivo(retratoKxa(), true); return; }
+  if(REMOTO && kxaSnap && kxaSnap.v===1 && Array.isArray(kxaSnap.placas)){ box.innerHTML = htmlAgoraVivo(kxaSnap, !!window.desktop.pedirAoPc && Date.now() - (kxaSnap.quando||0) <= 15*60e3, true); return; }
   const semPlacas = ganhosEstado==="vazio";
   const frase = DESKTOP ? "Abra o app da Kryptex neste PC para ver a mineração ao vivo." : REMOTO ? "O PC ainda não mandou a leitura do app da Kryptex." : "No aplicativo do PC, este quadro mostra a mineração ao vivo.";
   box.innerHTML = `<div class="ag-topo"><span class="ag-selo n"><i></i>${semPlacas ? "Nenhuma placa cadastrada" : "Sem leitura ao vivo"}</span></div>
@@ -5790,7 +5848,8 @@ function renderGanhos(){
 /* o estado no rodapé do menu (PC) e no topo (celular) */
 function renderVivo(){
   const el = $("vivo"), chip = $("g-chip"); if(!el || !chip) return;
-  const r = PODE_KXA() && kxa && kxaCfg().ligado && kxa.jaRespondeu ? retratoKxa() : null;
+  const r = PODE_KXA() && kxa && kxaCfg().ligado && kxa.jaRespondeu ? retratoKxa()
+    : REMOTO && kxaSnap && kxaSnap.v===1 && kxaSnap.hoje && Date.now() - (kxaSnap.quando||0) <= 15*60e3 ? kxaSnap : null;
   if(r){
     const rot = {minerando:["on","Minerando"], pausada:["w","Pausada"], parada:["b","Parada"], fechado:["b","App da Kryptex fechado"]}[r.estado] || ["","—"];
     el.innerHTML = `<span class="vivo-l"><i class="${rot[0]}"></i>${rot[1]}</span><b>${brl(r.hoje.ganho)}</b><small>hoje até agora · ${r.hoje.lucro<-0.005 ? "prejuízo de " + brl(-r.hoje.lucro) : "lucro de " + brl(Math.max(0, r.hoje.lucro))}</small>`;
@@ -5846,6 +5905,7 @@ function irPara(v, foco){
   try{ history.replaceState(null, "", "#"+v); }catch(e){}
   window.scrollTo(0,0);
   if(foco){ const h = $("t-"+v); if(h) h.focus({preventScroll:true}); }
+  if(v==="resumo" && REMOTO) pedirRetrato("auto").catch(()=>{});
 }
 document.addEventListener("click", e=>{
   const r = e.target.closest("[data-ver-res]");

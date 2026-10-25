@@ -655,7 +655,7 @@ ipcMain.handle("acesso-config", (e, op) => {
      o resultado volta junto com os dados que mudaram. */
 const URL_APK = "https://github.com/AlexsAzevedo/painel-mineracao/releases/latest/download/Painel-de-Mineracao.apk";
 const APP_ATIVO = 20 * 60e3, APP_PEDIDO_VALE = 10 * 60e3, APP_OLA_VALE = 15 * 60e3;
-const APP_PEDIDOS = ["buscar-ofertas", "detalhes", "analisar", "atualizar", "parar"];
+const APP_PEDIDOS = ["buscar-ofertas", "detalhes", "analisar", "atualizar", "parar", "kryptex-agora", "kryptex-pausar", "kryptex-voltar"];
 const arquivoAppCel = () => path.join(app.getPath("userData"), "app-celular.json");
 /* versao: contador de mudanças; vers/mods/hashes: versão, hora (do PC) e resumo de cada chave; autor: o celular que fez a
    última mudança de cada chave e o número dela (some quando o próprio PC muda a chave); sMax: o maior número de mudança

@@ -109,6 +109,54 @@ def kryptex_app(p):
     checa("sem erros no console", not erros(pg), erros(pg)[:3])
 
 
+RETRATOS = """(() => {
+  window.AGORA = Date.now();
+  const placa = {nome:"RX 9070 XT", tipo:"gpu", minerando:true, moeda:"PRL", minerador:"srbminer", hash:1.13e14, temp:63, tempMem:78, watts:286, ventoinha:54, rpm:null};
+  const base = {v:1, estado:"minerando", pausaAte:null, computador:"PC-TESTE", placas:[placa], hoje:{ganho:9.62, luz:5.09, lucro:4.53, kwh:5.3, desde:null},
+    ritmo:{brutoDia:14.7, lucroDia:6.9}, saldoBtc:0.00012, precoBtc:401000, linha:[], protecao:null, hash24:1.12e14};
+  window.RETRATO_DE_ONTEM = {...base, quando: AGORA - 21*3600e3, minerandoDesde: AGORA - 30*3600e3};
+  window.RETRATO = {...base, quando: AGORA - 3*60e3, minerandoDesde: AGORA - 5*3600e3};
+  window.RETRATO_PAUSADO = {...base, quando: AGORA - 60e3, estado:"pausada", pausaAte: AGORA + 3*3600e3, placas:[{...placa, minerando:false}], minerandoDesde: 0};
+})();"""
+
+
+def celular(p):
+    pgc = abrir(p, largura=390, altura=844, dados=DADOS, celular=True)
+    pgc.evaluate(RETRATOS)
+    checa("pede o retrato ao abrir o Resumo", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 1)
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO_DE_ONTEM)); recarregarDados(['min-kx-app'])")
+    t = pgc.inner_text("#agora")
+    checa("retrato_velho", "Última leitura há" in t and "Minerando" not in t, t[:200])
+    checa("retrato velho: dia da leitura", "24/10" in t, t[:300])
+    pgc.evaluate("irPara('diario'); irPara('resumo')")
+    checa("não repete antes de 10 min", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 1)
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
+    t = pgc.inner_text("#agora")
+    checa("retrato novo", all(s in t for s in ["Minerando", "R$ 9,62", "lucro de R$ 4,53", "286 W", "63 °C", "lido há 3 min"]), t[:400])
+    checa("estado no topo do celular", "Minerando" in pgc.inner_text("#g-chip"))
+    pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(200)
+    checa("atualizar pelo botão", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 2)
+    pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(200)
+    checa("atualizar: no máximo 1 a cada 2 min", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 2)
+    pgc.click("details.pausar summary"); pgc.click('[data-pausa="180"]'); pgc.wait_for_timeout(200)
+    checa("pausar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-pausar", {"minutos": 180}])
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO_PAUSADO)); recarregarDados(['min-kx-app'])")
+    checa("pausada no celular", "Pausada até 17:00" in pgc.inner_text("#agora"))
+    pgc.click("[data-voltar]"); pgc.wait_for_timeout(200)
+    checa("voltar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-voltar", {}])
+    checa("sem erros no celular", not erros(pgc), erros(pgc)[:3])
+    # no PC: os três pedidos do celular
+    pg = abrir(p, dados=DADOS, pc=True)
+    pg.wait_for_timeout(1800); pg.evaluate(FIXTURAS); pg.evaluate("window.__leituras = [MIN]")
+    r = pg.evaluate("executarPedidoRemoto({nome:'kryptex-agora'})")
+    checa("pedido: ler agora", r["ok"] is True and pg.evaluate("JSON.parse(localStorage.getItem('min-kx-app')).estado") == "minerando", r)
+    checa("minutos inválidos", pg.evaluate("executarPedidoRemoto({nome:'kryptex-pausar', args:{minutos:7}})")["ok"] is False and pg.evaluate("window.__acoes.length") == 0)
+    checa("pausar pelo pedido", pg.evaluate("executarPedidoRemoto({nome:'kryptex-pausar', args:{minutos:180}})")["ok"] is True and pg.evaluate("window.__acoes.at(-1)") == ["pausar", 180])
+    checa("atende mesmo ocupado", pg.evaluate("ofEst.rodando = true, executarPedidoRemoto({nome:'kryptex-voltar'})")["ok"] is True and pg.evaluate("window.__acoes.at(-1)") == ["voltar"])
+    checa("sem erros no PC", not erros(pg), erros(pg)[:3])
+
+
 with sync_playwright() as p:
     kryptex_app(p)
+    celular(p)
 fim()

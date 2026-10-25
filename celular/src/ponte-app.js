@@ -313,7 +313,8 @@
   }
 
   /* pedido ao PC: o PC confirma que começou ("rodando") e depois manda o resultado, junto com os dados que mudaram */
-  const LIMITE = { "buscar-ofertas": 25 * 60e3, atualizar: 20 * 60e3, analisar: 5 * 60e3, detalhes: 4 * 60e3, parar: 2 * 60e3 };
+  const LIMITE = { "buscar-ofertas": 25 * 60e3, atualizar: 20 * 60e3, analisar: 5 * 60e3, detalhes: 4 * 60e3, parar: 2 * 60e3,
+    "kryptex-agora": 60e3, "kryptex-pausar": 60e3, "kryptex-voltar": 60e3 };
   function pedirAoPc(nome, args) {
     return new Promise((ok, nao) => {
       if (!canal || !est.pronto) { nao(new Error("este celular ainda não está ligado ao PC")); return; }
