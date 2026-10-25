@@ -174,9 +174,37 @@ def placas(p):
           and pc.evaluate("[...document.querySelectorAll('#cat tr')].every(tr => tr.getClientRects().length)") and not visivel(pc, "#filtros-mais") and visivel(pc, "#marca"))
 
 
+def ofertas(p):
+    pg = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, hash="ofertas")
+    checa("ofertas: resumo da busca numa linha", visivel(pg, "#of-resumo") and "Itajaí" in texto(pg, "#of-resumo") and "100 km" in texto(pg, "#of-resumo"), texto(pg, "#of-resumo"))
+    checa("ofertas: campos guardados e Buscar à vista", not visivel(pg, "#of-raio") and visivel(pg, "#of-buscar"))
+    clica(pg, "#of-resumo [data-folha]"); pg.wait_for_timeout(300)
+    f = pg.evaluate(FOLHA, "of-ajustes")
+    checa("ofertas: Ajustar abre a folha com os campos", f and f["vis"] and f["fixa"] and abs(f["fundo"]) <= 1 and visivel(pg, "#of-raio") and visivel(pg, "#of-mods-d"), f)
+    preenche(pg, "#of-teto", "2000")
+    clica(pg, "#of-ajustes .folha-ok"); pg.wait_for_timeout(200)
+    checa("ofertas: Pronto fecha e o resumo mostra o preço", not visivel(pg, "#of-ajustes") and "2.000" in texto(pg, "#of-resumo"), texto(pg, "#of-resumo"))
+    preenche(pg, "#of-teto", "")
+    c = pg.evaluate("""(() => { const a = document.querySelector('#of-lista .of'), img = a.querySelector('.of-img').getBoundingClientRect(), tit = a.querySelector('.of-tit').getBoundingClientRect(), r = a.getBoundingClientRect();
+      const bs = [...a.querySelectorAll('.of-acoes > *')].map(b => Math.round(b.getBoundingClientRect().top));
+      return {altura: Math.round(r.height), imgLarg: Math.round(img.width), vao: Math.round(tit.left - img.right), lado: tit.top < img.bottom, botoes: bs}; })()""")
+    checa("ofertas: cartão compacto, com a foto ao lado", c["imgLarg"] <= 110 and c["vao"] >= 8 and c["lado"] and c["altura"] <= 300, c)
+    checa("ofertas: os três botões numa linha", len(set(c["botoes"])) == 1, c["botoes"])
+    checa("sem rolagem para o lado (ofertas)", pg.evaluate(SEM_LADO))
+    checa("sem erros (ofertas)", not erros(pg), erros(pg)[:3])
+    pc = abrir(p, largura=1366, dados=DADOS, pc=True, hash="ofertas")
+    b = pc.evaluate("""(() => { const r = id => document.getElementById(id).getBoundingClientRect();
+      return {raio: Math.round(r('of-raio').bottom), buscar: Math.round(r('of-buscar').bottom), mods: Math.round(r('of-mods-d').top), resumo: (document.getElementById('of-resumo') || {getClientRects: () => []}).getClientRects().length}; })()""")
+    checa("PC: barra de busca como antes (campos e Buscar na mesma linha, modelos embaixo)", abs(b["raio"] - b["buscar"]) <= 4 and b["mods"] > b["buscar"] and not b["resumo"], b)
+    foto = pc.evaluate("(() => { const a = document.querySelector('#of-lista .of'); return [Math.round(a.querySelector('.of-img').getBoundingClientRect().width), Math.round(a.getBoundingClientRect().width)]; })()")
+    checa("PC: cartões com a foto em cima", abs(foto[0] - foto[1]) <= 2, foto)
+    checa("sem erros (ofertas no PC)", not erros(pc), erros(pc)[:3])
+
+
 with sync_playwright() as p:
     casca(p)
     resumo(p)
     diario(p)
     placas(p)
+    ofertas(p)
 fim()

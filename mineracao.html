@@ -717,6 +717,11 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .of-onde .link{padding:0;align-self:flex-start;font-size:.82rem}
 .of-sites{display:flex;gap:14px;padding-bottom:7px;flex-wrap:wrap}
 .of-mods-d > summary{font-size:.86rem}
+.of-resumo,.folha-ok{display:none}
+@media (min-width:900px){
+  .of-ajustes{display:contents}
+  .of-ajustes > .of-mods-d{order:10;flex-basis:100%}
+}
 .of-mods{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .of-mod{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;font-size:.84rem;cursor:pointer;background:var(--surface);font-weight:500}
 .of-mod input{width:auto;margin:0;accent-color:var(--accent)}
@@ -964,6 +969,43 @@ details.saiba > :not(summary){margin-bottom:14px}
   .filtros-cat:not(.aberta) > :not(.busca):not(.filtros-mais){display:none}
   .filtros-cat.aberta > :not(.busca):not(.filtros-mais){grid-column:1/-1}
 }
+@media (max-width:899px){
+  .folha-m.aberta{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--line)}
+  .folha-ok{display:block;width:100%;min-height:48px}
+  /* Ofertas: a busca numa linha (Ajustar abre os campos) e o Buscar embaixo */
+  .of-resumo{display:flex;align-items:center;gap:12px}
+  .of-resumo-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .of-resumo-t b{font-family:var(--display);font-weight:600;font-size:1.02rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .of-resumo-t small{color:var(--muted);font-size:.8rem}
+  .of-resumo .of-bt{flex:none}
+  .of-barra{display:block}
+  .of-barra #of-buscar{width:100%;min-height:48px}
+  .of-ajustes.aberta .of-onde{margin:0}
+  .of-ajustes.aberta select,.of-ajustes.aberta input[type=number]{width:100%}
+  .of-ajustes.aberta .of-sites{padding:0}
+  /* Ofertas em lista: a foto pequena à esquerda, o modelo, o título, o lugar, o preço e o "se paga" ao lado;
+     embaixo, o lucro, a barra do prazo e os botões */
+  .of-lista{grid-template-columns:minmax(0,1fr);gap:10px}
+  .of{display:grid;grid-template-columns:96px minmax(0,1fr);column-gap:12px;row-gap:5px;padding:12px;align-items:start}
+  .of .of-img{grid-column:1;grid-row:1/6;aspect-ratio:1;border-radius:10px;align-self:start}
+  .of-c,.of-preco,.of-ret{display:contents}
+  .of-l1,.of-tit,.of-sub,.of-preco .pv,.of-ret-l{grid-column:2}
+  .of-l1{grid-row:1}
+  .of-tit{grid-row:2;font-size:.92rem}
+  .of-sub{grid-row:3;font-size:.76rem}
+  .of-preco .pv{grid-row:4}
+  .of-preco .pv b{font-size:1.25rem}
+  .of-ret-l{grid-row:5;justify-content:flex-start;gap:4px 8px}
+  .of-preco .pl{grid-column:1/-1;grid-row:6;flex-direction:row;flex-wrap:wrap;gap:0 10px;align-items:baseline;text-align:left;margin-top:4px}
+  .of-prazo{grid-column:1/-1;grid-row:7;height:6px;margin:4px 0}
+  .of-acoes{grid-column:1/-1;grid-row:8;padding-top:2px}
+  .of-det{grid-column:1/-1;grid-row:9}
+  .of-site{left:4px;bottom:4px;max-width:calc(100% - 8px);padding:2px 6px;font-size:.6rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .of-salvar{top:4px;right:4px;width:32px;height:32px}
+  .of-salvar svg{width:15px;height:15px}
+  .of-quando{font-size:.7rem}
+  .of-mini .of-img{aspect-ratio:16/10}
+}
 @media (max-width:899px) and (prefers-reduced-motion:reduce){.folha-m.aberta{animation:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1021,20 +1063,25 @@ details.saiba > :not(summary){margin-bottom:14px}
     <section class="view" id="v-ofertas" aria-labelledby="t-ofertas" hidden>
       <header class="vh"><div><h1 id="t-ofertas" tabindex="-1">Ofertas</h1><p class="sub">Placas à venda perto de você no Marketplace e na OLX, e em quanto tempo cada uma se paga com a sua luz.</p></div></header>
       <div class="painel">
+        <div class="of-resumo" id="of-resumo"><div class="of-resumo-t"><b id="of-resumo-onde"></b><small id="of-resumo-mais"></small></div><button type="button" class="of-bt" data-folha="of-ajustes" aria-controls="of-ajustes" aria-expanded="false">Ajustar</button></div>
         <div class="of-barra">
-          <div class="of-onde"><span class="lbl">Perto de</span><b id="of-cidade">—</b><button type="button" class="link" id="of-mudar">Mudar cidade</button></div>
-          <label><span class="lbl">Até</span><select id="of-raio"></select></label>
-          <label><span class="lbl">Preço até (R$)</span><input id="of-teto" type="number" min="0" step="100" placeholder="Sem limite" inputmode="numeric"></label>
-          <div class="of-sites" role="group" aria-label="Onde procurar">
-            <label class="check"><input type="checkbox" id="of-fb" checked> Marketplace</label>
-            <label class="check"><input type="checkbox" id="of-olx" checked> OLX</label>
+          <div class="folha-m of-ajustes" id="of-ajustes">
+            <div class="folha-topo"><h2 id="of-ajustes-t">Onde e o que procurar</h2><button type="button" class="folha-x" data-fechar-folha aria-label="Fechar">×</button></div>
+            <div class="of-onde"><span class="lbl">Perto de</span><b id="of-cidade">—</b><button type="button" class="link" id="of-mudar">Mudar cidade</button></div>
+            <label><span class="lbl">Até</span><select id="of-raio"></select></label>
+            <label><span class="lbl">Preço até (R$)</span><input id="of-teto" type="number" min="0" step="100" placeholder="Sem limite" inputmode="numeric"></label>
+            <div class="of-sites" role="group" aria-label="Onde procurar">
+              <label class="check"><input type="checkbox" id="of-fb" checked> Marketplace</label>
+              <label class="check"><input type="checkbox" id="of-olx" checked> OLX</label>
+            </div>
+            <details class="of-mods-d" id="of-mods-d"><summary>Modelos procurados: <span id="of-nmods">0</span></summary>
+              <div class="of-mods" id="of-mods" role="group" aria-label="Modelos procurados"></div>
+              <div class="of-mods-pe"><button type="button" class="link" id="of-sugerir">Voltar para os sugeridos</button><span class="hint">Os sugeridos são os que se pagam mais rápido pelo preço típico de usada (ou de nova, se não houver). Cada busca também traz anúncios de outros modelos parecidos.</span></div>
+            </details>
+            <button type="button" class="pri folha-ok" data-fechar-folha>Pronto</button>
           </div>
           <button type="button" class="pri" id="of-buscar">Buscar ofertas</button>
         </div>
-        <details class="of-mods-d" id="of-mods-d"><summary>Modelos procurados: <span id="of-nmods">0</span></summary>
-          <div class="of-mods" id="of-mods" role="group" aria-label="Modelos procurados"></div>
-          <div class="of-mods-pe"><button type="button" class="link" id="of-sugerir">Voltar para os sugeridos</button><span class="hint">Os sugeridos são os que se pagam mais rápido pelo preço típico de usada (ou de nova, se não houver). Cada busca também traz anúncios de outros modelos parecidos.</span></div>
-        </details>
         <fieldset class="of-alerta" id="of-alerta">
           <legend class="lbl">Alerta de ofertas</legend>
           <div class="of-al-linha">
@@ -4514,6 +4561,14 @@ function renderOfModelos(){
   $("of-mods").innerHTML = lista.map(c=>{ const r = calc(c), p = precoTipico(c), m = mesesRetorno(r, p) || 0;
     return `<label class="of-mod"><input type="checkbox" value="${c.id}"${sel.has(c.id)?" checked":""}> ${esc(c.curto)}${m ? ` <small title="Se paga em ${n1(m)} meses pelo preço típico de ${brl0(p)}">${n1(m)} m</small>` : ""}</label>`; }).join("");
   $("of-sugerir").hidden = !(Array.isArray(ofSel) && ofSel.length);
+  renderOfResumo();
+}
+/* celular: a busca numa linha (a cidade, o raio, os sites, os modelos e o preço máximo); os campos ficam na folha Ajustar */
+function renderOfResumo(){
+  if(!$("of-resumo")) return;
+  const sites = [$("of-fb").checked && "Marketplace", $("of-olx").checked && "OLX"].filter(Boolean), teto = +$("of-teto").value, n = modelosOfertas().length;
+  $("of-resumo-onde").textContent = temCidade() ? `${lugarTxt()} · até ${raioPerfil()} km` : "Informe a sua cidade";
+  $("of-resumo-mais").textContent = [sites.length ? sites.join(" e ") : "nenhum site marcado", `${n} ${plural(n, "modelo")}`, teto>0 ? `até ${brl0(teto)}` : ""].filter(Boolean).join(" · ");
 }
 function renderOfertas(foco){
   if(!$("v-ofertas")) return;
@@ -4521,6 +4576,7 @@ function renderOfertas(foco){
   $("of-cidade").textContent = lugarTxt() || "Informe a sua cidade";
   $("of-mudar").textContent = temCidade() ? "Mudar cidade" : "Informar cidade";
   if(document.activeElement!==$("of-raio")) opcoesRaio($("of-raio"), raioPerfil());
+  renderOfResumo();
   const itens = ofertas && ofertas.itens || [];
   const box = $("of-lista"), avisos = avisosOfertas();
   $("of-avisos").hidden = !avisos.length;
@@ -4633,13 +4689,13 @@ function salvarOfUi(){ lsSet("min-ofertas-ui", {teto:$("of-teto").value, fb:$("o
 $("of-buscar").addEventListener("click", buscarOfertas);
 $("of-mudar").addEventListener("click", ()=>{ irPara("premissas", false); $("pf-cidade").focus(); $("perfil-p").scrollIntoView({behavior:suave(), block:"start"}); });
 $("of-raio").addEventListener("change", e=>definirPerfil({raio:+e.target.value}));
-$("of-teto").addEventListener("change", ()=>{ salvarOfUi(); renderOfModelos(); });
-for(const id of ["of-fb","of-olx"]) $(id).addEventListener("change", salvarOfUi);
+$("of-teto").addEventListener("change", ()=>{ salvarOfUi(); renderOfModelos(); renderOfResumo(); });
+for(const id of ["of-fb","of-olx"]) $(id).addEventListener("change", ()=>{ salvarOfUi(); renderOfResumo(); });
 for(const id of ["of-ordem","of-modelo","of-so-compensa","of-sem-troca","of-salvos","of-desc"]) $(id).addEventListener("change", ()=>{ salvarOfUi(); renderOfertas(); });
 $("of-mods").addEventListener("change", e=>{
   if(!e.target.matches("input[type=checkbox]")) return;
   ofSel = [...$("of-mods").querySelectorAll("input:checked")].map(i=>i.value);
-  lsSet("min-ofertas-modelos", ofSel); $("of-nmods").textContent = ofSel.length; $("of-sugerir").hidden = false;
+  lsSet("min-ofertas-modelos", ofSel); $("of-nmods").textContent = ofSel.length; $("of-sugerir").hidden = false; renderOfResumo();
 });
 $("of-sugerir").addEventListener("click", ()=>{ ofSel = null; lsDel("min-ofertas-modelos"); renderOfModelos(); $("of-mods").querySelector("input")?.focus(); });
 $("of-lista").addEventListener("click", e=>{
