@@ -32,6 +32,7 @@
       "main.js",
       "preload.js",
       "sincronia.js",
+      "kryptex-app.js",
       "app/**/*",
       "package.json"
     ],

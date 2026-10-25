@@ -1218,6 +1218,14 @@ ipcMain.handle("buscar-anuncios", doPainel(buscarAnunciosLeitor));
 ipcMain.handle("detalhes-anuncio", doPainel(detalhesAnuncioLeitor));
 ipcMain.handle("kryptex-ler", doPainel((qual) => lerKryptexLeitor(String(qual || ""))));
 ipcMain.handle("kryptex-entrar", doPainel(() => abrirKryptex()));
+/* app da Kryptex deste PC (localhost:8107): ler, pausar por um dos tempos permitidos e voltar a minerar (kryptex-app.js) */
+const kryptexApp = require("./kryptex-app.js");
+ipcMain.handle("kryptex-app", doPainel((op, minutos) => {
+  if (op === "ler") return kryptexApp.ler();
+  if (op === "pausar") return kryptexApp.pausar(Number(minutos));
+  if (op === "voltar") return kryptexApp.voltar();
+  throw new Error("pedido desconhecido");
+}));
 
 function abrirFacebook() {
   return new Promise((ok) => {

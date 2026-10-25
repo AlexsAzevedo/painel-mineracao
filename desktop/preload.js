@@ -15,6 +15,12 @@ contextBridge.exposeInMainWorld("desktop", {
     entrar: () => ipcRenderer.invoke("kryptex-entrar"),
     ler: (qual) => ipcRenderer.invoke("kryptex-ler", qual === "saldo" ? "saldo" : "maquinas")
   },
+  /* app da Kryptex deste PC: a leitura (placas, temperatura, consumo, saldo, pausa) e as duas ações */
+  kryptexApp: {
+    ler: () => ipcRenderer.invoke("kryptex-app", "ler"),
+    pausar: (minutos) => ipcRenderer.invoke("kryptex-app", "pausar", Number(minutos) || 0),
+    voltar: () => ipcRenderer.invoke("kryptex-app", "voltar")
+  },
   mostrarNavegador: () => ipcRenderer.invoke("mostrar-navegador"),
   salvarArquivo: (nome, conteudo) => ipcRenderer.invoke("salvar-arquivo", String(nome), String(conteudo)),
   salvarPdf: (nome, html) => ipcRenderer.invoke("salvar-pdf", String(nome), String(html)),
