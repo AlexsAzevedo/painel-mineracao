@@ -8,7 +8,8 @@
    reconhece um reenvio, mesmo que o relógio do celular volte). */
 (function () {
   "use strict";
-  const VERSAO = "__VERSAO__";
+  const VERSAO = "__VERSAO__";   /* a versão do app (a parte Android) para a qual esta página foi feita */
+  const PAINEL = "__PAINEL__";   /* a versão desta página (a do painel, a mesma do PC) */
   const SERVIDOR = String(window.__NTFY__ || "https://ntfy.sh").replace(/\/+$/, "");
   const URL_APK = "https://github.com/AlexsAzevedo/painel-mineracao/releases/latest/download/Painel-de-Mineracao.apk";
   const API_VERSAO = "https://api.github.com/repos/AlexsAzevedo/painel-mineracao/releases/latest";
