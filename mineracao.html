@@ -5920,15 +5920,22 @@ async function atualizarDoPc(){
   try{
     let emDia = false;
     if(lerKx && typeof window.desktop.sync.info === "function"){ try{ const i = await window.desktop.sync.info(); emDia = !!(i && i.ativo); }catch(e){} }
-    /* os dois pedidos saem juntos; se os dados não vêm (PC desligado), o recado sai na hora, sem esperar a leitura */
+    /* os dois pedidos saem juntos, os dados primeiro (no limite de mensagens, a vaga que sobrar vai para eles); se os
+       dados não vêm (PC desligado), o recado sai na hora, sem esperar a leitura */
+    const dados = emDia ? null : window.desktop.sync.atualizar();
     const leitura = lerKx ? pedirAoPc("kryptex-agora", {}).then(v => ({v}), e => ({e})) : Promise.resolve(null);
-    if(!emDia) await window.desktop.sync.atualizar();
+    if(dados) await dados;
     /* espera a leitura até 20 s (se demorar mais, ela entra no quadro quando chegar) */
     let t = null;
     const l = await Promise.race([leitura, new Promise(ok => { t = setTimeout(() => ok({demorou:true}), ESPERA_LEITURA_ATU); })]);
     clearTimeout(t);
     if(emDia && l && l.e) throw new Error(`Não deu para mandar ao PC: ${l.e.message || "sem conexão"}.`);
-    if(emDia && l && l.demorou){ atuPc.ultimo = Date.now(); toast("Pedi a leitura ao PC: os valores chegam assim que ele responder."); return; }
+    if(emDia && l && l.demorou){
+      atuPc.ultimo = Date.now(); toast("Pedi a leitura ao PC: os valores chegam assim que ele responder.");
+      /* em dia, só a leitura saiu: se ela morrer depois (PC desligado ou dormindo), o recado diz que o PC não respondeu */
+      leitura.then(x => { if(x && x.e) toast(`A leitura do app da Kryptex não veio: ${x.e.message || "o PC não respondeu"}.`); });
+      return;
+    }
     const r = l && l.v;
     atuPc.ultimo = Date.now();
     const h = `Dados do PC atualizados às ${horaMin(atuPc.ultimo)}`;

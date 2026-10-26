@@ -371,6 +371,27 @@ def celular(p):
     pgc.click("#topo-atu"); pgc.wait_for_timeout(300)
     checa("retrato de agora: só os dados", pgc.evaluate(leituras) == n1 and pgc.evaluate("window.__atu") == a1 + 1 and "atualizados" in pgc.inner_text("#toast"), [pgc.evaluate(leituras) - n1, pgc.evaluate("window.__atu") - a1, pgc.inner_text("#toast")])
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app']); window.desktop.sync.atualizar = window.__atuOrig; atuPc.ultimo = 0; 0")
+    # em dia com o PC (a ponte do app diz "ativo"): só a leitura, sem pedir os dados; se o PC não responde (desligado,
+    # dormindo), o recado diz depois que ele não respondeu, e não fica só no "chegam assim que ele responder"
+    pgc.evaluate("""window.__infoOrig = window.desktop.sync.info; window.desktop.sync.info = async () => ({ativo: true});
+      window.__atu = 0; window.desktop.sync.atualizar = window.__atuConta; ESPERA_LEITURA_ATU = 100;
+      window.desktop.pedirAoPc = (nome, args) => { window.__pedidos.push([nome, args || {}]);
+        return new Promise((ok, nao) => setTimeout(() => nao(new Error('o PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet')), 400)); };
+      atuPc.ultimo = 0; atuPc.rodando = false; 0""")
+    n2 = pgc.evaluate(leituras)
+    pgc.click("#topo-atu"); pgc.wait_for_timeout(250)
+    t = pgc.inner_text("#toast")
+    checa("em dia: só a leitura, sem pedir os dados", pgc.evaluate(leituras) == n2 + 1 and pgc.evaluate("window.__atu") == 0 and "Pedi a leitura" in t, [pgc.evaluate(leituras) - n2, pgc.evaluate("window.__atu"), t])
+    pgc.wait_for_timeout(500)
+    checa("em dia com o PC sem responder: o recado diz", "não respondeu" in pgc.inner_text("#toast"), pgc.inner_text("#toast"))
+    # fora de dia: os dados saem antes da leitura (no limite de mensagens, a vaga que sobrar vai para os dados)
+    pgc.evaluate("""window.__ordem = []; window.desktop.sync.info = async () => ({ativo: false}); ESPERA_LEITURA_ATU = 20e3;
+      window.desktop.sync.atualizar = async () => { window.__ordem.push('dados'); };
+      window.desktop.pedirAoPc = async (nome, args) => { window.__ordem.push(nome); window.__pedidos.push([nome, args || {}]); return {ok: true}; };
+      atuPc.ultimo = 0; atuPc.rodando = false; 0""")
+    pgc.click("#topo-atu"); pgc.wait_for_timeout(300)
+    checa("fora de dia: os dados saem antes da leitura", pgc.evaluate("window.__ordem") == ["dados", "kryptex-agora"], pgc.evaluate("window.__ordem"))
+    pgc.evaluate("window.desktop.sync.info = window.__infoOrig; window.desktop.sync.atualizar = window.__atuOrig; window.desktop.pedirAoPc = window.__pedirOk0; atuPc.ultimo = 0; 0")
     pgc.click("details.pausar summary"); pgc.click('[data-pausa="180"]'); pgc.wait_for_timeout(200)
     checa("pausar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-pausar", {"minutos": 180}])
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO_PAUSADO)); recarregarDados(['min-kx-app'])")

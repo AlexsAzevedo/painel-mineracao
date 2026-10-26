@@ -42,6 +42,9 @@
      próxima mensagem sair, ou até problemaAte, a hora em que o teto libera); falhasLeitura: respostas do PC seguidas que
      não deu para ler (anexo); tentandoAnexo: tentando baixar um anexo agora */
   let problemaEnvio = "", problemaAte = 0, falhasLeitura = 0, ultimaFalhaLeitura = 0, tentandoAnexo = false, deNovoEm = 0;
+  /* limiteFundoAte: um envio que o app faz sozinho não saiu pelo limite (o teto daqui ou o do ntfy.sh): o selo da ligação
+     com o PC diz "Limite de mensagens" até essa hora (ou até a próxima mensagem sair), sem a faixa de aviso */
+  let limiteFundoAte = 0;
   const mudados = new Set(), pedidos = new Map();
   const $ = (id) => document.getElementById(id);
 
@@ -68,6 +71,7 @@
     else if ((est.faltam || []).length) s = { ok: false, texto: "Sem espaço", aviso: "O celular não conseguiu guardar parte dos dados do PC (falta de espaço para o app). Libere espaço no celular e toque em Atualizar." + dados };
     else if (falhasLeitura) s = { ok: false, texto: "Dados incompletos", aviso: "Uma resposta do PC não chegou inteira (o anexo do ntfy.sh não baixou). " + (falhasLeitura > 6 ? "Toque em Atualizar para tentar de novo." : "Pedindo de novo…") + dados };
     else if (semPc) s = { ok: false, texto: "O PC não respondeu", aviso: "O PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet." + dados };
+    else if (limiteFundoAte > Date.now()) s = { ok: false, texto: "Limite de mensagens", aviso: "" };
     else s = { ok: true, texto: est.ultimaVez ? `Dados do PC · ${hora(est.ultimaVez)}` : "Ligando ao PC…" };
     try { estadoFn(s); } catch (e) {}
   }
@@ -104,16 +108,17 @@
     if (n.hora >= TETO_HORA || n.dia >= TETO_DIA) {
       const ate = liberaEm();
       const e = new Error(`o app chegou ao limite de mensagens; a próxima pode sair ${quandoLibera(ate)}`); e.teto = true; e.ate = ate;
-      if (!fundo) problema(e);
+      if (!fundo) problema(e); else limiteFundo(ate);
       throw e;
     }
     let r;
     try { r = await canal.publicar({ aparelho: { id: aparelho }, ...c }, "cel"); }
-    catch (e) { if (!fundo) problema(e); throw e; }
+    catch (e) { if (!fundo) problema(e); else if (e && e.status === 429) limiteFundo(Date.now() + 30 * 60e3); throw e; }
     est.envios.push(Date.now()); salvar();
-    if (problemaEnvio) { problemaEnvio = ""; problemaAte = 0; avisar(); }
+    if (problemaEnvio || limiteFundoAte) { problemaEnvio = ""; problemaAte = 0; limiteFundoAte = 0; avisar(); }
     return r;
   }
+  function limiteFundo(ate) { limiteFundoAte = Math.max(limiteFundoAte, ate || 0); avisar(); }
   /* limite do ntfy.sh (429) ou o teto daqui: aparece na faixa de aviso até a próxima mensagem sair (o teto daqui, no
      máximo até a hora em que libera) */
   function problema(e) { if (e && (e.teto || e.status === 429)) { problemaEnvio = e.message; problemaAte = e.ate || 0; avisar(); } }

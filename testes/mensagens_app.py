@@ -2,7 +2,7 @@
 quando algo que a pessoa pediu não pôde sair. A página é a montada por montar-www.py, com um Capacitor de mentira e um
 "ntfy" de mentira que conta o que o app manda (não há PC respondendo).
 Uso: python3 testes/mensagens_app.py"""
-import base64, functools, http.server, json, os, re, socketserver, subprocess, sys, tempfile, threading
+import base64, functools, http.server, json, os, re, socketserver, subprocess, sys, tempfile, threading, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from apoio import *  # noqa: F401,F403
 
@@ -12,6 +12,7 @@ TMP = tempfile.mkdtemp(prefix="mensagens-")
 WWW = os.path.join(TMP, "www")
 MIN = 60_000
 ENVIADAS = []   # cada mensagem que o app mandou ao ntfy (o caminho do tópico)
+ESCUTAS = []    # cada vez que o app tentou escutar o tópico do PC
 
 
 class _Q(http.server.SimpleHTTPRequestHandler):
@@ -21,6 +22,7 @@ class _Q(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith("/ntfy"):
+            ESCUTAS.append(self.path)
             self.send_error(404)
         else:
             super().do_GET()
@@ -87,9 +89,21 @@ def abrir_app(p, envios, ultima_ola):
     pg.on("pageerror", lambda e: lista.append(str(e)))
     pg.route(re.compile(r".*/capacitor\.js$"), lambda rota: rota.fulfill(status=200, content_type="text/javascript", body=CAPACITOR))
     pg.add_init_script("try{ if(!sessionStorage.getItem('__semeado')){ const d = %s; for (const k in d) localStorage.setItem(k, d[k]); sessionStorage.setItem('__semeado','1'); } }catch(e){}" % json.dumps(semente))
+    e0 = len(ESCUTAS)
     pg.goto(URL_APP)
-    pg.wait_for_timeout(900)
+    # a ponte começa a escutar o tópico do PC e logo em seguida decide se pergunta ao PC: espera a escuta e mais um pouco
+    esperar(lambda: len(ESCUTAS) > e0, 5000)
+    pg.wait_for_timeout(700)
     return pg
+
+
+def esperar(cond, prazo_ms):
+    fim_ = time.time() + prazo_ms / 1000
+    while time.time() < fim_:
+        if cond():
+            return True
+        time.sleep(0.05)
+    return cond()
 
 
 def texto(pg, sel):
@@ -116,7 +130,7 @@ def mensagens(p):
     pg = abrir_app(p, [AGORA_MS - 25 * MIN], AGORA_MS - 25 * MIN)
     checa("faz tempo: abrir pergunta ao PC", len(ENVIADAS) == n + 1, len(ENVIADAS) - n)
     n = len(ENVIADAS)
-    pg.click("#topo-atu"); pg.wait_for_timeout(600)
+    pg.click("#topo-atu"); esperar(lambda: len(ENVIADAS) > n, 3000); pg.wait_for_timeout(500)
     checa("atualizar com o app em dia: uma mensagem só", len(ENVIADAS) == n + 1, len(ENVIADAS) - n)
 
     # o teto de 60 mensagens nas últimas 24 horas (a última há 20 minutos): o que o app faz sozinho (perguntar ao abrir)
@@ -127,12 +141,21 @@ def mensagens(p):
     checa("teto: nada sai", len(ENVIADAS) == n, len(ENVIADAS) - n)
     aviso = texto(pg, "#remoto-aviso")
     checa("teto: o que o app faz sozinho não mostra o aviso", "mensagens" not in aviso.lower(), aviso)
+    selo = pg.evaluate("document.getElementById('mais-sync').textContent")
+    checa("teto: o selo da ligação com o PC diz que está no limite", "Limite de mensagens" in selo, selo)
     pg.click("#topo-atu"); pg.wait_for_timeout(600)
     t = texto(pg, "#toast")
     checa("teto: atualizar diz quando libera", "03:50" in t and "mensagens" in t.lower(), t)
     aviso = texto(pg, "#remoto-aviso")
     checa("teto: depois de pedir, o aviso diz quando libera", "03:50" in aviso, aviso)
     checa("sem erros (teto)", not _erros[id(pg)], _erros[id(pg)])
+
+    # o teto por hora: 30 mensagens na última hora (a mais velha há 30 minutos, a última há 1). O app está em dia, então
+    # atualizar pede só a leitura, que não sai: o recado diz a hora de hoje em que libera
+    pg = abrir_app(p, [AGORA_MS - (i + 1) * MIN for i in range(30)], AGORA_MS - 30 * MIN)
+    pg.click("#topo-atu"); pg.wait_for_timeout(600)
+    t = texto(pg, "#toast")
+    checa("teto por hora: atualizar diz a hora de hoje", "às 14:30" in t and "amanhã" not in t, t)
 
 
 with sync_playwright() as p:
