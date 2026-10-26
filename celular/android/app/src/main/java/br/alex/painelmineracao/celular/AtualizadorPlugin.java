@@ -8,6 +8,7 @@ import android.os.SystemClock;
 import br.alex.painelmineracao.celular.atualizacao.Atualizador;
 import br.alex.painelmineracao.celular.atualizacao.Baixador;
 import br.alex.painelmineracao.celular.atualizacao.FonteGithub;
+import br.alex.painelmineracao.celular.atualizacao.Instalacao;
 import br.alex.painelmineracao.celular.atualizacao.Vigia;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.JSObject;
@@ -15,6 +16,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.io.File;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
@@ -42,16 +44,24 @@ public class AtualizadorPlugin extends Plugin {
     private volatile boolean naFrente;
     private final Runnable conferirVigia = this::conferirVigia;
 
+    private volatile long instalandoDesde;
+
     private static long agora() { return SystemClock.elapsedRealtime(); }
+
+    /** o atualizador do processo (o receptor da instalação também usa, mesmo com o app fechado) */
+    static synchronized Atualizador nucleo(Context ctx) {
+        if (nucleo == null) {
+            Context c = ctx.getApplicationContext();
+            nucleo = new Atualizador(c.getFilesDir(), new PreferenciasAndroid(c, "atualizador"), System::currentTimeMillis,
+                new FonteGithub(FonteGithub.BASE, new Baixador(true)), new AppAndroid(c), AtualizadorPlugin::mudou);
+        }
+        return nucleo;
+    }
 
     @Override public void load() {
         try {
             ativo = this;
-            Context c = getContext().getApplicationContext();
-            if (nucleo == null) {
-                nucleo = new Atualizador(c.getFilesDir(), new PreferenciasAndroid(c, "atualizador"), System::currentTimeMillis,
-                    new FonteGithub(FonteGithub.BASE, new Baixador(true)), new AppAndroid(c), AtualizadorPlugin::mudou);
-            }
+            nucleo(getContext());
             String pasta = nucleo.aoAbrir();
             if (pasta != null) gravarCaminho(pasta);
             if (nucleo.emProva()) vigia.zerar(agora(), false);   /* começa a contar quando a atividade vier para a frente */
@@ -127,6 +137,11 @@ public class AtualizadorPlugin extends Plugin {
         naFrente = true;
         vigia.naFrente(agora());
         agendarVigia();
+        /* voltou da tela do Android sem resposta (ou ela ficou para trás): libera o botão de novo */
+        if (instalandoDesde > 0 && agora() - instalandoDesde > 5_000 && nucleo != null) {
+            instalandoDesde = 0;
+            nucleo.instalando(false);
+        }
     }
 
     @Override protected void handleOnPause() {
@@ -173,6 +188,27 @@ public class AtualizadorPlugin extends Plugin {
     @PluginMethod public void visto(PluginCall call) {
         if (!pronto(call)) return;
         nucleo.visto(call.getString("qual"));
+        call.resolve(paraPagina(nucleo.estado()));
+    }
+
+    /** instala o .apk baixado; um toque só vale uma vez (os métodos rodam um de cada vez, na mesma thread) */
+    @PluginMethod public void instalarApp(PluginCall call) {
+        if (!pronto(call)) return;
+        if (nucleo.estado().optBoolean("instalando")) { call.resolve(paraPagina(nucleo.estado())); return; }
+        File apk = nucleo.apkPronto();
+        if (apk == null) {
+            nucleo.falhaInstalacao("o arquivo do app sumiu; ele é baixado de novo na próxima procura");
+        } else {
+            instalandoDesde = agora();
+            nucleo.instalando(true);
+            Context c = getContext().getApplicationContext();
+            Thread t = new Thread(() -> {
+                try { InstaladorApk.instalar(c, apk); }
+                catch (Throwable e) { instalandoDesde = 0; nucleo.falhaInstalacao(Instalacao.motivo(1, e.getMessage())); }
+            }, "instalar-app");
+            t.setDaemon(true);
+            t.start();
+        }
         call.resolve(paraPagina(nucleo.estado()));
     }
 }
