@@ -62,8 +62,8 @@ Código Java novo em `celular/android/app/src/main/java/br/alex/painelmineracao/
 
 ### 3.1 Estado guardado (SharedPreferences `atualizador`)
 - `codigoApp`: o versionCode da última vez (para saber que o .apk mudou).
-- `atual` `{versao, pasta}` e `anterior` `{versao, pasta}`: a página em uso e a de antes (vazios = a que vem no .apk). A versão da que vem no .apk sai de `assets/public/painel.json`.
-- `emProva` `{versao, pasta, vezes}`: página nova em uso que ainda não confirmou que abriu.
+- `atual` `{versao, pasta}`: a última página baixada que confirmou que abre (vazio = a que vem no .apk). A versão da que vem no .apk sai de `assets/public/painel.json`.
+- `emProva` `{versao, pasta, vezes}`: página nova em uso que ainda não confirmou que abriu. Se ela não abrir, volta-se para `atual` (ou a do .apk).
 - `pronta` `{versao, pasta}`: baixada e conferida, esperando a hora de entrar.
 - `ruins`: versões que não abriram (não tenta de novo).
 - `trocou` `{de, para}` e `voltou` `{de, para}`: para a página mostrar o aviso uma vez.
@@ -73,7 +73,7 @@ Código Java novo em `celular/android/app/src/main/java/br/alex/painelmineracao/
 ### 3.2 Ao abrir (`load()`, antes de a página carregar)
 Tudo dentro de um `try/catch (Throwable)`: se algo der errado aqui, o app abre com a página que o Capacitor escolheria sozinho.
 1. Se o versionCode mudou (app atualizado): apaga as páginas e o .apk baixados, zera o estado (o Capacitor volta sozinho para a página do .apk).
-2. Se há `emProva`: soma 1 em `vezes`. Com mais de 2, a página não confirmou em duas aberturas: volta para `anterior` (ou a do .apk), põe a versão em `ruins` e grava `voltou`.
+2. Apaga o que ficou pela metade (pastas temporárias e downloads incompletos). Se há `emProva`: soma 1 em `vezes`. Com mais de 2, a página não confirmou em duas aberturas: volta para `atual` (ou a do .apk), põe a versão em `ruins`, apaga a pasta dela e grava `voltou`.
 3. Se há `pronta` e nada em prova: ela entra agora (o app está abrindo, não interrompe nada): sai de `pronta` e vira `emProva` com `vezes = 1`.
 4. Grava em `CapWebViewSettings.serverBasePath` a pasta que deve abrir (ou vazio).
 5. Se a última procura foi há mais de 6 horas, procura em segundo plano (mesmo que a página esteja com defeito no atualizador).
@@ -83,14 +83,14 @@ Tudo dentro de um `try/catch (Throwable)`: se algo der errado aqui, o app abre c
   - Página nova: `versao` maior que a atual e a do .apk, fora de `ruins`, e `appMin` até a versão do app instalado → baixa a página.
   - `appMin` maior que a versão do app instalado → a página espera; o que vale é o .apk.
   - `app.codigo` maior que o versionCode instalado → baixa o .apk.
-- Baixar a página: só HTTPS, só `github.com` e endereços terminados em `.githubusercontent.com` (inclusive nos redirecionamentos, no máximo 5), prazos de 15 s para conectar e 30 s sem receber nada; confere tamanho e SHA-256 com o manifesto; descompacta numa pasta temporária recusando caminhos com `..`, absolutos ou com `\`, mais de 500 arquivos, mais de 40 MB no total ou mais de 20 MB num arquivo; exige `index.html` e um `painel.json` com a mesma versão; renomeia para `files/painel/<versao>/` e grava `pronta`.
+- Baixar a página: o endereço de partida é sempre o das releases do repositório no `github.com` (fixo no app); os redirecionamentos (no máximo 5) só podem ir para HTTPS, para onde o GitHub mandar (hoje, `release-assets.githubusercontent.com`): quem garante que o arquivo é nosso é a assinatura e o SHA-256, e assim uma mudança de servidor do GitHub não trava as atualizações. Prazos de 15 s para conectar e 30 s sem receber nada; confere tamanho e SHA-256 com o manifesto; descompacta numa pasta temporária recusando caminhos com `..`, absolutos ou com `\`, mais de 500 arquivos, mais de 40 MB no total ou mais de 20 MB num arquivo; exige `index.html` e um `painel.json` com a mesma versão; renomeia para `files/painel/<versao>/` e grava `pronta`.
 - Baixar o .apk: o mesmo cuidado, para `files/atualizacao/`; confere tamanho e SHA-256 com o manifesto e, pelo Android (`getPackageArchiveInfo`), o pacote (`br.alex.painelmineracao.celular`), o versionCode (o do manifesto, maior que o instalado) e o certificado (o mesmo do app; se o Android não conseguir ler o certificado do arquivo, vale a conferência pelo manifesto assinado). Grava `apk`.
 - Cada mudança de estado vai para a página pelo evento `estado`.
 
 ### 3.4 Trocar de página
 - `usarPainel()` (a página pede, na hora combinada): só com `pronta` válida. Vira `emProva` (`vezes = 1`), grava a pasta em `serverBasePath` e chama `bridge.setServerBasePath(pasta)` (recarrega a página).
-- Vigia de 30 segundos **com o app na tela** (para enquanto o app está em segundo plano e continua quando ele volta): se a página não confirmou, volta para `anterior` (ou a do .apk) na hora, com `setServerBasePath` ou `setServerAssetPath("public")`, põe a versão em `ruins` e grava `voltou`.
-- `painelOk({versao})`: se é a versão em prova, ela vira `atual`, a de antes vira `anterior`, grava `trocou` e apaga as outras pastas de página.
+- Vigia de 30 segundos **com o app na tela** (para enquanto o app está em segundo plano e continua quando ele volta): se a página não confirmou, volta para `atual` (ou a do .apk) na hora, com `setServerBasePath` ou `setServerAssetPath("public")`, põe a versão em `ruins`, apaga a pasta dela e grava `voltou`.
+- `painelOk({versao})`: se é a versão em prova, ela vira `atual`, grava `trocou` e apaga as outras pastas de página. Devolve o estado (para a página mostrar o aviso na hora).
 
 ### 3.5 Instalar o .apk
 - `instalarApp()`: confere de novo o SHA-256 do arquivo e abre uma sessão do `PackageInstaller` (`MODE_FULL_INSTALL`, `setAppPackageName`, `setSize`; no Android 12+, `setRequireUserAction(USER_ACTION_NOT_REQUIRED)`), copia o .apk e confirma com um `PendingIntent` (mutável no Android 12+, com intenção explícita) para um receptor do próprio app (`exported="false"`).
@@ -125,12 +125,12 @@ Tudo dentro de um `try/catch (Throwable)`: se algo der errado aqui, o app abre c
 
 ## 6. Testes
 
-- **Java puro** (JUnit 4 pelo Gradle, `testReleaseUnitTest`, com `org.json` para fora do Android): conferência do manifesto (assinatura boa; assinatura de outra chave; manifesto mexido; formato, tipo, versões, SHA-256 e tamanhos inválidos), comparação de versões, regras de "página nova / precisa de app novo / .apk novo / versão ruim / mais velha", descompactar (caminhos com `..`, absolutos, `\`, limites de quantidade e tamanho, sem `index.html`, `painel.json` com outra versão), endereços permitidos nos redirecionamentos, e a máquina de estados (abrir com `pronta`, prova que confirma, prova que não confirma em 30 s, duas aberturas sem confirmar, .apk novo zera tudo, erro em qualquer passo não derruba o abrir).
+- **Java puro** (JUnit 4 pelo Gradle, `testReleaseUnitTest`, com `org.json` para fora do Android): conferência do manifesto (assinatura boa; assinatura de outra chave; manifesto mexido; formato, tipo, versões, SHA-256 e tamanhos inválidos), comparação de versões, regras de "página nova / precisa de app novo / .apk novo / versão ruim / mais velha", descompactar (caminhos com `..`, absolutos, `\`, limites de quantidade e tamanho, sem `index.html`, `painel.json` com outra versão), downloads (redirecionamento para HTTP recusado, mais de 5 redirecionamentos, arquivo maior que o limite, 404), e a máquina de estados (abrir com `pronta`, prova que confirma, prova que não confirma em 30 s, duas aberturas sem confirmar, .apk novo zera tudo, erro em qualquer passo não derruba o abrir).
 - **Assinatura de ponta a ponta**: um keystore de teste (gerado com `keytool` numa pasta temporária) assina com `AssinarPainel.java`, e a mesma classe de conferência do app aceita; outra chave é recusada.
 - **Página** (Playwright, `testes/atualizador.py`, com um plugin `Atualizador` de mentira): painel novo na hora; espera com folha aberta, com o cursor num campo e com o app em segundo plano; avisos de troca e de volta (uma vez); faixa e botão do .apk; texto da primeira vez; falha com o link; `painelOk` só quando a página abriu sem erro; Este celular com as duas versões; o PC mostrando "painel X · app Y".
 - `conferir-nativo.py`: falha quando um arquivo da parte Android muda sem subir a versão, e passa depois de `--gravar`.
 - Os de sempre: `testes/visual.py`, `testes/kryptex_app.py`, `testes/celular.py`, `testes/rolagem_fb.py`, o teste do aplicativo (Electron) e `node desktop/scripts/teste-sincronia.js`.
-- **Android de verdade**: não há aceleração de emulador neste ambiente; tentar um emulador sem aceleração para um teste de ponta a ponta (página nova vinda de um servidor local, troca, volta, instalação do .apk). Para isso, só no build de teste (debug), o endereço base das releases pode ser trocado por uma variável na hora do build. Se o emulador não rodar, a primeira atualização de verdade acontece no celular do Alex, com a 1.8.1, e o desenho acima garante que o pior caso é "não atualizou".
+- **Android de verdade**: neste ambiente não há `/dev/kvm`, e o emulador do Android não roda imagens x86_64 sem aceleração, então não há teste num Android de verdade aqui. Por isso a lógica fica toda em Java puro (testada no JVM), a parte que fala com o Android é fina, e o lint do Android (`lintDebug`) confere o uso das APIs por versão do Android. A primeira atualização de verdade acontece no celular do Alex, com a versão seguinte à 1.8.0, e o desenho acima garante que o pior caso é "não atualizou".
 
 ## 7. Ordem de entrega
 
