@@ -131,6 +131,48 @@ def pacote(www):
     checa("sem o .apk, montar-pacote falha", r.returncode != 0)
 
 
+def ensaio(www):
+    """o publicar.yml monta e assina o pacote com o keystore ainda no lugar, e publica os dois arquivos; os comandos do
+    passo, rodados aqui como estão escritos (com o keystore de teste), dão um envelope que confere"""
+    yml = ler(os.path.join(RAIZ, ".github", "workflows", "publicar.yml"))
+
+    def passo(nome):
+        i = yml.find("- name: " + nome)
+        if i < 0:
+            return ""
+        fins = [k for k in (yml.find("\n      - name:", i + 1), yml.find("\n      - uses:", i + 1)) if k > 0]
+        return yml[i:min(fins) if fins else len(yml)]
+
+    app = passo("Gerar o app do celular")
+    rm = app.find('rm -f "$RUNNER_TEMP/painel.jks"')
+    checa("o pacote é montado e assinado com o keystore ainda no lugar", 0 < app.find("montar-pacote.py") < rm and 0 < app.find("AssinarPainel.java") < rm, app)
+    checa("a release leva o pacote", all(x in passo("Publicar a release") for x in ("painel-celular.zip", "painel-celular.json")))
+    checa("o acréscimo leva o pacote", all(x in passo("Acrescentar o app do celular à release") for x in ("painel-celular.zip", "painel-celular.json")))
+    checa("confere a parte Android antes", "conferir-nativo.py" in passo("Conferir a parte Android do app"))
+    if rm < 0:
+        return
+    # os comandos do passo, como estão escritos, numa cópia da pasta celular (www montado, scripts de verdade)
+    base = tempfile.mkdtemp(dir=TMP)
+    pasta, runner, ws = os.path.join(base, "celular"), os.path.join(base, "runner"), os.path.join(base, "ws")
+    for d in (pasta, runner, ws):
+        os.makedirs(d)
+    subprocess.run(["cp", "-r", www, os.path.join(pasta, "www")], check=True)
+    os.symlink(os.path.join(CELULAR, "scripts"), os.path.join(pasta, "scripts"))
+    subprocess.run(["cp", KS, os.path.join(runner, "painel.jks")], check=True)
+    with open(os.path.join(ws, "Painel-de-Mineracao.apk"), "wb") as f:
+        f.write(b"APK do ensaio " * 500)
+    linhas = [l.strip() for l in app.splitlines()]
+    env = {**os.environ, "RUNNER_TEMP": runner, "GITHUB_WORKSPACE": ws, "PAINEL_KEYSTORE_SENHA": "senha123"}
+    for trecho in ("montar-pacote.py", "AssinarPainel.java", "painel-celular.zip"):
+        cmd = next((l for l in linhas if trecho in l and not l.startswith("#")), None)
+        r = subprocess.run(["bash", "-c", cmd or "false"], cwd=pasta, env=env, capture_output=True, text=True)
+        checa(f"o comando com {trecho} roda", r.returncode == 0, (cmd or "sem comando") + " → " + r.stdout + r.stderr)
+    saida = os.path.join(ws, "painel-celular.json")
+    checa("o envelope da publicação confere", os.path.exists(saida) and verifica_openssl(json.load(open(saida, encoding="utf-8"))) is True)
+    checa("o zip vai para a release", os.path.exists(os.path.join(ws, "painel-celular.zip")))
+
+
 www = montagem()
 pacote(www)
+ensaio(www)
 fim()

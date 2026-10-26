@@ -1,10 +1,12 @@
 name: Publicar versão
 
 # Toda vez que a versão em desktop/package.json muda no main, o GitHub monta o instalador do Windows e o app do
-# celular (Android) e publica a release com o instalador, o .blockmap, o latest.yml e o Painel-de-Mineracao.apk,
-# usando o texto de notas/vX.Y.Z.md. Os painéis instalados encontram a versão nova sozinhos.
-# O app do celular tem a versão dele (celular/package.json), que só sobe quando o app muda: ela vai no rótulo do
-# .apk ("Painel-de-Mineracao.apk (app X.Y.Z)"), e o app só avisa de versão nova quando ela sobe.
+# celular (Android) e publica a release com o instalador, o .blockmap, o latest.yml, o Painel-de-Mineracao.apk e o
+# pacote da página do app (painel-celular.zip e painel-celular.json, o manifesto assinado com a chave do .apk), usando
+# o texto de notas/vX.Y.Z.md. Os painéis instalados encontram a versão nova sozinhos; o app do celular (1.8.0 ou mais
+# novo) baixa a página nova sozinho e, quando a parte Android muda, o .apk novo.
+# O app do celular tem a versão dele (celular/package.json), que só sobe quando a parte Android muda (o passo
+# "Conferir a parte Android do app" garante): ela vai no rótulo do .apk ("Painel-de-Mineracao.apk (app X.Y.Z)").
 # O .apk só sai com a chave de assinatura nos segredos do repositório (ANDROID_KEYSTORE_B64 e ANDROID_KEYSTORE_SENHA).
 # Se a versão já tem release, só confere se falta o .apk (segredos postos depois): aí monta e acrescenta o .apk.
 on:
@@ -62,6 +64,10 @@ jobs:
             fi
           fi
 
+      - name: Conferir a parte Android do app
+        if: steps.v.outputs.apk == 'sim'
+        run: python3 celular/scripts/conferir-nativo.py
+
       - uses: actions/setup-node@v5
         if: steps.v.outputs.publicar == 'sim' || steps.v.outputs.apk == 'sim'
         with:
@@ -107,10 +113,14 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/painel.jks"
           export PAINEL_KEYSTORE="$RUNNER_TEMP/painel.jks"
           (cd android && ./gradlew --no-daemon assembleRelease)
-          rm -f "$RUNNER_TEMP/painel.jks"
           cp android/app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Painel-de-Mineracao.apk"
           bt=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
           "$ANDROID_HOME/build-tools/$bt/apksigner" verify --print-certs "$GITHUB_WORKSPACE/Painel-de-Mineracao.apk"
+          # o pacote da página (a mesma que vai dentro do .apk) e o manifesto assinado com a mesma chave
+          python3 scripts/montar-pacote.py --www www --apk "$GITHUB_WORKSPACE/Painel-de-Mineracao.apk" --saida "$RUNNER_TEMP/pacote"
+          java scripts/AssinarPainel.java "$RUNNER_TEMP/painel.jks" "$RUNNER_TEMP/pacote/manifesto.json" "$GITHUB_WORKSPACE/painel-celular.json"
+          cp "$RUNNER_TEMP/pacote/painel-celular.zip" "$GITHUB_WORKSPACE/painel-celular.zip"
+          rm -f "$RUNNER_TEMP/painel.jks"
 
       - name: Publicar a release
         if: steps.v.outputs.publicar == 'sim'
@@ -120,6 +130,7 @@ jobs:
         run: |
           arquivos=("desktop/dist/Painel-de-Mineracao-Setup-$V.exe" "desktop/dist/Painel-de-Mineracao-Setup-$V.exe.blockmap" "desktop/dist/latest.yml")
           if [ -f Painel-de-Mineracao.apk ]; then arquivos+=("Painel-de-Mineracao.apk#Painel-de-Mineracao.apk (app $APP)"); fi
+          if [ -f painel-celular.zip ] && [ -f painel-celular.json ]; then arquivos+=("painel-celular.zip" "painel-celular.json"); fi
           gh release create "v$V" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Versão $V" --notes-file "notas/v$V.md" "${arquivos[@]}"
 
@@ -128,4 +139,4 @@ jobs:
         env:
           V: ${{ steps.v.outputs.versao }}
           APP: ${{ steps.v.outputs.app }}
-        run: gh release upload "v$V" --repo "$GITHUB_REPOSITORY" "Painel-de-Mineracao.apk#Painel-de-Mineracao.apk (app $APP)"
+        run: gh release upload "v$V" --repo "$GITHUB_REPOSITORY" "Painel-de-Mineracao.apk#Painel-de-Mineracao.apk (app $APP)" painel-celular.zip painel-celular.json
