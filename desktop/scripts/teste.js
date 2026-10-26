@@ -552,7 +552,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
            uma leitura por minuto: a de logo depois não conta de novo) */
         const kxQ = testeSegundoPlano.notificacoes.length;
         kxApp.estado.modo = "quente";
-        await lerKxApp(); await js(`kxa.ultimaContada -= 60e3; true`); await lerKxApp(); await esperar(400);
+        const minutoDepois = () => js(`kxa.ultimaContada -= 60e3; true`);   /* passou um minuto desde a última leitura contada */
+        await minutoDepois(); await lerKxApp(); await minutoDepois(); await lerKxApp(); await esperar(400);
         r.kxApp.quente = { put: putsKxApp().slice(2), estado: await js(`kxa.estado`), protecao: await js(`kxa.protecao && kxa.protecao.motivo`), avisos: avisosDesde(kxQ), agora: await js(textoAgora) };
         await foto("kxapp_quente");
         await js(`voltarKryptex()`);   /* a placa esfriou: volta a minerar pelo painel */
