@@ -10,7 +10,7 @@ const pasta = fs.mkdtempSync(path.join(os.tmpdir(), "sensores-amd-"));
 const arqPid = path.join(pasta, "pid");
 Object.assign(process.env, {
   PAINEL_SENSORES_CMD: path.join(__dirname, "sensores-falso.js"), PAINEL_SENSORES_INTERVALO_MS: "40",
-  PAINEL_SENSORES_ESPERA_MS: "300", PAINEL_SENSORES_OCIOSO_MS: "600", SENSORES_FALSO_PID: arqPid
+  PAINEL_SENSORES_ESPERA_MS: "300", PAINEL_SENSORES_OCIOSO_MS: "600", PAINEL_SENSORES_MUDO_MS: "400", SENSORES_FALSO_PID: arqPid
 });
 const S = require("../sensores-amd.js");
 const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -58,6 +58,25 @@ const leituraKx = () => ({ ok: true, placas: [
     const soNv = { ok: true, placas: [leituraKx().placas[1]] };
     assert.deepEqual(S.juntar(soNv), { ok: true, placas: [leituraKx().placas[1]] });
 
+    /* cada amostra vale para uma leitura do painel só (ele lê de minuto em minuto e conta duas leituras quentes seguidas
+       para pausar): 55 s depois, ela já não entra, senão a mesma amostra quente valeria por duas leituras */
+    S.parar();
+    const relogio = Date.now;
+    try {
+      const t0 = relogio();
+      Date.now = () => t0 + 55e3;
+      const velha = S.ultima();
+      assert(!velha.ok, "a amostra de 55 s atrás não conta mais: " + JSON.stringify(velha));
+    } finally { Date.now = relogio; S.parar(); }
+
+    /* consumo 0 não é medida (o sensor veio marcado como lido, mas sem valor): a placa fica sem consumo medido */
+    process.env.SENSORES_FALSO_PLACAS = JSON.stringify([{ bus: 3, nome: "AMD Radeon RX 9070 XT", borda: 46, placaW: -30 }]);   // o falso alterna −30 e 0
+    S._zerar();
+    S.ultima(); assert(await ate(() => { const x = S.ultima(); return x.ok && x.placas[0].n >= 2; }), "leituras com consumo 0");
+    assert.equal(S.ultima().placas[0].placaW, null, "consumo 0 não conta");
+    assert.equal(S.juntar(leituraKx()).placas[0].watts, null, "a placa fica sem consumo medido");
+    delete process.env.SENSORES_FALSO_PLACAS;
+
     /* valores fora do possível não entram */
     S.parar();
     process.env.SENSORES_FALSO_PLACAS = JSON.stringify([{ bus: 3, nome: "AMD Radeon RX 9070 XT", borda: 46, memoria: 300, quente: -50, placaW: 9000, rpm: 2700 }]);
@@ -83,6 +102,24 @@ const leituraKx = () => ({ ok: true, placas: [
     await esperar(350);
     S.ultima(); assert(S.estado().rodando, "ligou de novo depois da espera");
     S.parar();
+
+    /* o leitor continua vivo, mas parou de mandar leituras boas (o ADL deixou de responder depois de uma atualização do
+       driver, ou o leitor travou): depois de um tempo sem leitura boa, ele é encerrado e liga de novo depois da espera */
+    for (const modo of ["sem-sensores", "mudo"]) {
+      S._zerar();
+      process.env.SENSORES_FALSO_MODO = modo;
+      S.ultima();
+      assert(await ate(() => { try { return vivo(pidAtual()) && S.estado().rodando; } catch (e) { return false; } }), "começou: " + modo);
+      const pidM = pidAtual();
+      assert(await ate(() => { S.ultima(); return !S.estado().rodando; }, 2000), "encerrou o leitor sem leituras: " + modo);
+      assert(await ate(() => !vivo(pidM)), "o processo acabou: " + modo);
+      if (modo === "sem-sensores") assert.equal(S.estado().erro, "sem-sensores");
+      S.ultima(); assert(!S.estado().rodando, "espera antes de ligar de novo: " + modo);
+      await esperar(350);
+      S.ultima(); assert(S.estado().rodando, "ligou de novo depois da espera: " + modo);
+      S.parar();
+    }
+    delete process.env.SENSORES_FALSO_MODO;
 
     /* sem placa AMD (ou sem o driver): para e só confere de novo bem depois */
     S._zerar();

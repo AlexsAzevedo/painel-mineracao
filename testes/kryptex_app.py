@@ -82,6 +82,48 @@ def kryptex_app(p):
     pq = pg.evaluate("""(() => { const est = {quentes: 0}, c = {...kxaCfg(), protecao: true}, l = LEIT({}, {temp: 50, tempMem: 80, tempHot: 106});
       deveProteger(est, l, c, Date.now()); return deveProteger(est, l, c, Date.now() + 60e3); })()""")
     checa("proteção pelo ponto mais quente", bool(pq) and pq["minutos"] == 15 and "ponto mais quente a 106 °C" in pq["motivo"], pq)
+    # "Ler agora" (ou o Atualizar do celular) logo depois de uma leitura: o leitor da AMD dá a temperatura mais alta dos
+    # últimos segundos, e a mesma amostra quente não pode valer por duas leituras seguidas
+    pr = pg.evaluate("""(() => { const est = {quentes: 0}, c = {...kxaCfg(), protecao: true}, l = LEIT({}, {temp: 50, tempMem: 80, tempHot: 106}), t = Date.now();
+      return [deveProteger(est, l, c, t), deveProteger(est, l, c, t + 10e3), deveProteger(est, l, c, t + 60e3)]; })()""")
+    checa("a leitura logo depois não conta de novo para a proteção", pr[0] is None and pr[1] is None and bool(pr[2]) and pr[2]["minutos"] == 15, pr)
+    # setup com mais de uma máquina: o app da Kryptex é só deste PC (o da RX 9070 XT). O PC na tomada (quadro, ritmo e o
+    # celular) é só ele, com a fonte dele, em qualquer ordem das máquinas; a luz de hoje soma as outras pelo estimado
+    mm = pg.evaluate("""(async () => {
+      const antes = {setup, placas};
+      try {
+        placas = [...antes.placas, {_id: "l2", modelo: "amd-rx-6600", qtd: 2, preco: 900, data: "2026-10-01"}];
+        const PC = maqBase({id: "pc", nome: "PC", fonteW: 850, selo: "Gold", base: 30}), RIG = maqBase({id: "rig", nome: "Rig", fonteW: 650, selo: "Bronze", base: 30});
+        const usar = (ms) => { setup = migrarSetup({tensao: 220, maquinas: ms, aloc: {l1: "pc", l2: "rig"}}); };
+        const l = LEIT({}, {watts: 370, tempMem: 76, tempHot: 77});
+        usar([RIG, PC]);
+        const dc = 370 + calcMaq(setup.maquinas[1]).wCpu + 30, esperado = dc / eficiencia("Gold", dc / 850, 220), rig = calcMaq(setup.maquinas[0]).tomada;
+        const rigPrimeiro = wattsNaTomada(370, l);
+        await simularLeituras([l]);
+        const amostra = kxaHist.amostras.at(-1)[2], ret = retratoKxa(Date.now()), rt = ritmoKxa(l);
+        usar([PC, RIG]);
+        const pcPrimeiro = wattsNaTomada(370, l);
+        /* acha este PC pelo modelo das placas, mesmo quando a outra máquina tem menos placas */
+        placas = [...antes.placas, {_id: "l2", modelo: "amd-rx-6600", qtd: 2, preco: 900, data: "2026-10-01"}, {_id: "l3", modelo: "amd-rx-6600", qtd: 1, preco: 900, data: "2026-10-01"}];
+        setup = migrarSetup({tensao: 220, maquinas: [RIG, PC], aloc: {l1: "pc", l2: "pc", l3: "rig"}});
+        const peloModelo = (maqDestePc(l) || {}).id;
+        placas = [...antes.placas, {_id: "l2", modelo: "amd-rx-6600", qtd: 2, preco: 900, data: "2026-10-01"}];
+        /* uma placa minerando sem medida no mesmo PC: entra pelo consumo do catálogo, não como 0 W */
+        usar([PC]);
+        const l2 = LEIT({}, {watts: 370});
+        l2.placas.splice(1, 0, {...l2.placas[0], id: "gpu-2", nome: "AMD Radeon RX 6600", watts: null, tempMem: null, hash: 2e13, rendimentoUsd: 0.4});
+        const w6600 = dados(byId["amd-rx-6600"]).w, r2 = ritmoKxa(l2);
+        await simularLeituras([l2]);
+        return {esperado, rig, rigPrimeiro, pcPrimeiro, peloModelo, amostra, wattsPc: ret.wattsPc, lucro: rt.lucroDia, lucroEsperado: rt.brutoDia - esperado * 24 / 1000 * tarifaEf(),
+          lucro2: r2.lucroDia, lucro2Esperado: r2.brutoDia - wattsNaTomada(370 + w6600, l2) * 24 / 1000 * tarifaEf(), wattsPc2: retratoKxa(Date.now()).wattsPc, pc2: wattsNaTomada(370 + w6600, l2)};
+      } finally { setup = antes.setup; placas = antes.placas; }
+    })()""")
+    perto = lambda a, b: a is not None and b is not None and abs(a - b) < 1e-6
+    checa("várias máquinas: o PC na tomada é só este PC, com a fonte dele", perto(mm["rigPrimeiro"], mm["esperado"]) and perto(mm["pcPrimeiro"], mm["esperado"]), mm)
+    checa("várias máquinas: acha este PC pelo modelo das placas", mm["peloModelo"] == "pc", mm)
+    checa("várias máquinas: o celular e o ritmo usam só este PC", perto(mm["wattsPc"], mm["esperado"]) and perto(mm["lucro"], mm["lucroEsperado"]), mm)
+    checa("várias máquinas: a luz de hoje soma as outras pelo estimado", perto(mm["amostra"], mm["esperado"] + mm["rig"]), mm)
+    checa("placa sem medida no mesmo PC entra pelo catálogo", perto(mm["lucro2"], mm["lucro2Esperado"]) and perto(mm["wattsPc2"], mm["pc2"]), mm)
     checa("limite do ponto mais quente: 105 °C", pg.evaluate("kxaCfg().limHot") == 105)
     rt = pg.evaluate("""(() => { kxa = novoKxa(); kxaHist = {v: 2, amostras: []}; const l = LEIT({}, {watts: 373, tempHot: 77}); processarLeituraKxa(l, Date.now());
       const r = retratoKxa(); kxaHist = {v: 2, amostras: []}; kxa = novoKxa(); const l2 = LEIT({}, {watts: null}); processarLeituraKxa(l2, Date.now()); const r2 = retratoKxa();

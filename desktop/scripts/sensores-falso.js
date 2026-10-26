@@ -2,7 +2,9 @@
 /* Leitor de sensores AMD de mentira para os testes (no lugar do sensores-amd.ps1): imprime uma linha de JSON a cada
    PAINEL_SENSORES_INTERVALO_MS (padrão 50 ms), no mesmo formato do leitor de verdade.
    SENSORES_FALSO_MODO: "ok" (padrão), "sem-amd" (só a linha de erro, e continua rodando, como o de verdade), "cai" (uma
-   leitura e sai). SENSORES_FALSO_PLACAS: a lista das placas (JSON); o consumo alterna entre placaW e placaW + 30.
+   leitura e sai), "sem-sensores" (o ADL parou de mandar os sensores: a linha de erro a cada vez, e continua rodando) e
+   "mudo" (roda sem imprimir nada). SENSORES_FALSO_PLACAS: a lista das placas (JSON); o consumo alterna entre placaW e
+   placaW + 30.
    SENSORES_FALSO_PID: arquivo onde grava o número do processo (para o teste ver se ele foi encerrado). */
 const fs = require("fs");
 const modo = process.env.SENSORES_FALSO_MODO || "ok";
@@ -12,10 +14,11 @@ if (process.env.SENSORES_FALSO_PID) fs.writeFileSync(process.env.SENSORES_FALSO_
 let n = 0;
 function linha() {
   if (modo === "sem-amd") return { ok: false, erro: "sem-amd", msg: "nenhuma placa AMD" };
+  if (modo === "sem-sensores") return { ok: false, erro: "sem-sensores", msg: "o ADL não mandou os sensores das placas AMD" };
   return { ok: true, quando: Date.now(), placas: placas.map((p) => ({ ...p, ...(p.placaW != null ? { placaW: p.placaW + (n % 2) * 30 } : {}) })) };
 }
 function passo() {
-  process.stdout.write(JSON.stringify(linha()) + "\r\n");
+  if (modo !== "mudo") process.stdout.write(JSON.stringify(linha()) + "\r\n");
   n++;
   if (modo === "cai") process.exit(0);
 }

@@ -1,26 +1,30 @@
 "use strict";
 /* Sensores das placas de vídeo AMD (Windows). O leitor sensores-amd.ps1 (PowerShell escondido, pela biblioteca ADL que
-   vem com o driver da AMD) fica rodando e manda uma leitura a cada 10 segundos; aqui ficam as do último minuto. Só lê.
+   vem com o driver da AMD) fica rodando e manda uma leitura a cada 10 segundos; aqui ficam as dos últimos 50 segundos
+   (menos que o minuto entre as leituras do painel: a mesma amostra não entra em duas leituras seguidas). Só lê.
    juntar(leitura) completa a leitura do app da Kryptex (kryptex-app.js) com o que ela não traz nas placas AMD: a
    temperatura da memória e do ponto mais quente, o consumo da placa e as rotações da ventoinha.
    O leitor começa na primeira pergunta (a leitura do app da Kryptex, a cada minuto) e para depois de 5 minutos sem
-   ninguém perguntar. Se ele cair, liga de novo depois de 1, 5 e 30 minutos; sem placa AMD ou sem o driver, só confere
-   de novo depois de 1 hora.
+   ninguém perguntar. Se ele cair, ou ficar 2 minutos sem mandar leitura boa (o ADL parou de responder depois de uma
+   atualização do driver, ou ele travou), liga de novo depois de 1, 5 e 30 minutos; sem placa AMD ou sem o driver, só
+   confere de novo depois de 1 hora.
    No teste: PAINEL_SENSORES_CMD (um script de Node que imprime as linhas) no lugar do PowerShell, e
-   PAINEL_SENSORES_INTERVALO_MS, PAINEL_SENSORES_ESPERA_MS e PAINEL_SENSORES_OCIOSO_MS para os tempos. */
+   PAINEL_SENSORES_INTERVALO_MS, PAINEL_SENSORES_ESPERA_MS, PAINEL_SENSORES_OCIOSO_MS e PAINEL_SENSORES_MUDO_MS para os
+   tempos. */
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const INTERVALO_S = 10, JANELA = 70e3;
+const INTERVALO_S = 10, JANELA = 50e3;
 const num = (v, d) => (Number(process.env[v]) > 0 ? Number(process.env[v]) : d);
 const ESPERAS = () => { const t = num("PAINEL_SENSORES_ESPERA_MS", 0); return t ? [t, t, t] : [60e3, 5 * 60e3, 30 * 60e3]; };
 const ESPERA_SEM_AMD = () => num("PAINEL_SENSORES_ESPERA_MS", 0) * 4 || 60 * 60e3;
 const OCIOSO = () => num("PAINEL_SENSORES_OCIOSO_MS", 5 * 60e3);
-/* o que é possível numa placa de vídeo; fora disso, o número é lixo */
-const FAIXAS = { borda: [-20, 150], memoria: [-20, 150], quente: [-20, 150], placaW: [0, 1500], rpm: [0, 10000], vent: [0, 100], uso: [0, 100] };
+const MUDO = () => num("PAINEL_SENSORES_MUDO_MS", 2 * 60e3);
+/* o que é possível numa placa de vídeo; fora disso, o número é lixo (consumo 0 é sensor sem valor, não medida) */
+const FAIXAS = { borda: [-20, 150], memoria: [-20, 150], quente: [-20, 150], placaW: [1, 1500], rpm: [0, 10000], vent: [0, 100], uso: [0, 100] };
 
-let proc = null, buffer = "", leituras = [], falhas = 0, proximaTentativa = 0, ultimoPedido = 0, timerOcioso = null;
+let proc = null, buffer = "", leituras = [], falhas = 0, proximaTentativa = 0, ultimoPedido = 0, timerOcioso = null, inicio = 0, ultimaBoa = 0;
 let estado = { erro: "", msg: "", metodo: "" };
 
 function comando() {
@@ -47,7 +51,7 @@ function receber(linha) {
     const placas = o.placas.slice(0, 8).map(limpo);
     leituras.push({ t: Date.now(), placas });
     const lim = Date.now() - JANELA; leituras = leituras.filter((l) => l.t >= lim);
-    falhas = 0; estado = { erro: "", msg: "", metodo: (placas.find((p) => p.metodo) || {}).metodo || "" };
+    falhas = 0; ultimaBoa = Date.now(); estado = { erro: "", msg: "", metodo: (placas.find((p) => p.metodo) || {}).metodo || "" };
     return;
   }
   if (o.ok === false) {
@@ -70,7 +74,7 @@ function iniciar() {
   let p;
   try { p = spawn(c.cmd, c.args, { env: c.env, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }); }
   catch (e) { caiu(String(e && e.message || e)); return; }
-  proc = p; buffer = "";
+  proc = p; buffer = ""; inicio = Date.now(); ultimaBoa = 0;
   p.stdout.setEncoding("utf8");
   p.stdout.on("data", (d) => {
     if (proc !== p) return;
@@ -97,9 +101,12 @@ function armarOcioso() {
   if (timerOcioso.unref) timerOcioso.unref();
 }
 
-/* as leituras do último minuto de cada placa: a temperatura mais alta, o consumo médio, a ventoinha da última */
+/* as leituras dos últimos 50 s de cada placa: a temperatura mais alta, o consumo médio, a ventoinha da última */
 function ultima() {
-  ultimoPedido = Date.now(); iniciar(); armarOcioso();
+  ultimoPedido = Date.now();
+  /* vivo, mas sem leitura boa há um tempo: encerra e liga de novo depois da espera (o ADL volta a responder num leitor novo) */
+  if (proc && Date.now() - Math.max(inicio, ultimaBoa) > MUDO()) { encerrar(); caiu("o leitor parou de mandar leituras"); }
+  iniciar(); armarOcioso();
   const lim = Date.now() - JANELA, rec = leituras.filter((l) => l.t >= lim);
   if (!rec.length) return { ok: false, erro: estado.erro || "esperando", msg: estado.msg };
   const porBus = new Map();
@@ -140,6 +147,6 @@ function juntar(l) {
 function parar() { encerrar(); if (timerOcioso) { clearInterval(timerOcioso); timerOcioso = null; } }
 function estadoLeitor() { return { rodando: !!proc, ...estado }; }
 /* só para o teste: esquece as leituras e as esperas */
-function _zerar() { parar(); leituras = []; falhas = 0; proximaTentativa = 0; estado = { erro: "", msg: "", metodo: "" }; }
+function _zerar() { parar(); leituras = []; falhas = 0; proximaTentativa = 0; inicio = ultimaBoa = 0; estado = { erro: "", msg: "", metodo: "" }; }
 
 module.exports = { ultima, juntar, parar, estado: estadoLeitor, _zerar };
