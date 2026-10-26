@@ -5511,7 +5511,9 @@ function deveProteger(est, l, c, agora){
 function ritmoKxa(l){
   if(!l || !l.ok) return {brutoDia:0, lucroDia:0};
   const usd = (l.cotacoes && l.cotacoes.brl>0) ? l.cotacoes.brl : cfg.dolar, ms = l.placas.filter(p=>p.minerando);
-  const bruto = ms.reduce((a,p)=>a + (p.rendimentoUsd||0), 0)*usd, w = ms.reduce((a,p)=>a + (p.watts||0), 0);
+  /* consumo: o que o app da Kryptex manda; sem ele (placas AMD), o estimado do PC na tomada, como na luz de hoje */
+  const bruto = ms.reduce((a,p)=>a + (p.rendimentoUsd||0), 0)*usd;
+  const w = !ms.length ? 0 : ms.some(p=>p.watts!=null) ? ms.reduce((a,p)=>a + (p.watts||0), 0) : wattsEstimados();
   return {brutoDia: bruto, lucroDia: bruto - w*24/1000*tarifaEf()};
 }
 /* desde quando está minerando sem parar, pelas leituras (sem buracos de mais de 10 minutos) */
@@ -6246,11 +6248,13 @@ function htmlAgoraVivo(r, comAcoes, retrato){
     : r.estado==="minerando" && p0 ? `${esc(moedaTxt(p0))}${r.minerandoDesde && agora - r.minerandoDesde >= 60e3 ? " · há " + duracao(agora - r.minerandoDesde) : ""}`
     : r.estado==="fechado" ? `sem resposta desde ${horaMin(r.quando)} · números da última leitura` : r.estado==="parada" ? "o app da Kryptex está aberto, mas a placa não está minerando" : "";
   const watts = r.placas.filter(p=>p.minerando && p.watts!=null).reduce((a,p)=>a + p.watts, 0);
+  /* o app da Kryptex não manda o consumo das placas AMD: mostra o estimado do PC na tomada (o mesmo da luz de hoje) */
+  const wEst = !(watts>0) && !antigos && r.placas.some(p=>p.minerando) ? wattsEstimados() : 0;
   const tile = (rot, val, sub) => `<div class="ag-n"><span class="lbl">${rot}</span><b>${val}</b><small>${sub}</small></div>`;
   const nums = [
     tile("Hashrate", p0 && p0.minerando ? hashTxt(p0.hash) : "—", r.hash24>0 ? "24 h: " + hashTxt(r.hash24) : "24 h: —"),
     tile("Temperatura", p0 && p0.temp!=null ? Math.round(p0.temp) + " °C" : "—", p0 && p0.tempMem!=null ? `memória ${Math.round(p0.tempMem)} °C` : "memória: —"),
-    tile("Consumo", watts>0 ? Math.round(watts) + " W" : "—", `${brl(h.luz)} de luz hoje`),
+    tile("Consumo", watts>0 ? Math.round(watts) + " W" : wEst>0 ? `≈ ${Math.round(wEst)} W` : "—", wEst>0 ? `estimado · ${brl(h.luz)} de luz hoje` : `${brl(h.luz)} de luz hoje`),
     tile("Ventoinha", p0 && p0.ventoinha!=null ? Math.round(p0.ventoinha) + "%" : "—", p0 && p0.rpm!=null ? Math.round(p0.rpm).toLocaleString("pt-BR") + " rpm" : "rpm: —")
   ].join("");
   const rt = r.ritmo || {}, ritmo = !antigos && r.estado==="minerando" && rt.brutoDia>0

@@ -4,6 +4,7 @@
 const assert = require("assert");
 const http = require("http");
 const falso = require("./kryptex-falso.js")();
+const servidores = [];   /* os servidores com o formato do app de verdade: fecham no fim, mesmo se um teste falhar */
 
 const srv = http.createServer((req, res) => falso.tratar(req, res, new URL(req.url, "http://x").pathname));
 srv.listen(0, "127.0.0.1", async () => {
@@ -72,6 +73,14 @@ srv.listen(0, "127.0.0.1", async () => {
     /* quente */
     falso.estado.modo = "quente";
     assert.equal((await K.ler()).placas[0].temp, 86);
+    /* formato antigo (sem "state" e "process"): minerando é quem mede a velocidade aqui; parado, nada */
+    falso.estado.formato = "antigo";
+    for (const [modo, min] of [["minerando", true], ["parado", false], ["pausado", false]]) {
+      falso.estado.modo = modo;
+      const x = (await K.ler()).placas[0];
+      assert(x.minerando === min && x.estado === null && (modo === "parado" ? x.hash === 0 : x.hash > 0), modo + " " + JSON.stringify({ minerando: x.minerando, hash: x.hash, estado: x.estado }));
+    }
+    falso.estado.formato = "real";
     /* app sem responder: desiste em uns 4 segundos */
     falso.estado.modo = "fechado";
     const t0 = Date.now(), f = await K.ler();
@@ -83,11 +92,39 @@ srv.listen(0, "127.0.0.1", async () => {
     process.env.PAINEL_KRYPTEX_LOCAL = "http://127.0.0.1:1";
     const fe = await K.ler();
     assert(!fe.ok && fe.erro === "fechado", JSON.stringify(fe));
+    /* o app de verdade (RX 9070 XT minerando Pearl, 25/10/2026): o que está minerando vem em "process" e "state"; em
+       "algorithm_combinations" ficam os números do teste de velocidade de cada moeda, que continuam lá parada */
+    const real = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "kryptex-real.json"), "utf8"));
+    const servirReal = (dev) => new Promise((ok) => {
+      const s = http.createServer((req, res) => {
+        const R = { "/devices": dev, "/balance": { total: 0.00016888, withdrawable: 0 }, "/pause": { pause: false }, "/currency-rates": { brl: 4.965198, btc: 0.0000125, usd: 1 }, "/configuration": { currency: "brl" } };
+        const b = R[new URL(req.url, "http://x").pathname]; res.writeHead(b ? 200 : 404, { "Content-Type": "application/json" }); res.end(JSON.stringify(b || {}));
+      });
+      servidores.push(s); s.listen(0, "127.0.0.1", () => ok(s));
+    });
+    const s1 = await servirReal(real);
+    process.env.PAINEL_KRYPTEX_LOCAL = `http://127.0.0.1:${s1.address().port}`;
+    const lr = await K.ler();
+    const gr = lr.placas.find((x) => x.nome === "AMD Radeon RX 9070 XT");
+    assert(gr && gr.minerando && gr.moeda === "PRL" && gr.algoritmo === "pearlhash" && gr.minerador === "srbminer", JSON.stringify(gr));
+    assert.equal(gr.hash, 106823893301207.16); assert.equal(gr.rendimentoUsd, 2.787783143481603);
+    assert(gr.temp === 45 && gr.tempMem === null && gr.watts === null && gr.ventoinha === 74, JSON.stringify(gr));
+    assert.equal(gr.estado, "mining");
+    assert(!lr.placas.find((x) => x.tipo === "cpu").minerando, "o processador está desligado no app");
+    /* o minerador parou (sem "process", estado idle): os números do teste de velocidade não contam como minerando */
+    const parada = JSON.parse(JSON.stringify(real)), gp = parada.find((x) => x.device.name === "AMD Radeon RX 9070 XT");
+    delete gp.process; gp.state = { state: "idle" };
+    for (const c of gp.algorithm_combinations) for (const m of c.miners) for (const ca of m.stats.coin_algorithms) ca.local_hashrate = 0;
+    const s2 = await servirReal(parada);
+    process.env.PAINEL_KRYPTEX_LOCAL = `http://127.0.0.1:${s2.address().port}`;
+    const lpa = (await K.ler()).placas.find((x) => x.nome === "AMD Radeon RX 9070 XT");
+    assert(!lpa.minerando && lpa.hash === 0 && lpa.estado === "idle", JSON.stringify({ minerando: lpa.minerando, hash: lpa.hash, moeda: lpa.moeda, estado: lpa.estado }));
+    assert(lpa.rendimentoUsd > 2.8, "parada: o quanto renderia");
     console.log("ok");
   } catch (e) {
     console.error("FALHOU:", e && e.message || e);
     process.exitCode = 1;
   } finally {
-    srv.closeAllConnections(); srv.close();
+    for (const s of [srv, ...servidores]) { s.closeAllConnections(); s.close(); }
   }
 });

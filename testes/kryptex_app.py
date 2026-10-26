@@ -12,6 +12,7 @@ FIXTURAS = """(() => {
     hash:0, rendimentoUsd:0.31, temp:52, tempMem:null, tempHot:null, watts:null, ventoinha:null, rpm:null, erros1h:0};
   const LEIT = (o, placa) => ({ok:true, quando:Date.now(), pausado:false, pausaAte:null, moeda:"BRL", computador:"PC-TESTE", cotacoes:{brl:4.965204, btc:0.00001237},
     saldoBtc:0.0001, placas:[PLACA(placa || {}), CPU], desconhecidos:[], ...o});
+  window.LEIT = LEIT;
   window.MIN = LEIT();
   window.PARADO = LEIT({}, {minerando:false, hash:0, moeda:"", minerador:"", watts:18});
   window.PAUSADO_COM_HASH = LEIT({pausado:true}, {minerando:false, watts:20});
@@ -55,6 +56,12 @@ def kryptex_app(p):
     checa("buraco_nao_avisa", pg.evaluate("simularLeituras([[0, MIN], [360, PARADO], [361, PARADO]])")["alertas"] == [])
     checa("luz do buraco", abs(pg.evaluate("hojeKxa([[AGORA-6*3600e3, 0.0001, 286, 1, 1, 63, 78], [AGORA, 0.0001, 286, 1, 1, 63, 78]], AGORA, 1.0, 400000).kwh") - 0.286 * 5 / 60) < 1e-6)
     checa("sem watts: tomada do setup", pg.evaluate("hojeKxa([[AGORA-60e3, 0.0001, null, 1, 1, 63, 78]], AGORA, 1.0, 400000).kwh > 0"))
+    # placa AMD de verdade: o app da Kryptex não manda o consumo; o ritmo de agora desconta a luz estimada (setup na tomada)
+    rt = pg.evaluate("""(() => { const l = LEIT({}, {watts: null, tempMem: null}), r = ritmoKxa(l), w = wattsEstimados();
+      return {bruto: r.brutoDia, lucro: r.lucroDia, w, esperado: r.brutoDia - w * 24 / 1000 * tarifaEf()}; })()""")
+    checa("sem watts: o ritmo desconta a luz estimada", rt["w"] > 0 and abs(rt["lucro"] - rt["esperado"]) < 1e-9 and rt["lucro"] < rt["bruto"], rt)
+    cons = pg.evaluate("(() => { const l = LEIT({}, {watts: null, tempMem: null}); const r = {...l, estado: 'minerando', hoje: {ganho: 1, luz: 0.5, lucro: 0.5}, linha: [], ritmo: ritmoKxa(l)}; const d = document.createElement('div'); d.innerHTML = htmlAgoraVivo(r, false); return [...d.querySelectorAll('.ag-n')].find(n => /Consumo/i.test(n.textContent)).innerText.replace(/\\s+/g, ' '); })()")
+    checa("sem watts: o consumo aparece estimado", "≈ 320 W" in cons and "estimado" in cons, cons)
     # pausado com o hashrate de antes: não avisa
     checa("pausado_nao_avisa", pg.evaluate("simularLeituras([MIN, PAUSADO_COM_HASH, PAUSADO_COM_HASH, PAUSADO_COM_HASH])") == {"estado": "pausada", "alertas": [], "acoes": []})
     # parou e voltou (com os avisos no celular ligados)

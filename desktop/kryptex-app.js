@@ -66,24 +66,44 @@ function placaDe(d, pausado, desconhecidos) {
   const dev = (d && d.device) || {}, rd = (d && d.reading) || {};
   const tipo = String(dev.type || "").toLowerCase() === "cpu" ? "cpu" : "gpu";
   const desativada = !!(dev.configuration && dev.configuration.disabled);
-  let ativo = null, melhor = 0;
+  /* o app de verdade (visto em 25/10/2026, RX 9070 XT minerando Pearl): "state" diz se a placa está minerando e "process"
+     diz o quê (moeda, minerador, velocidade e quanto rende agora). Em "algorithm_combinations" ficam os números do teste
+     de velocidade de cada moeda, que continuam lá com a placa parada: valem só para o quanto ela renderia. */
+  const estado = d && d.state && typeof d.state === "object" ? String(d.state.state || "").toLowerCase().slice(0, 24) : "";
+  const proc = d && d.process && typeof d.process === "object" ? d.process : null;
+  const comb0 = proc && proc.algorithm_combination && typeof proc.algorithm_combination === "object" ? proc.algorithm_combination : null;
+  const alg0 = (comb0 && Array.isArray(comb0.algorithms) && comb0.algorithms[0]) || null;
+  const real = !!(estado || proc);
+  let ativo = null, melhor = 0, erros1h = 0;
   for (const comb of Array.isArray(d && d.algorithm_combinations) ? d.algorithm_combinations : []) {
     const alg = (comb && Array.isArray(comb.algorithms) && comb.algorithms[0]) || {};
     for (const m of (comb && Array.isArray(comb.miners) ? comb.miners : [])) {
       const st = (m && m.stats) || {}, cas = Array.isArray(st.coin_algorithms) ? st.coin_algorithms : [];
-      const hash = cas.reduce((a, c) => a + (pos(c && c.local_hashrate) || pos(c && c.hashrate) || 0), 0);
       const rend = pos(st.profitability) ?? cas.reduce((a, c) => a + (pos(c && c.profitability) || 0), 0);
       if (rend > melhor) melhor = rend;
-      if (!(hash > 0 || (num(st.process_count) || 0) > 0)) continue;
+      const mv = proc && proc.miner_version, deste = comb0 && comb && comb.id === comb0.id && mv && mv.miner && m && m.id === mv.miner.id;
+      if (deste) erros1h = num(st.error_count_1h) || 0;
+      if (real) continue;
+      /* formato sem "state" e "process" (versões antigas): minerando é quem tem velocidade medida aqui (local_hashrate) */
+      const hash = cas.reduce((a, c) => a + (pos(c && c.local_hashrate) || 0), 0);
+      if (!(hash > 0)) continue;
       if (!ativo || hash > ativo.hash) ativo = { hash, rend, moeda: String(alg.coin || "").toUpperCase().slice(0, 12), algoritmo: String(alg.algorithm || "").slice(0, 32),
         minerador: String((m && m.name) || "").slice(0, 32), erros1h: num(st.error_count_1h) || 0 };
     }
   }
+  if (alg0) {
+    const r0 = (alg0.reading && typeof alg0.reading === "object" && alg0.reading) || {}, mv = proc.miner_version || {};
+    ativo = { hash: pos(r0.hashrate) || 0, rend: pos(comb0.profitability) ?? pos(r0.profitability) ?? melhor,
+      moeda: String(alg0.coin || "").toUpperCase().slice(0, 12), algoritmo: String(alg0.algorithm || "").slice(0, 32),
+      minerador: String((mv.miner && mv.miner.name) || "").slice(0, 32), erros1h };
+  }
+  /* minerando: "mining"; com o processo rodando e um estado que não diz parada (testando a velocidade, começando…), também */
+  const rodando = real ? (estado === "mining" || (!!proc && !!ativo && !/idle|stop|paus|error|fail|off|disabl/.test(estado))) : !!ativo;
   for (const [k, v] of Object.entries(rd)) if (!CONHECIDOS.has(k) && num(v) != null && desconhecidos.size < 30) desconhecidos.add(String(k).slice(0, 40));
   const fan = num(rd.fan_speed);
   return {
-    id: String(dev.id || (d && d.id) || "").slice(0, 64), tipo, nome: String(dev.name || "").slice(0, 80), desativada,
-    minerando: !!ativo && !pausado && !desativada,
+    id: String(dev.id || (d && d.id) || "").slice(0, 64), tipo, nome: String(dev.name || "").slice(0, 80), desativada, estado: estado || null,
+    minerando: rodando && !!ativo && !pausado && !desativada,
     moeda: ativo ? ativo.moeda : "", algoritmo: ativo ? ativo.algoritmo : "", minerador: ativo ? ativo.minerador : "",
     hash: ativo ? ativo.hash : 0, rendimentoUsd: ativo ? ativo.rend : melhor,
     temp: primeiro(rd, CAMPOS.temp), tempMem: primeiro(rd, CAMPOS.tempMem), tempHot: primeiro(rd, CAMPOS.tempHot), watts: primeiro(rd, CAMPOS.watts),
