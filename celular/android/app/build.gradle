@@ -59,6 +59,9 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
+    // testes do atualizador no JVM (./gradlew testDebugUnitTest); o org.json do Android não funciona fora do celular
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.json:json:20250517"
 }
 
 apply from: 'capacitor.build.gradle'
