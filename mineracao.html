@@ -5556,7 +5556,10 @@ function migrarSaldoKxa(l){
     for(const s of kxHist.saldos) if(Array.isArray(s) && veioDoApp(s[0], s[1])){ s[1] = s[1]*f; desde = Math.min(desde, s[0]); }
     if(kx.saldo && veioDoApp(kx.saldo.quando, kx.saldo.btc)){ kx.saldo.btc = kx.saldo.btc*f; kx.saldo.fiat = kx.saldo.preco>0 ? kx.saldo.btc*kx.saldo.preco : null; }
     if(desde<Infinity){
-      const d0 = isoLocal(new Date(desde));
+      /* desde o dia do saldo anterior ao primeiro do app: o trecho entre os dois (o PC desligado na virada do dia) também
+         entrou nas contas daquele dia */
+      const ant = kxHist.saldos.reduce((m, s) => Array.isArray(s) && s[0]<desde && s[0]>m ? s[0] : m, -Infinity);
+      const d0 = isoLocal(new Date(ant>-Infinity ? ant : desde));
       for(const d of Object.keys(kx.dias)) if(d>=d0) delete kx.dias[d];
       kx.gravado = 0;   /* o celular recebe os dias refeitos na próxima gravação */
     }

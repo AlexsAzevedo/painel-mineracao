@@ -127,6 +127,23 @@ def kryptex_app(p):
     checa("1.6.1: os saldos do app nos dias da Kryptex também (os do site não)", abs(mig["s4"] - 0.0050139 * 0.00001251) < 1e-15 and mig["site"] == 0.00000005, mig)
     checa("1.6.1: o saldo de agora e o dia de ontem refeitos", mig["saldo"] < 1e-6 and mig["fiat"] < 0.03 and mig["ontem"] is not None and mig["ontem"] < 0.01, mig)
     checa("o histórico do app guarda a versão", mig.get("carrega") == [2, 1, 1, 1], mig)
+    # o dia anterior ao primeiro saldo do app também é refeito: ele pode ter usado o trecho "último saldo do site → primeiro do
+    # app" (o PC desligado na virada do dia). Os dias só com saldos do site ficam como estão
+    mig2 = pg.evaluate("""(() => {
+      const agora = Date.now(), d = new Date(agora); d.setHours(0, 0, 0, 0); const ini = d.getTime();
+      const ontem = isoLocal(new Date(ini - 3600e3)), anteontem = isoLocal(new Date(ini - 25 * 3600e3)), preco = 4.965198 / 0.00001251;
+      const ts = [ini + 8 * 3600e3, ini + 8.5 * 3600e3], usd = [0.0030, 0.0031];
+      kxa = novoKxa();
+      kxaHist = {amostras: ts.map((t, i) => [t, usd[i], null, 1, 1.1e14, 46, null])};   // gravado pela 1.6.1 (sem "v")
+      kxHist.saldos = [[ini - 47 * 3600e3, 0.00000004, 396000], [ini - 30 * 60e3, 0.00000006, 396000], ...ts.map((t, i) => [t + 7, usd[i], preco])];
+      kx.dias = {[anteontem]: {btc: 0.00000002, valor: 0.0079, moeda: "BRL", horas: null, aproximado: false, parcial: "", fonte: "saldo"},
+                 [ontem]: {btc: 0.000176, valor: 70, moeda: "BRL", horas: null, aproximado: true, parcial: "", fonte: "saldo"}};
+      const l = LEIT({cotacoes: {brl: 4.965198, btc: 0.00001251}, saldoBtc: 0.0031 * 0.00001251});
+      processarLeituraKxa(l, agora);
+      return {ontem: kx.dias[ontem] && kx.dias[ontem].valor, anteontem: kx.dias[anteontem] && kx.dias[anteontem].valor};
+    })()""")
+    checa("1.6.1: o dia antes do primeiro saldo do app também é refeito", mig2["ontem"] is not None and mig2["ontem"] < 0.01, mig2)
+    checa("1.6.1: os dias só do site ficam como estavam", mig2["anteontem"] == 0.0079, mig2)
     # a tela Agora ao vivo
     pg.evaluate("simularLeituras([MIN, MIN])"); pg.evaluate("irPara('resumo')")
     t = pg.inner_text("#agora")
