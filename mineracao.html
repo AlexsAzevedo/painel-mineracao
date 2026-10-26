@@ -109,7 +109,8 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .pausar-op{position:absolute;z-index:20;left:0;top:calc(100% + 6px);min-width:180px;display:flex;flex-direction:column;padding:6px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 18px 40px -16px var(--shadow)}
 .pausar-op button{all:unset;box-sizing:border-box;min-height:40px;padding:0 12px;border-radius:8px;cursor:pointer;font-weight:500}
 .pausar-op button:hover,.pausar-op button:focus-visible{background:var(--sunk)}
-.kxa-lims{display:grid;grid-template-columns:repeat(2,minmax(0,140px));gap:12px}
+.kxa-lims{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;max-width:450px;align-items:end}
+.nw{white-space:nowrap}
 .kxa-lims label{display:flex;flex-direction:column;gap:5px}
 @media (max-width:899px){.ag-meio{grid-template-columns:1fr}.ag-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .of-minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -1333,7 +1334,7 @@ details.saiba > :not(summary){margin-bottom:14px}
           <div class="kxa-lims">
             <label><span class="lbl">Placa (°C)</span><input id="kxa-limtemp" type="number" min="60" max="110" step="1" inputmode="numeric"></label>
             <label><span class="lbl">Memória (°C)</span><input id="kxa-limmem" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
-            <label><span class="lbl">Ponto mais quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
+            <label><span class="lbl">Ponto quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
           </div>
           <div class="acoes"><button type="button" id="kxa-ler">Ler agora</button><button type="button" class="link" id="kxa-copiar">Copiar o que o painel leu</button></div>
           <p class="status" id="kxa-status" role="status" aria-live="polite"></p>
@@ -6113,6 +6114,10 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.7.0", itens:[
+    "Sensores das placas AMD: com o app da Kryptex aberto, o painel lê pelo driver da AMD a temperatura da memória, a do ponto mais quente e o consumo da placa. O quadro da mineração mostra essas temperaturas e as rotações da ventoinha, no PC e no celular.",
+    "A luz de hoje e o ritmo de agora passam a contar o PC inteiro na tomada: o consumo medido da placa mais o resto do PC, pelo que está no seu setup.",
+    "Proteção também pelo ponto mais quente da placa: com 105 °C em duas leituras seguidas, o painel pausa a mineração (o limite fica em Premissas › App da Kryptex neste PC)."]},
   {v:"1.6.2", itens:[
     "Corrigido o ganho de hoje pelo app da Kryptex: o app manda o saldo em dólar, e o painel lia como se fosse bitcoin (US$ 0,005 aparecia como uns R$ 1.990). As leituras que ficaram guardadas são corrigidas sozinhas.",
     "App da Kryptex deste PC: o painel agora percebe quando a placa para de minerar. Antes, com o app da Kryptex aberto e a mineração parada, ele podia continuar dizendo Minerando e não avisava.",
@@ -6313,12 +6318,12 @@ function htmlAgoraVivo(r, comAcoes, retrato){
   const wPc = watts>0 ? (r.wattsMedido && r.wattsPc>0 ? r.wattsPc : wattsNaTomada(watts)) : 0;
   const wEst = !(watts>0) && !antigos && r.placas.some(p=>p.minerando) ? (r.wattsPc>0 && !r.wattsMedido ? r.wattsPc : wattsEstimados()) : 0;
   const tile = (rot, val, sub) => `<div class="ag-n"><span class="lbl">${rot}</span><b>${val}</b><small>${sub}</small></div>`;
-  const tempSub = [p0 && p0.tempMem!=null ? `memória ${Math.round(p0.tempMem)} °C` : "", p0 && p0.tempHot!=null ? `ponto quente ${Math.round(p0.tempHot)} °C` : ""].filter(Boolean).join(" · ");
+  const tempSub = [p0 && p0.tempMem!=null ? `<span class="nw">memória ${Math.round(p0.tempMem)} °C</span>` : "", p0 && p0.tempHot!=null ? `<span class="nw">ponto quente ${Math.round(p0.tempHot)} °C</span>` : ""].filter(Boolean).join(" · ");
   const nums = [
     tile("Hashrate", p0 && p0.minerando ? hashTxt(p0.hash) : "—", r.hash24>0 ? "24 h: " + hashTxt(r.hash24) : "24 h: —"),
     tile("Temperatura", p0 && p0.temp!=null ? Math.round(p0.temp) + " °C" : "—", tempSub || "memória: —"),
     tile("Consumo", wPc>0 ? `≈ ${Math.round(wPc)} W` : wEst>0 ? `≈ ${Math.round(wEst)} W` : "—",
-      wPc>0 ? `placa ${Math.round(watts)} W · ${brl(h.luz)} de luz hoje` : wEst>0 ? `estimado · ${brl(h.luz)} de luz hoje` : `${brl(h.luz)} de luz hoje`),
+      `${wPc>0 ? `<span class="nw">placa ${Math.round(watts)} W</span> · ` : wEst>0 ? "estimado · " : ""}<span class="nw">${brl(h.luz)}</span> de luz hoje`),
     tile("Ventoinha", p0 && p0.ventoinha!=null ? Math.round(p0.ventoinha) + "%" : "—", p0 && p0.rpm!=null ? Math.round(p0.rpm).toLocaleString("pt-BR") + " rpm" : "rpm: —")
   ].join("");
   const rt = r.ritmo || {}, ritmo = !antigos && r.estado==="minerando" && rt.brutoDia>0
@@ -6330,7 +6335,7 @@ function htmlAgoraVivo(r, comAcoes, retrato){
     <div class="ag-meio"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : antigos ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
       <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}</div>${svgLinhaDia(r.linha, agora)}</div>
     <div class="ag-nums${antigos ? " velho" : ""}">${nums}</div>${prot}
-    <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a ${c.limTemp} °C, a memória a ${c.limMem} °C ou o ponto mais quente a ${c.limHot} °C` : "Proteção de temperatura desligada"}</span></div>
+    <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a <span class="nw">${c.limTemp} °C</span>, a memória a <span class="nw">${c.limMem} °C</span> ou o ponto mais quente a <span class="nw">${c.limHot} °C</span>` : "Proteção de temperatura desligada"}</span></div>
     ${retrato ? `<div class="ag-rodape"><span>lido ${haQuanto(r.quando)}, no PC</span><button type="button" class="link" data-kxa-atualizar>Atualizar</button></div>` : ""}`;
 }
 function renderAgora(){
