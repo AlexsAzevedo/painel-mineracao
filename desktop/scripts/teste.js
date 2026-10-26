@@ -548,10 +548,11 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await js(`document.querySelector("#agora [data-voltar]").click()`);
         for (let i = 0; i < 40 && (await js(`kxa.estado`)) !== "minerando"; i++) await esperar(250);
         r.kxApp.voltou = { put: putsKxApp().slice(1), estado: await js(`kxa.estado`), status: await js(`document.getElementById("ag-status").textContent`) };
-        /* a placa esquenta: duas leituras a 86 °C pausam por 15 minutos e avisam */
+        /* a placa esquenta: duas leituras a 86 °C, com um minuto entre elas, pausam por 15 minutos e avisam (a proteção conta
+           uma leitura por minuto: a de logo depois não conta de novo) */
         const kxQ = testeSegundoPlano.notificacoes.length;
         kxApp.estado.modo = "quente";
-        await lerKxApp(); await lerKxApp(); await esperar(400);
+        await lerKxApp(); await js(`kxa.ultimaContada -= 60e3; true`); await lerKxApp(); await esperar(400);
         r.kxApp.quente = { put: putsKxApp().slice(2), estado: await js(`kxa.estado`), protecao: await js(`kxa.protecao && kxa.protecao.motivo`), avisos: avisosDesde(kxQ), agora: await js(textoAgora) };
         await foto("kxapp_quente");
         await js(`voltarKryptex()`);   /* a placa esfriou: volta a minerar pelo painel */
