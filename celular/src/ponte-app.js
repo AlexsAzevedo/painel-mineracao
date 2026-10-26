@@ -38,9 +38,10 @@
   let nomeAparelho = "";
   let canal = null, abort = null, conectado = false, caiuDesde = 0, olaEsperando = 0, olaId = "", receberFn = null, estadoFn = null;
   let mudT = null, salvarT = null, olaT = null, reenviarT = null, lacunaT = null, esperaEnvio = 5000, enviando = false, tentativasOla = 0;
-  /* problemaEnvio: o limite do ntfy.sh ou o teto daqui (aparece na faixa até a próxima mensagem sair);
-     falhasLeitura: respostas do PC seguidas que não deu para ler (anexo); tentandoAnexo: tentando baixar um anexo agora */
-  let problemaEnvio = "", falhasLeitura = 0, ultimaFalhaLeitura = 0, tentandoAnexo = false, deNovoEm = 0;
+  /* problemaEnvio: o limite do ntfy.sh ou o teto daqui, quando algo que a pessoa pediu não saiu (aparece na faixa até a
+     próxima mensagem sair, ou até problemaAte, a hora em que o teto libera); falhasLeitura: respostas do PC seguidas que
+     não deu para ler (anexo); tentandoAnexo: tentando baixar um anexo agora */
+  let problemaEnvio = "", problemaAte = 0, falhasLeitura = 0, ultimaFalhaLeitura = 0, tentandoAnexo = false, deNovoEm = 0;
   const mudados = new Set(), pedidos = new Map();
   const $ = (id) => document.getElementById(id);
 
@@ -50,10 +51,13 @@
   const quandoTxt = (t) => { const d = new Date(t), hoje = new Date(); return d.toDateString() === hoje.toDateString() ? "hoje às " + hora(t) : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + hora(t); };
 
   /* ---------- estado para o painel (selo do canto e faixa de aviso) ---------- */
+  /* ativo: este celular falou com o PC há pouco, e o PC ainda manda sozinho o que muda (o painel atualiza com uma mensagem só) */
   function info() {
-    return { pc: est.pc, ultimaVez: est.ultimaVez, conectado, pendentes: Object.keys(est.pend).length, urlApk: URL_APK, vinculado: !!codigo };
+    return { pc: est.pc, ultimaVez: est.ultimaVez, conectado, pendentes: Object.keys(est.pend).length, urlApk: URL_APK, vinculado: !!codigo,
+      ativo: !!(codigo && est.pronto && ativoNoPc()) };
   }
   function avisar() {
+    if (problemaAte && Date.now() >= problemaAte) { problemaEnvio = ""; problemaAte = 0; }   /* o teto liberou */
     if (!estadoFn || !codigo) return;
     const dados = est.ultimaVez ? ` Mostrando os dados do PC de ${quandoTxt(est.ultimaVez)}.` : "";
     const caiu = !conectado && caiuDesde && Date.now() - caiuDesde > 8000;
@@ -80,26 +84,44 @@
     est.envios = (est.envios || []).filter((t) => agora - t < 864e5 && t <= agora + 60e3);
     return { hora: est.envios.filter((t) => agora - t < 3600e3).length, dia: est.envios.length };
   }
-  async function publicar(c) {
+  /* a última mensagem que saiu daqui. Com ela há menos de 18 minutos, o PC ainda conta este celular como ativo (por 20
+     minutos desde a última que recebeu) e manda sozinho o que muda: abrir ou voltar para o app não precisa perguntar */
+  function ultimoEnvio() { contarEnvios(); return est.envios.reduce((m, t) => Math.max(m, t), 0); }
+  const ativoNoPc = () => Date.now() - ultimoEnvio() < 18 * 60e3;
+  /* quando o teto libera a próxima mensagem: a mais velha das que contam (na última hora, ou no dia) sai da conta */
+  function liberaEm() {
+    const agora = Date.now(), dia = (contarEnvios(), est.envios.slice().sort((a, b) => a - b)), hora = dia.filter((t) => agora - t < 3600e3);
+    let t = agora;
+    if (hora.length >= TETO_HORA) t = Math.max(t, hora[hora.length - TETO_HORA] + 3600e3);
+    if (dia.length >= TETO_DIA) t = Math.max(t, dia[dia.length - TETO_DIA] + 864e5);
+    return t;
+  }
+  const quandoLibera = (t) => (new Date(t).toDateString() === new Date().toDateString() ? "às " : "amanhã às ") + hora(t);
+  /* fundo: uma mensagem que o app manda sozinho (perguntar ao abrir ou ao voltar, a pergunta silenciosa, pedir de novo
+     o que faltou): sem sair, espera em silêncio. O aviso só aparece quando algo que a pessoa pediu não saiu */
+  async function publicar(c, fundo) {
     const n = contarEnvios();
     if (n.hora >= TETO_HORA || n.dia >= TETO_DIA) {
-      const e = new Error("o app mandou mensagens demais nas últimas horas; espere um pouco"); e.teto = true;
-      problema(e); throw e;
+      const ate = liberaEm();
+      const e = new Error(`o app chegou ao limite de mensagens; a próxima pode sair ${quandoLibera(ate)}`); e.teto = true; e.ate = ate;
+      if (!fundo) problema(e);
+      throw e;
     }
     let r;
     try { r = await canal.publicar({ aparelho: { id: aparelho }, ...c }, "cel"); }
-    catch (e) { problema(e); throw e; }
+    catch (e) { if (!fundo) problema(e); throw e; }
     est.envios.push(Date.now()); salvar();
-    if (problemaEnvio) { problemaEnvio = ""; avisar(); }
+    if (problemaEnvio) { problemaEnvio = ""; problemaAte = 0; avisar(); }
     return r;
   }
-  /* limite do ntfy.sh (429) ou o teto daqui: aparece na faixa de aviso até a próxima mensagem sair */
-  function problema(e) { if (e && (e.teto || e.status === 429)) { problemaEnvio = e.message; avisar(); } }
+  /* limite do ntfy.sh (429) ou o teto daqui: aparece na faixa de aviso até a próxima mensagem sair (o teto daqui, no
+     máximo até a hora em que libera) */
+  function problema(e) { if (e && (e.teto || e.status === 429)) { problemaEnvio = e.message; problemaAte = e.ate || 0; avisar(); } }
   /* "ola": diz ao PC qual versão dos dados este celular tem; o PC responde com o que mudou (e passa a mandar
      as mudanças na hora pelos próximos 20 minutos) e devolve o id da pergunta. Sem forçar, no máximo um a cada 10 minutos.
      Silenciosa (o app aberto avisando que continua lá): o PC só responde se este celular ficou para trás.
      Devolve o id (vazio se não deu para mandar). */
-  function ola(forcar, pedir, silenciosa) {
+  function ola(forcar, pedir, silenciosa, fundo) {
     if (!canal) return Promise.resolve("");
     if (!forcar && est.pronto && Date.now() - est.ultimaOla < 10 * 60e3) return Promise.resolve("");
     if (silenciosa && contarEnvios().dia >= TETO_SILENCIOSA) return Promise.resolve("");
@@ -107,7 +129,7 @@
     est.ultimaOla = agora; salvar();
     if (!silenciosa) { olaEsperando = agora; olaId = id; clearTimeout(olaT); olaT = setTimeout(avisar, 26000); }
     pedir = [...new Set([...(pedir || []), ...(est.faltam || [])])];   /* e as chaves que não deu para guardar */
-    return publicar({ id, tipo: "ola", versao: est.pronto ? est.versao : 0, aparelho: quem(), ...(silenciosa ? { silenciosa: true } : {}), ...(pedir.length ? { pedir } : {}) })
+    return publicar({ id, tipo: "ola", versao: est.pronto ? est.versao : 0, aparelho: quem(), ...(silenciosa ? { silenciosa: true } : {}), ...(pedir.length ? { pedir } : {}) }, fundo || silenciosa)
       .then(() => id)
       .catch((e) => {
         if (est.ultimaOla === agora) est.ultimaOla = antes;   /* não saiu: não conta (a próxima não precisa esperar 10 minutos) */
@@ -123,7 +145,7 @@
     if (falhasLeitura > 6) return;
     const intervalo = (falhasLeitura ? Math.min(60, 2 ** falhasLeitura) : 2) * 60e3;
     clearTimeout(lacunaT);
-    lacunaT = setTimeout(() => { deNovoEm = Date.now(); ola(true); }, Math.max(1500, deNovoEm + intervalo - Date.now()));
+    lacunaT = setTimeout(() => { deNovoEm = Date.now(); ola(true, null, false, true); }, Math.max(1500, deNovoEm + intervalo - Date.now()));
   }
 
   /* lê a carta de uma mensagem; anexo que não baixou (sem conexão, ntfy recusou agora): tenta de novo em 5, 15 e 45 s.
@@ -314,7 +336,8 @@
   /* pedido ao PC: o PC confirma que começou ("rodando") e depois manda o resultado, junto com os dados que mudaram */
   const LIMITE = { "buscar-ofertas": 25 * 60e3, atualizar: 20 * 60e3, analisar: 5 * 60e3, detalhes: 4 * 60e3, parar: 2 * 60e3,
     "kryptex-agora": 60e3, "kryptex-pausar": 60e3, "kryptex-voltar": 60e3 };
-  function pedirAoPc(nome, args) {
+  /* opcoes.fundo: um pedido que o painel faz sozinho (a leitura da Kryptex ao abrir o Resumo): sem sair, não mostra aviso */
+  function pedirAoPc(nome, args, opcoes) {
     return new Promise((ok, nao) => {
       if (!canal || !est.pronto) { nao(new Error("este celular ainda não está ligado ao PC")); return; }
       const pid = S.novoId(), p = { nome, ok, ack: false };
@@ -322,7 +345,7 @@
       p.armar = () => { clearTimeout(p.tAck); if (!p.ack) p.tAck = setTimeout(() => desistir("o PC não respondeu. Confira se ele está ligado, com o painel aberto e com internet"), 50e3); };
       p.tFim = setTimeout(() => desistir("o PC demorou demais para responder"), LIMITE[nome] || 5 * 60e3);
       pedidos.set(pid, p); p.armar();
-      publicar({ tipo: "pedido", pid, nome: String(nome), args: args || {} })
+      publicar({ tipo: "pedido", pid, nome: String(nome), args: args || {} }, !!(opcoes && opcoes.fundo))
         .catch((e) => desistir(e && (e.status === 429 || e.teto) ? e.message : "sem conexão com a internet agora"));
     });
   }
@@ -357,14 +380,15 @@
       } }).catch(() => {});
   }
   function pausar() { if (abort) { abort.abort(); abort = null; } conectado = false; }
-  /* o app voltou para a frente: reconecta, refaz os prazos dos pedidos e, se faz tempo, pergunta as novidades */
+  /* o app voltou para a frente: reconecta (a escuta pega o que o PC mandou enquanto isso, desde a última carta lida),
+     refaz os prazos dos pedidos e, se faz tempo que não fala com o PC (ele parou de mandar sozinho), pergunta as novidades */
   let voltouEm = 0;
   function voltou() {
     if (!codigo || Date.now() - voltouEm < 1500) return;
     voltouEm = Date.now();
     caiuDesde = 0; escutar();
     for (const p of pedidos.values()) p.armar();
-    ola(false);
+    if (!ativoNoPc()) ola(false, null, false, true);
     if (Object.keys(est.pend).length) agendarEnvio(1500);
   }
 
@@ -651,13 +675,13 @@ html.pm-vinculando .app{visibility:hidden}
     await conferirLocais();
     escutar();
     if (!est.pronto) { ola(true); esperarPc(); }
-    else { ola(false); if (Object.keys(est.pend).length) agendarEnvio(1500); }
+    else { if (!ativoNoPc()) ola(false, null, false, true); if (Object.keys(est.pend).length) agendarEnvio(1500); }
     avisar();
   }
-  /* com o app aberto, a cada 14 minutos diz ao PC que continua aqui (o PC manda as mudanças na hora para quem falou com
-     ele nos últimos 20 minutos). Pergunta silenciosa: o PC só responde se este celular ficou para trás. */
+  /* com o app aberto, 14 minutos depois da última mensagem daqui diz ao PC que continua aqui (o PC manda as mudanças na
+     hora para quem falou com ele nos últimos 20 minutos). Pergunta silenciosa: o PC só responde se este celular ficou para trás. */
   setInterval(() => {
-    if (codigo && canal && est.pronto && document.visibilityState === "visible" && Date.now() - est.ultimaOla >= 14 * 60e3) ola(true, null, true);
+    if (codigo && canal && est.pronto && document.visibilityState === "visible" && Date.now() - ultimoEnvio() >= 14 * 60e3) ola(true, null, true);
     avisar();
   }, 60e3);
   if (AppP) {

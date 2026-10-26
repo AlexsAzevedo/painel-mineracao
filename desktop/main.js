@@ -656,6 +656,7 @@ ipcMain.handle("acesso-config", (e, op) => {
 const URL_APK = "https://github.com/AlexsAzevedo/painel-mineracao/releases/latest/download/Painel-de-Mineracao.apk";
 const APP_ATIVO = 20 * 60e3, APP_PEDIDO_VALE = 10 * 60e3, APP_OLA_VALE = 15 * 60e3;
 const APP_PEDIDOS = ["buscar-ofertas", "detalhes", "analisar", "atualizar", "parar", "kryptex-agora", "kryptex-pausar", "kryptex-voltar"];
+const APP_PEDIDOS_RAPIDOS = ["parar", "kryptex-agora", "kryptex-pausar", "kryptex-voltar"];
 const arquivoAppCel = () => path.join(app.getPath("userData"), "app-celular.json");
 /* versao: contador de mudanças; vers/mods/hashes: versão, hora (do PC) e resumo de cada chave; autor: o celular que fez a
    última mudança de cada chave e o número dela (some quando o próprio PC muda a chave); sMax: o maior número de mudança
@@ -882,7 +883,9 @@ async function appPedido(c, quando) {
   appCel.pids = [...appCel.pids, pid].slice(-50);
   if (!APP_PEDIDOS.includes(nome)) { appPend.resps.push({ pid, estado: "pronto", ok: false, texto: "O PC não conhece esse pedido. Atualize o painel do PC." }); appAgendarEnvio(300); return; }
   if (TESTE) testeApp.pedidos.push(nome);
-  if (nome !== "parar") { appPend.resps.push({ pid, estado: "rodando" }); appAgendarEnvio(200); }
+  /* "rodando": o celular sabe que o PC começou um pedido demorado. Os rápidos (parar e o app da Kryptex, de 1 a 3 s)
+     vão só com a resposta: uma carta em vez de duas (o ntfy.sh aceita 250 mensagens por dia) */
+  if (!APP_PEDIDOS_RAPIDOS.includes(nome)) { appPend.resps.push({ pid, estado: "rodando" }); appAgendarEnvio(200); }
   let r;
   try { r = await pedidoNoPainel(nome, c.args || {}); } catch (e) { r = { ok: false, texto: "Não deu certo no PC: " + ((e && e.message) || e) }; }
   appPend.resps.push({ ...(r && typeof r === "object" ? r : { ok: !!r }), pid, estado: "pronto" });

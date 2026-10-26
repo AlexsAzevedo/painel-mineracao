@@ -5790,7 +5790,8 @@ async function pedirRetrato(){
   if(kxaSnap && kxaSnap.v===1 && agora - (kxaSnap.quando||0) <= 10*60e3) return;
   if(agora - kxaPedido.auto < 10*60e3) return;
   kxaPedido.auto = agora;
-  try{ await pedirAoPc("kryptex-agora", {}); }catch(e){ kxaPedido.auto = 0; }   /* tenta de novo quando a ponte ficar pronta ou ao voltar ao Resumo */
+  /* um pedido que o painel faz sozinho (fundo): se o app estiver no limite de mensagens, espera sem aviso */
+  try{ await pedirAoPc("kryptex-agora", {}, {fundo:true}); }catch(e){ kxaPedido.auto = 0; }   /* tenta de novo quando a ponte ficar pronta ou ao voltar ao Resumo */
 }
 document.addEventListener("click", e=>{ if(e.target.closest("[data-kxa-atualizar]")) atualizarDoPc(); });
 document.addEventListener("click", e=>{
@@ -5904,7 +5905,8 @@ function toast(msg, acao){
 /* celular: atualizar os dados do PC pelo botão da barra de cima (no app, também puxando a tela para baixo) e pelo
    Atualizar do quadro Agora. Junto com os dados, pede ao PC uma leitura nova do app da Kryptex (quando o PC tem o app e o
    retrato daqui tem mais de 1 minuto e meio: o PC lê a cada minuto): o quadro Agora vem com os números de agora, não com
-   o último retrato. Cada vez são duas mensagens para o PC e as respostas: no máximo uma vez a cada 30 segundos. */
+   o último retrato. No app em dia com o PC (falou com ele há pouco: o PC manda sozinho o que muda), só a leitura: uma
+   mensagem. Senão, os dados e a leitura: duas. No máximo uma vez a cada 30 segundos. */
 var atuPc = {ultimo:0, rodando:false};
 var ESPERA_LEITURA_ATU = 20e3;   /* depois que os dados chegam, quanto o recado espera a leitura da Kryptex */
 async function atualizarDoPc(){
@@ -5916,13 +5918,17 @@ async function atualizarDoPc(){
   atuPc.rodando = true; b.setAttribute("aria-busy", "true");
   if(lerKx) kxaPedido.auto = Date.now();   /* o pedido automático do Resumo não sai junto */
   try{
+    let emDia = false;
+    if(lerKx && typeof window.desktop.sync.info === "function"){ try{ const i = await window.desktop.sync.info(); emDia = !!(i && i.ativo); }catch(e){} }
     /* os dois pedidos saem juntos; se os dados não vêm (PC desligado), o recado sai na hora, sem esperar a leitura */
     const leitura = lerKx ? pedirAoPc("kryptex-agora", {}).then(v => ({v}), e => ({e})) : Promise.resolve(null);
-    await window.desktop.sync.atualizar();
-    /* os dados chegaram: espera a leitura até 20 s (se demorar mais, ela entra no quadro quando chegar) */
+    if(!emDia) await window.desktop.sync.atualizar();
+    /* espera a leitura até 20 s (se demorar mais, ela entra no quadro quando chegar) */
     let t = null;
     const l = await Promise.race([leitura, new Promise(ok => { t = setTimeout(() => ok({demorou:true}), ESPERA_LEITURA_ATU); })]);
     clearTimeout(t);
+    if(emDia && l && l.e) throw new Error(`Não deu para mandar ao PC: ${l.e.message || "sem conexão"}.`);
+    if(emDia && l && l.demorou){ atuPc.ultimo = Date.now(); toast("Pedi a leitura ao PC: os valores chegam assim que ele responder."); return; }
     const r = l && l.v;
     atuPc.ultimo = Date.now();
     const h = `Dados do PC atualizados às ${horaMin(atuPc.ultimo)}`;
@@ -5943,9 +5949,9 @@ if(REMOTO && window.desktop.sync && typeof window.desktop.sync.atualizar === "fu
    (window.desktop.pedirAoPc); no PC, executarPedidoRemoto roda o mesmo código do botão e devolve o resultado.
    Os dados que mudaram chegam ao celular pela sincronia, junto com a resposta. */
 let pedindoAoPc = 0;
-async function pedirAoPc(nome, args){
+async function pedirAoPc(nome, args, opcoes){
   pedindoAoPc++;
-  try{ return await window.desktop.pedirAoPc(nome, args||{}) || {}; }
+  try{ return await window.desktop.pedirAoPc(nome, args||{}, opcoes) || {}; }
   finally{ pedindoAoPc--; }
 }
 async function executarPedidoRemoto(p){
@@ -6225,6 +6231,9 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.8.2", itens:[
+    "O app do celular gasta menos mensagens: voltar para o app não pergunta nada ao PC se ele falou com o PC há pouco, e o botão de atualizar gasta uma mensagem em vez de duas.",
+    "O aviso de limite de mensagens só aparece quando algo que você pediu não pôde sair, e diz a hora em que libera."]},
   {v:"1.8.1", itens:[
     "No celular, o botão de atualizar no alto (e puxar a tela para baixo) e o Atualizar do quadro Agora trazem uma leitura nova do app da Kryptex do PC: o ganho de hoje, o saldo e a placa como estão agora.",
     "Quando entra dinheiro novo na conta da Kryptex, o PC manda os valores para o celular sozinho (no máximo a cada 5 minutos), com o app aberto."]},
