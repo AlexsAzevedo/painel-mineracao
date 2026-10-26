@@ -11,7 +11,7 @@ FIXTURAS = """(() => {
   const CPU = {id:"cpu-1", tipo:"cpu", nome:"13th Gen Intel(R) Core(TM) i7-13700", desativada:false, minerando:false, moeda:"", algoritmo:"", minerador:"",
     hash:0, rendimentoUsd:0.31, temp:52, tempMem:null, tempHot:null, watts:null, ventoinha:null, rpm:null, erros1h:0};
   const LEIT = (o, placa) => ({ok:true, quando:Date.now(), pausado:false, pausaAte:null, moeda:"BRL", computador:"PC-TESTE", cotacoes:{brl:4.965204, btc:0.00001237},
-    saldoBtc:0.0001, placas:[PLACA(placa || {}), CPU], desconhecidos:[], ...o});
+    saldoBtc:0.0001, saldoUsd:0.0001/0.00001237, placas:[PLACA(placa || {}), CPU], desconhecidos:[], ...o});
   window.LEIT = LEIT;
   window.MIN = LEIT();
   window.PARADO = LEIT({}, {minerando:false, hash:0, moeda:"", minerador:"", watts:18});
@@ -223,6 +223,13 @@ def kryptex_app(p):
     checa("tela ao vivo", all(s in t for s in ["Minerando", "Pearl", "SRBMiner", "286 W", "63 °C", "memória 78 °C", "54%", "113 TH/s", "lucro"]), t[:400])
     checa("proteção na tela", "85 °C" in t and "100 °C" in t, t[-300:])
     checa("ritmo de agora", "ritmo de agora" in t.lower() and "R$ 14,72/dia" in t, t[:500])
+    # o saldo total da conta (o mesmo que o app da Kryptex mostra), ao lado do ganho de hoje
+    checa("saldo na Kryptex", "saldo na kryptex" in t.lower() and "R$ 40,14" in t and "US$ 8,08" in t, t[:500])
+    lado = pg.evaluate("""(() => { const eh = document.querySelector('#agora .ag-hoje:not(.ag-saldo)'), es = document.querySelector('#agora .ag-saldo'); if (!eh || !es) return {ok: false, falta: !eh ? 'hoje' : 'saldo'};
+      const h = eh.getBoundingClientRect(), s = es.getBoundingClientRect();
+      return {ok: s.left >= h.right - 1 && Math.abs(s.top - h.top) < 4, h: [h.left, h.top, h.right], s: [s.left, s.top, s.right]}; })()""")
+    checa("saldo ao lado do hoje no PC", lado["ok"], lado)
+    checa("o retrato leva o saldo em dólar", abs((pg.evaluate("retratoKxa().saldoUsd") or 0) - 8.0841) < 0.001)
     checa("estado no menu", "Minerando" in pg.inner_text("#vivo"))
     pg.evaluate("window.__acoes = []")
     pg.click("details.pausar summary"); pg.click('[data-pausa="60"]'); pg.wait_for_timeout(200)
@@ -289,6 +296,14 @@ def celular(p):
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
     t = pgc.inner_text("#agora")
     checa("retrato novo", all(s in t for s in ["Minerando", "R$ 9,62", "lucro de R$ 4,53", "286 W", "63 °C", "lido há 3 min"]), t[:400])
+    checa("saldo no celular", "saldo na kryptex" in t.lower() and "R$ 48,12" in t, t[:400])
+    emb = pgc.evaluate("""(() => { const eh = document.querySelector('#agora .ag-hoje:not(.ag-saldo)'), es = document.querySelector('#agora .ag-saldo'); if (!eh || !es) return {ok: false, falta: !eh ? 'hoje' : 'saldo'};
+      const h = eh.getBoundingClientRect(), s = es.getBoundingClientRect();
+      return {ok: s.top >= h.bottom - 1, h: [h.top, h.bottom], s: [s.top, s.bottom]}; })()""")
+    checa("no celular, o saldo fica embaixo do hoje", emb["ok"], emb)
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify({...RETRATO, saldoBtc: null})); recarregarDados(['min-kx-app'])")
+    checa("sem saldo no retrato, sem o quadro do saldo", "saldo na kryptex" not in pgc.inner_text("#agora").lower())
+    pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
     checa("estado no topo do celular", "Minerando" in pgc.inner_text("#g-chip"))
     pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(200)
     checa("atualizar pelo botão", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 2)

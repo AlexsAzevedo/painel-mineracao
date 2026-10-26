@@ -87,6 +87,9 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .ag-frase{margin:0;color:var(--muted);font-size:.88rem}
 .ag-frase.w{color:var(--warn)}
 .ag-meio{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:8px 28px;align-items:end}
+.ag-meio.com-saldo{grid-template-columns:minmax(0,auto) minmax(0,auto) minmax(0,1fr)}
+.ag-saldo{align-self:start}
+@media (min-width:900px) and (max-width:1199px){.ag-meio.com-saldo{grid-template-columns:minmax(0,auto) minmax(0,1fr)}.ag-meio.com-saldo .ag-linha{grid-column:1/-1}}
 .ag-linha{width:100%;height:64px;display:block}
 .ag-lucro{font-weight:600;font-size:.9rem}
 .ag-lucro.g{color:var(--good)}
@@ -112,7 +115,7 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .kxa-lims{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;max-width:450px;align-items:end}
 .nw{white-space:nowrap}
 .kxa-lims label{display:flex;flex-direction:column;gap:5px}
-@media (max-width:899px){.ag-meio{grid-template-columns:1fr}.ag-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:899px){.ag-meio,.ag-meio.com-saldo{grid-template-columns:1fr}.ag-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .of-minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .of-mini{all:unset;box-sizing:border-box;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface);cursor:pointer;min-width:0}
 .of-mini:hover{border-color:var(--accent)}
@@ -5680,7 +5683,7 @@ function retratoKxa(agora = Date.now()){
   const ms = l && l.ok ? l.placas.filter(p=>p.minerando) : [], wp = l && l.ok ? wattsPlacasKxa(l) : null, medido = wp!=null;
   const passo = Math.max(1, Math.ceil(h.linha.length/48)), linha = h.linha.filter((x,i)=>i%passo===0 || i===h.linha.length-1).map(([t,v])=>[t, Math.round(v*100)/100]);
   return {v:1, quando: kxa.quando || agora, estado: kxa.estado, pausaAte: l && l.ok && l.pausado ? l.pausaAte : null, computador: l && l.computador || "",
-    placas: placasR, hoje: {ganho:h.ganho, luz:h.luz, lucro:h.lucro, kwh:h.kwh, desde:h.desde}, ritmo: ritmoKxa(l), saldoBtc: l && l.ok ? l.saldoBtc : null, precoBtc: pr,
+    placas: placasR, hoje: {ganho:h.ganho, luz:h.luz, lucro:h.lucro, kwh:h.kwh, desde:h.desde}, ritmo: ritmoKxa(l), saldoBtc: l && l.ok ? l.saldoBtc : null, saldoUsd: l && l.ok && l.saldoUsd!=null ? l.saldoUsd : null, precoBtc: pr,
     linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora),
     wattsPc: !ms.length ? 0 : medido ? wattsNaTomada(wp, l) : wattsPcEstimado(l), wattsMedido: medido};
 }
@@ -6149,6 +6152,8 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.7.1", itens:[
+    "No Resumo, o saldo total da sua conta da Kryptex aparece ao lado do ganho de hoje, em reais e em dólar: o mesmo valor que o app da Kryptex mostra, no PC e no celular."]},
   {v:"1.7.0", itens:[
     "Sensores das placas AMD: com o app da Kryptex aberto, o painel lê pelo driver da AMD a temperatura da memória, a do ponto mais quente e o consumo da placa. O quadro da mineração mostra essas temperaturas e as rotações da ventoinha, no PC e no celular.",
     "A luz de hoje e o ritmo de agora passam a contar o PC inteiro na tomada: o consumo medido da placa mais o resto do PC, pelo que está no seu setup. Com mais de uma máquina no setup, o ritmo e o consumo são só deste PC, e a luz de hoje soma as outras pelo estimado.",
@@ -6352,6 +6357,10 @@ function htmlAgoraVivo(r, comAcoes, retrato){
   const watts = r.placas.filter(p=>p.minerando && p.tipo!=="cpu" && p.watts>0).reduce((a,p)=>a + p.watts, 0);
   const wPc = watts>0 ? (r.wattsMedido && r.wattsPc>0 ? r.wattsPc : wattsNaTomada(watts)) : 0;
   const wEst = !(watts>0) && !antigos && r.placas.some(p=>p.minerando) ? (r.wattsPc>0 && !r.wattsMedido ? r.wattsPc : wattsEstimados()) : 0;
+  /* o saldo total da conta, o mesmo que o app da Kryptex mostra (da última leitura): ao lado do ganho de hoje */
+  const precoSaldo = r.precoBtc>0 ? r.precoBtc : precoBtcBrl(r), saldo = r.saldoBtc!=null && precoSaldo>0 ? r.saldoBtc*precoSaldo : null;
+  const saldoUsd = r.saldoUsd!=null ? r.saldoUsd : (r.saldoBtc!=null && r.cotacoes && r.cotacoes.btc>0 ? r.saldoBtc/r.cotacoes.btc : null);
+  const blocoSaldo = saldo==null ? "" : `<div class="ag-hoje ag-saldo"><span class="gh-l">Saldo na Kryptex</span><span class="gh-v">${brl(saldo)}</span>${saldoUsd!=null ? `<span class="ag-ritmo">${usd2(saldoUsd)}</span>` : ""}</div>`;
   const tile = (rot, val, sub) => `<div class="ag-n"><span class="lbl">${rot}</span><b>${val}</b><small>${sub}</small></div>`;
   const tempSub = [p0 && p0.tempMem!=null ? `<span class="nw">memória ${Math.round(p0.tempMem)} °C</span>` : "", p0 && p0.tempHot!=null ? `<span class="nw">ponto quente ${Math.round(p0.tempHot)} °C</span>` : ""].filter(Boolean).join(" · ");
   const nums = [
@@ -6367,8 +6376,8 @@ function htmlAgoraVivo(r, comAcoes, retrato){
   const botoes = !comAcoes ? "" : r.estado==="pausada" ? `<button type="button" class="pri" data-voltar>Voltar a minerar</button>`
     : r.estado==="minerando" || r.estado==="parada" ? `<details class="pausar"><summary>Pausar</summary><div class="pausar-op">${PAUSAS_KXA.map(m=>`<button type="button" data-pausa="${m}">${m>=44640 ? "Até eu voltar" : m===60 ? "1 hora" : m/60 + " horas"}</button>`).join("")}</div></details>` : "";
   return `<div class="ag-topo">${selo}${onde ? `<span class="ag-onde">${onde}</span>` : ""}</div>
-    <div class="ag-meio"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : antigos ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
-      <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}</div>${svgLinhaDia(r.linha, agora)}</div>
+    <div class="ag-meio${blocoSaldo ? " com-saldo" : ""}"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : antigos ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
+      <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}</div>${blocoSaldo}${svgLinhaDia(r.linha, agora)}</div>
     <div class="ag-nums${antigos ? " velho" : ""}">${nums}</div>${prot}
     <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a <span class="nw">${c.limTemp} °C</span>, a memória a <span class="nw">${c.limMem} °C</span> ou o ponto mais quente a <span class="nw">${c.limHot} °C</span>` : "Proteção de temperatura desligada"}</span></div>
     ${retrato ? `<div class="ag-rodape"><span>lido ${haQuanto(r.quando)}, no PC</span><button type="button" class="link" data-kxa-atualizar>Atualizar</button></div>` : ""}`;
