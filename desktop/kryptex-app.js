@@ -101,8 +101,11 @@ function placaDe(d, pausado, desconhecidos) {
   const rodando = real ? (estado === "mining" || (!!proc && !!ativo && !/idle|stop|paus|error|fail|off|disabl/.test(estado))) : !!ativo;
   for (const [k, v] of Object.entries(rd)) if (!CONHECIDOS.has(k) && num(v) != null && desconhecidos.size < 30) desconhecidos.add(String(k).slice(0, 40));
   const fan = num(rd.fan_speed);
+  /* o barramento PCI ("03:00.0" ou "0000:03:00.0" → 3), para juntar com os sensores da AMD (sensores-amd.js) */
+  const pci = /(?:^|:)([0-9a-f]{2}):[0-9a-f]{2}\.[0-7]$/i.exec(String(rd.pci_address || "").trim());
   return {
     id: String(dev.id || (d && d.id) || "").slice(0, 64), tipo, nome: String(dev.name || "").slice(0, 80), desativada, estado: estado || null,
+    fabricante: String(dev.vendor || "").toLowerCase().slice(0, 16), bus: pci ? parseInt(pci[1], 16) : null,
     minerando: rodando && !!ativo && !pausado && !desativada,
     moeda: ativo ? ativo.moeda : "", algoritmo: ativo ? ativo.algoritmo : "", minerador: ativo ? ativo.minerador : "",
     hash: ativo ? ativo.hash : 0, rendimentoUsd: ativo ? ativo.rend : melhor,

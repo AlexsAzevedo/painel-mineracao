@@ -33,8 +33,15 @@
       "preload.js",
       "sincronia.js",
       "kryptex-app.js",
+      "sensores-amd.js",
       "app/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "sensores-amd.ps1",
+        "to": "sensores-amd.ps1"
+      }
     ],
     "directories": {
       "output": "dist",

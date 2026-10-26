@@ -1327,12 +1327,13 @@ details.saiba > :not(summary){margin-bottom:14px}
         </article>
         <article class="painel" id="kxa-p" aria-labelledby="t-kxa" hidden>
           <div class="painel-h"><h2 id="t-kxa">App da Kryptex neste PC</h2><small class="hint" id="kxa-quando"></small></div>
-          <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Ele só pausa quando você pede ou pela proteção de temperatura. Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
+          <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Nas placas AMD, a temperatura da memória e a do ponto mais quente e o consumo da placa vêm do driver da AMD. Ele só pausa quando você pede ou pela proteção de temperatura. Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
           <label class="check"><input type="checkbox" id="kxa-ligado"> Ler o app da Kryptex deste PC</label>
           <label class="check"><input type="checkbox" id="kxa-protecao"> Pausar sozinho se a placa esquentar demais (volta em 15 minutos; se esquentar de novo, fica pausada até você voltar)</label>
           <div class="kxa-lims">
             <label><span class="lbl">Placa (°C)</span><input id="kxa-limtemp" type="number" min="60" max="110" step="1" inputmode="numeric"></label>
             <label><span class="lbl">Memória (°C)</span><input id="kxa-limmem" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
+            <label><span class="lbl">Ponto mais quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
           </div>
           <div class="acoes"><button type="button" id="kxa-ler">Ler agora</button><button type="button" class="link" id="kxa-copiar">Copiar o que o painel leu</button></div>
           <p class="status" id="kxa-status" role="status" aria-live="polite"></p>
@@ -5446,7 +5447,7 @@ const MINERADORES = {srbminer:"SRBMiner", lolminer:"lolMiner", xmrig:"XMRig", gm
 function PODE_KXA(){ return DESKTOP && !!(window.desktop && window.desktop.kryptexApp); }
 function kxaCfg(){
   const c = (typeof cfg==="object" && cfg && cfg.kxa && typeof cfg.kxa==="object") ? cfg.kxa : {}, n = (v, d) => Number.isFinite(+v) && +v>0 ? +v : d;
-  return {ligado: c.ligado!==false, protecao: c.protecao!==false, limTemp: n(c.limTemp, 85), limMem: n(c.limMem, 100)};
+  return {ligado: c.ligado!==false, protecao: c.protecao!==false, limTemp: n(c.limTemp, 85), limMem: n(c.limMem, 100), limHot: n(c.limHot, 105)};
 }
 function mudarKxaCfg(o){ cfg.kxa = {...kxaCfg(), ...o}; salvarCfg(); }
 const novoKxa = () => ({leitura:null, quando:0, ultimaOk:0, jaRespondeu:false, estado:"", minerandoDesde:0, quentes:0, ultimaProtecao:0, protecao:null,
@@ -5473,6 +5474,22 @@ function wattsEstimados(){
   try{ const s = totaisSetup({}); if(s.tomada>0) return s.tomada; }catch(e){}
   return placas.reduce((a,p)=>{ const c = byId[novoId(p.modelo)]; return a + (c ? c.w*(+p.qtd||1) : 0); }, 0);
 }
+/* o PC na tomada com o consumo medido das placas (o app da Kryptex e o driver da AMD medem só a placa): as placas mais o
+   resto do PC das máquinas ligadas do setup (processador e base), pela eficiência da fonte da primeira delas; sem
+   máquinas no setup, as placas numa fonte de 90% */
+function wattsNaTomada(wPlacas){
+  const w = Math.max(0, +wPlacas||0);
+  try{
+    const ms = maqsReais().filter(m=>calcMaq(m).ligada);
+    if(ms.length){
+      const resto = ms.reduce((a,m)=>a + calcMaq(m).wCpu + Math.max(0, +m.base||0), 0), m0 = ms[0], dc = w + resto;
+      const ef = eficiencia(m0.selo, +m0.fonteW>0 ? dc/(+m0.fonteW) : 9, setup.tensao);
+      return ef>0 ? dc/ef : dc;
+    }
+  }catch(e){}
+  return w/0.9;
+}
+const somaWatts = ms => ms.reduce((a,p)=>a + (p.watts||0), 0);
 /* ganho e luz de hoje pelas leituras: [t, saldoBtc, watts, minerando, hash, temp, tempMem] */
 function hojeKxa(amostras, agora, tarifa, precoBrl){
   const d = new Date(agora); d.setHours(0,0,0,0); const ini = d.getTime();
@@ -5501,21 +5518,24 @@ function hojeKxa(amostras, agora, tarifa, precoBrl){
 /* proteção de temperatura: 2 leituras seguidas quentes pausam por 15 min; de novo em até 2 h depois de voltar, até você voltar */
 function deveProteger(est, l, c, agora){
   if(!c.protecao || !l || !l.ok || l.pausado){ est.quentes = 0; return null; }
-  const q = (l.placas||[]).find(p=>p.tipo==="gpu" && p.minerando && ((p.temp!=null && p.temp>=c.limTemp) || (p.tempMem!=null && p.tempMem>=c.limMem)));
+  const q = (l.placas||[]).find(p=>p.tipo==="gpu" && p.minerando && ((p.temp!=null && p.temp>=c.limTemp) || (p.tempMem!=null && p.tempMem>=c.limMem) || (p.tempHot!=null && p.tempHot>=c.limHot)));
   est.quentes = q ? (est.quentes||0) + 1 : 0;
   if(est.quentes < 2) return null;
   est.quentes = 0;
   const longa = !!(est.ultimaProtecao && agora - est.ultimaProtecao < KXA_LONGA);
   est.ultimaProtecao = agora;
-  const peloNucleo = q.temp!=null && q.temp>=c.limTemp;
-  return {minutos: longa ? 44640 : 15, motivo: peloNucleo ? `${nomePlaca(q)} a ${Math.round(q.temp)} °C (limite ${c.limTemp} °C)` : `${nomePlaca(q)} com a memória a ${Math.round(q.tempMem)} °C (limite ${c.limMem} °C)`};
+  const motivo = q.temp!=null && q.temp>=c.limTemp ? `${nomePlaca(q)} a ${Math.round(q.temp)} °C (limite ${c.limTemp} °C)`
+    : q.tempMem!=null && q.tempMem>=c.limMem ? `${nomePlaca(q)} com a memória a ${Math.round(q.tempMem)} °C (limite ${c.limMem} °C)`
+    : `${nomePlaca(q)} com o ponto mais quente a ${Math.round(q.tempHot)} °C (limite ${c.limHot} °C)`;
+  return {minutos: longa ? 44640 : 15, motivo};
 }
 function ritmoKxa(l){
   if(!l || !l.ok) return {brutoDia:0, lucroDia:0};
   const usd = (l.cotacoes && l.cotacoes.brl>0) ? l.cotacoes.brl : cfg.dolar, ms = l.placas.filter(p=>p.minerando);
-  /* consumo: o que o app da Kryptex manda; sem ele (placas AMD), o estimado do PC na tomada, como na luz de hoje */
+  /* consumo: o PC na tomada com o que o app da Kryptex ou o driver da AMD medem nas placas; sem medida, o estimado do
+     setup, como na luz de hoje */
   const bruto = ms.reduce((a,p)=>a + (p.rendimentoUsd||0), 0)*usd;
-  const w = !ms.length ? 0 : ms.some(p=>p.watts!=null) ? ms.reduce((a,p)=>a + (p.watts||0), 0) : wattsEstimados();
+  const w = !ms.length ? 0 : ms.some(p=>p.watts!=null) ? wattsNaTomada(somaWatts(ms)) : wattsEstimados();
   return {brutoDia: bruto, lucroDia: bruto - w*24/1000*tarifaEf()};
 }
 /* desde quando está minerando sem parar, pelas leituras (sem buracos de mais de 10 minutos) */
@@ -5601,9 +5621,10 @@ function processarLeituraKxa(l, agora){
   migrarSaldoKxa(l);
   /* as leituras de cada minuto (para a linha do dia, a luz e a média de 24 h) */
   const ms = l.placas.filter(p=>p.minerando), pr = principalKxa(l), gpus = l.placas.filter(p=>p.tipo==="gpu");
-  const watts = ms.length ? (ms.some(p=>p.watts!=null) ? ms.reduce((a,p)=>a + (p.watts||0), 0) : null) : 0;
+  /* o consumo guardado é o do PC na tomada (a luz de hoje); sem medida, fica vazio e a luz usa o estimado */
+  const watts = ms.length ? (ms.some(p=>p.watts!=null) ? wattsNaTomada(somaWatts(ms)) : null) : 0;
   const maxT = k => { const v = gpus.map(p=>p[k]).filter(x=>x!=null); return v.length ? Math.max(...v) : null; };
-  kxaHist.amostras.push([agora, l.saldoBtc, watts, ms.length ? 1 : 0, pr && pr.minerando ? pr.hash : 0, maxT("temp"), maxT("tempMem")]);
+  kxaHist.amostras.push([agora, l.saldoBtc, watts, ms.length ? 1 : 0, pr && pr.minerando ? pr.hash : 0, maxT("temp"), maxT("tempMem"), maxT("tempHot")]);
   kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
   lsSet("min-kxa-hist", kxaHist);
   /* o saldo entra nos dias da Kryptex (as sugestões do Diário), no máximo a cada 15 minutos */
@@ -5618,11 +5639,14 @@ function processarLeituraKxa(l, agora){
 function retratoKxa(agora = Date.now()){
   const l = kxa.leitura, pr = l ? precoBtcBrl(l) : null, h = hojeKxa(kxaHist.amostras, agora, tarifaEf(), pr);
   const placasR = l && l.ok ? l.placas.filter(p=>p.tipo==="gpu" || p.minerando).slice(0, 8).map(p=>({nome:nomePlaca(p), tipo:p.tipo, minerando:p.minerando, moeda:p.moeda, minerador:p.minerador,
-    hash:p.hash, temp:p.temp, tempMem:p.tempMem, watts:p.watts, ventoinha:p.ventoinha, rpm:p.rpm})) : [];
+    hash:p.hash, temp:p.temp, tempMem:p.tempMem, tempHot:p.tempHot, watts:p.watts, ventoinha:p.ventoinha, rpm:p.rpm})) : [];
+  /* o PC na tomada (o celular mostra o mesmo número do PC): com o consumo medido das placas, ou o estimado do setup */
+  const ms = l && l.ok ? l.placas.filter(p=>p.minerando) : [], medido = ms.some(p=>p.watts!=null);
   const passo = Math.max(1, Math.ceil(h.linha.length/48)), linha = h.linha.filter((x,i)=>i%passo===0 || i===h.linha.length-1).map(([t,v])=>[t, Math.round(v*100)/100]);
   return {v:1, quando: kxa.quando || agora, estado: kxa.estado, pausaAte: l && l.ok && l.pausado ? l.pausaAte : null, computador: l && l.computador || "",
     placas: placasR, hoje: {ganho:h.ganho, luz:h.luz, lucro:h.lucro, kwh:h.kwh, desde:h.desde}, ritmo: ritmoKxa(l), saldoBtc: l && l.ok ? l.saldoBtc : null, precoBtc: pr,
-    linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora)};
+    linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora),
+    wattsPc: !ms.length ? 0 : medido ? wattsNaTomada(somaWatts(ms)) : wattsEstimados(), wattsMedido: medido};
 }
 function gravarKxa(forcar){
   if(!PODE_KXA() || !kxa.jaRespondeu) return false;   /* sem nenhuma leitura boa, o celular continua com a estimativa */
@@ -5731,7 +5755,8 @@ function renderKxaPremissas(){
   $("kxa-ligado").checked = c.ligado; $("kxa-protecao").checked = c.protecao;
   if(document.activeElement!==$("kxa-limtemp")) $("kxa-limtemp").value = c.limTemp;
   if(document.activeElement!==$("kxa-limmem")) $("kxa-limmem").value = c.limMem;
-  $("kxa-limtemp").disabled = $("kxa-limmem").disabled = !c.protecao;
+  if(document.activeElement!==$("kxa-limhot")) $("kxa-limhot").value = c.limHot;
+  $("kxa-limtemp").disabled = $("kxa-limmem").disabled = $("kxa-limhot").disabled = !c.protecao;
   $("kxa-quando").textContent = !c.ligado ? "desligado" : kxa.quando ? `lido ${quando(kxa.quando)}` : kxa.falha ? "o app da Kryptex não respondeu" : "";
 }
 function textoDiagKxa(){
@@ -5743,7 +5768,7 @@ function textoDiagKxa(){
 if(PODE_KXA()){
   $("kxa-ligado").addEventListener("change", e=>{ mudarKxaCfg({ligado:e.target.checked}); sincronizarSegundoPlano(); renderKxaPremissas(); if(e.target.checked) lerKryptexApp("manual"); else { status2("ag-status", ""); renderAgora(); renderVivo(); } });
   $("kxa-protecao").addEventListener("change", e=>{ mudarKxaCfg({protecao:e.target.checked}); renderKxaPremissas(); renderAgora(); });
-  for(const [id, k, min, max] of [["kxa-limtemp","limTemp",60,110], ["kxa-limmem","limMem",60,120]])
+  for(const [id, k, min, max] of [["kxa-limtemp","limTemp",60,110], ["kxa-limmem","limMem",60,120], ["kxa-limhot","limHot",60,120]])
     $(id).addEventListener("change", e=>{ const v = Math.round(+e.target.value); if(v>=min && v<=max){ mudarKxaCfg({[k]:v}); renderAgora(); } else e.target.value = kxaCfg()[k]; });
   $("kxa-ler").addEventListener("click", async ()=>{ status2("kxa-status", "Lendo o app da Kryptex…"); await lerKryptexApp("manual"); status2("kxa-status", kxa.leitura && kxa.estado!=="fechado" && kxa.quando===kxa.ultimaOk && !kxa.falha ? "Lido agora." : `Não deu certo: ${kxa.falha || "o app da Kryptex não respondeu"}.`, kxa.falha ? "erro" : "ok"); });
   $("kxa-copiar").addEventListener("click", async ()=>{ await copiarTexto(textoDiagKxa()); status2("kxa-status", "Copiado (sem e-mail nem o nome do PC). Cole na conversa com o Claude para conferir a leitura.", "ok"); });
@@ -6282,14 +6307,18 @@ function htmlAgoraVivo(r, comAcoes, retrato){
   const onde = velho ? `lida ${outroDia ? "em " + new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"}) + " " : ""}às ${horaMin(r.quando)}${r.estado==="pausada" ? ", com a mineração pausada" : r.estado==="parada" ? ", com a placa parada" : r.estado==="fechado" ? ", com o app da Kryptex fechado" : ""}`
     : r.estado==="minerando" && p0 ? `${esc(moedaTxt(p0))}${r.minerandoDesde && agora - r.minerandoDesde >= 60e3 ? " · há " + duracao(agora - r.minerandoDesde) : ""}`
     : r.estado==="fechado" ? `sem resposta desde ${horaMin(r.quando)} · números da última leitura` : r.estado==="parada" ? "o app da Kryptex está aberto, mas a placa não está minerando" : "";
+  /* consumo: as placas medem só a placa; o número grande é o PC na tomada (o mesmo da luz de hoje), e o retrato que vai
+     para o celular já leva o do PC. Sem medida (placa AMD sem os sensores do driver), o estimado do setup */
   const watts = r.placas.filter(p=>p.minerando && p.watts!=null).reduce((a,p)=>a + p.watts, 0);
-  /* o app da Kryptex não manda o consumo das placas AMD: mostra o estimado do PC na tomada (o mesmo da luz de hoje) */
-  const wEst = !(watts>0) && !antigos && r.placas.some(p=>p.minerando) ? wattsEstimados() : 0;
+  const wPc = watts>0 ? (r.wattsMedido && r.wattsPc>0 ? r.wattsPc : wattsNaTomada(watts)) : 0;
+  const wEst = !(watts>0) && !antigos && r.placas.some(p=>p.minerando) ? (r.wattsPc>0 && !r.wattsMedido ? r.wattsPc : wattsEstimados()) : 0;
   const tile = (rot, val, sub) => `<div class="ag-n"><span class="lbl">${rot}</span><b>${val}</b><small>${sub}</small></div>`;
+  const tempSub = [p0 && p0.tempMem!=null ? `memória ${Math.round(p0.tempMem)} °C` : "", p0 && p0.tempHot!=null ? `ponto quente ${Math.round(p0.tempHot)} °C` : ""].filter(Boolean).join(" · ");
   const nums = [
     tile("Hashrate", p0 && p0.minerando ? hashTxt(p0.hash) : "—", r.hash24>0 ? "24 h: " + hashTxt(r.hash24) : "24 h: —"),
-    tile("Temperatura", p0 && p0.temp!=null ? Math.round(p0.temp) + " °C" : "—", p0 && p0.tempMem!=null ? `memória ${Math.round(p0.tempMem)} °C` : "memória: —"),
-    tile("Consumo", watts>0 ? Math.round(watts) + " W" : wEst>0 ? `≈ ${Math.round(wEst)} W` : "—", wEst>0 ? `estimado · ${brl(h.luz)} de luz hoje` : `${brl(h.luz)} de luz hoje`),
+    tile("Temperatura", p0 && p0.temp!=null ? Math.round(p0.temp) + " °C" : "—", tempSub || "memória: —"),
+    tile("Consumo", wPc>0 ? `≈ ${Math.round(wPc)} W` : wEst>0 ? `≈ ${Math.round(wEst)} W` : "—",
+      wPc>0 ? `placa ${Math.round(watts)} W · ${brl(h.luz)} de luz hoje` : wEst>0 ? `estimado · ${brl(h.luz)} de luz hoje` : `${brl(h.luz)} de luz hoje`),
     tile("Ventoinha", p0 && p0.ventoinha!=null ? Math.round(p0.ventoinha) + "%" : "—", p0 && p0.rpm!=null ? Math.round(p0.rpm).toLocaleString("pt-BR") + " rpm" : "rpm: —")
   ].join("");
   const rt = r.ritmo || {}, ritmo = !antigos && r.estado==="minerando" && rt.brutoDia>0
@@ -6301,7 +6330,7 @@ function htmlAgoraVivo(r, comAcoes, retrato){
     <div class="ag-meio"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : antigos ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
       <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}</div>${svgLinhaDia(r.linha, agora)}</div>
     <div class="ag-nums${antigos ? " velho" : ""}">${nums}</div>${prot}
-    <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a ${c.limTemp} °C ou a memória a ${c.limMem} °C` : "Proteção de temperatura desligada"}</span></div>
+    <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a ${c.limTemp} °C, a memória a ${c.limMem} °C ou o ponto mais quente a ${c.limHot} °C` : "Proteção de temperatura desligada"}</span></div>
     ${retrato ? `<div class="ag-rodape"><span>lido ${haQuanto(r.quando)}, no PC</span><button type="button" class="link" data-kxa-atualizar>Atualizar</button></div>` : ""}`;
 }
 function renderAgora(){

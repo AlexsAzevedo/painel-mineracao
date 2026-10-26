@@ -22,7 +22,10 @@ srv.listen(0, "127.0.0.1", async () => {
     assert.equal(g.ventoinha, 54); assert.equal(g.rpm, null);
     assert.equal(g.moeda, "PRL"); assert.equal(g.algoritmo, "pearlhash"); assert.equal(g.minerador, "srbminer");
     assert.equal(g.hash, 1.13e14); assert.equal(g.rendimentoUsd, 2.965);
+    /* para juntar com os sensores da AMD (sensores-amd.js): o fabricante e o barramento PCI ("0000:03:00.0" → 3) */
+    assert(g.fabricante === "amd" && g.bus === 3, JSON.stringify({ fabricante: g.fabricante, bus: g.bus }));
     const c = l.placas[1];
+    assert(c.fabricante === "intel" && c.bus === null, JSON.stringify({ fabricante: c.fabricante, bus: c.bus }));
     assert(c.tipo === "cpu" && !c.minerando && c.hash === 0 && c.rendimentoUsd === 0.31, JSON.stringify(c));   /* parado: o rendimento esperado */
     assert.equal(l.moeda, "BRL"); assert.equal(l.computador, "PC-TESTE");
     assert.deepEqual(l.cotacoes, { brl: 4.965204, btc: 0.00001237 });
@@ -113,6 +116,7 @@ srv.listen(0, "127.0.0.1", async () => {
     assert.equal(gr.hash, 106823893301207.16); assert.equal(gr.rendimentoUsd, 2.787783143481603);
     assert(gr.temp === 45 && gr.tempMem === null && gr.watts === null && gr.ventoinha === 74, JSON.stringify(gr));
     assert.equal(gr.estado, "mining");
+    assert(gr.fabricante === "amd" && gr.bus === null, "sem o endereço PCI (tirado da resposta guardada), o barramento fica vazio");
     assert(!lr.placas.find((x) => x.tipo === "cpu").minerando, "o processador está desligado no app");
     /* o saldo de verdade: US$ 0,0050 (R$ 0,02 na tela do app), não 0,0050 BTC (uns R$ 1.990) */
     assert.equal(lr.saldoUsd, 0.0050138589384519415);

@@ -62,6 +62,37 @@ def kryptex_app(p):
     checa("sem watts: o ritmo desconta a luz estimada", rt["w"] > 0 and abs(rt["lucro"] - rt["esperado"]) < 1e-9 and rt["lucro"] < rt["bruto"], rt)
     cons = pg.evaluate("(() => { const l = LEIT({}, {watts: null, tempMem: null}); const r = {...l, estado: 'minerando', hoje: {ganho: 1, luz: 0.5, lucro: 0.5}, linha: [], ritmo: ritmoKxa(l)}; const d = document.createElement('div'); d.innerHTML = htmlAgoraVivo(r, false); return [...d.querySelectorAll('.ag-n')].find(n => /Consumo/i.test(n.textContent)).innerText.replace(/\\s+/g, ' '); })()")
     checa("sem watts: o consumo aparece estimado", "≈ 320 W" in cons and "estimado" in cons, cons)
+    # placa AMD com os sensores do driver (sensores-amd.js): o consumo medido é o da placa; a luz conta o PC inteiro na
+    # tomada (a placa mais o resto do PC do setup, pela eficiência da fonte)
+    wt = pg.evaluate("[wattsNaTomada(373), wattsNaTomada(273)]")
+    checa("PC na tomada: a placa medida mais o resto do PC", wt[0] > 373 + 30 and 90 < wt[0] - wt[1] < 125, wt)
+    rm = pg.evaluate("""(() => { const l = LEIT({}, {watts: 373, tempMem: 76, tempHot: 77, rpm: 2765}), r = ritmoKxa(l);
+      return {lucro: r.lucroDia, esperado: r.brutoDia - wattsNaTomada(373) * 24 / 1000 * tarifaEf()}; })()""")
+    checa("com o consumo medido, o ritmo desconta o PC inteiro", abs(rm["lucro"] - rm["esperado"]) < 1e-9, rm)
+    am = pg.evaluate("simularLeituras([MIN]).then(() => [kxaHist.amostras.at(-1)[2], wattsNaTomada(286)])")
+    checa("a leitura guarda o consumo do PC na tomada", am[0] is not None and abs(am[0] - am[1]) < 1e-9, am)
+    tl = pg.evaluate("""(() => { const l = LEIT({}, {watts: 373, tempMem: 76, tempHot: 77, rpm: 2765});
+      const r = {...l, estado: 'minerando', hoje: {ganho: 1, luz: 0.5, lucro: 0.5}, linha: [], ritmo: ritmoKxa(l)};
+      const d = document.createElement('div'); d.innerHTML = htmlAgoraVivo(r, false);
+      const tile = rx => [...d.querySelectorAll('.ag-n')].find(n => rx.test(n.textContent)).innerText.replace(/\\s+/g, ' ');
+      return {consumo: tile(/Consumo/i), temp: tile(/Temperatura/i), pc: Math.round(wattsNaTomada(373)), prot: d.querySelector('.ag-prot').textContent}; })()""")
+    checa("consumo medido: o PC na tomada e a placa", f"≈ {tl['pc']} W" in tl["consumo"] and "placa 373 W" in tl["consumo"], tl)
+    checa("temperatura da memória e do ponto mais quente", "memória 76 °C" in tl["temp"] and "ponto quente 77 °C" in tl["temp"], tl)
+    checa("a proteção diz o limite do ponto mais quente", "ponto mais quente a 105 °C" in tl["prot"], tl)
+    pq = pg.evaluate("""(() => { const est = {quentes: 0}, c = {...kxaCfg(), protecao: true}, l = LEIT({}, {temp: 50, tempMem: 80, tempHot: 106});
+      deveProteger(est, l, c, Date.now()); return deveProteger(est, l, c, Date.now() + 60e3); })()""")
+    checa("proteção pelo ponto mais quente", bool(pq) and pq["minutos"] == 15 and "ponto mais quente a 106 °C" in pq["motivo"], pq)
+    checa("limite do ponto mais quente: 105 °C", pg.evaluate("kxaCfg().limHot") == 105)
+    rt = pg.evaluate("""(() => { kxa = novoKxa(); kxaHist = {v: 2, amostras: []}; const l = LEIT({}, {watts: 373, tempHot: 77}); processarLeituraKxa(l, Date.now());
+      const r = retratoKxa(); kxaHist = {v: 2, amostras: []}; kxa = novoKxa(); const l2 = LEIT({}, {watts: null}); processarLeituraKxa(l2, Date.now()); const r2 = retratoKxa();
+      return {hot: r.placas[0].tempHot, pc: r.wattsPc, medido: r.wattsMedido, esperado: wattsNaTomada(373), pc2: r2.wattsPc, medido2: r2.wattsMedido, est: wattsEstimados()}; })()""")
+    checa("retrato: o ponto mais quente e o consumo do PC", rt["hot"] == 77 and abs(rt["pc"] - rt["esperado"]) < 1e-9 and rt["medido"] is True, rt)
+    checa("retrato sem consumo medido: o estimado", abs(rt["pc2"] - rt["est"]) < 1e-9 and rt["medido2"] is False, rt)
+    ce = pg.evaluate("""(() => { const r = {v: 1, quando: Date.now(), estado: 'minerando', placas: [{nome: 'RX 9070 XT', tipo: 'gpu', minerando: true, watts: 373, temp: 46, tempMem: 76, tempHot: 77}],
+      hoje: {ganho: 1, luz: 0.5, lucro: 0.5}, ritmo: {brutoDia: 14, lucroDia: 3}, linha: [], wattsPc: 512, wattsMedido: true};
+      const d = document.createElement('div'); d.innerHTML = htmlAgoraVivo(r, false, true);
+      return [...d.querySelectorAll('.ag-n')].find(n => /Consumo/i.test(n.textContent)).innerText.replace(/\\s+/g, ' '); })()""")
+    checa("no celular, o consumo do PC vem do retrato", "≈ 512 W" in ce and "placa 373 W" in ce, ce)
     # pausado com o hashrate de antes: não avisa
     checa("pausado_nao_avisa", pg.evaluate("simularLeituras([MIN, PAUSADO_COM_HASH, PAUSADO_COM_HASH, PAUSADO_COM_HASH])") == {"estado": "pausada", "alertas": [], "acoes": []})
     # parou e voltou (com os avisos no celular ligados)
@@ -171,8 +202,14 @@ def kryptex_app(p):
     pg.fill("#kxa-limtemp", "80"); pg.dispatch_event("#kxa-limtemp", "change")
     checa("limite da placa", pg.evaluate("kxaCfg().limTemp") == 80)
     checa("limite vale na proteção", pg.evaluate("simularLeituras([{...MIN, placas:[{...MIN.placas[0], temp:81}, MIN.placas[1]]}, {...MIN, placas:[{...MIN.placas[0], temp:81}, MIN.placas[1]]}])")["acoes"] == [["pausar", 15]])
+    checa("campo do ponto mais quente", pg.is_visible("#kxa-limhot") and pg.input_value("#kxa-limhot") == "105")
+    pg.fill("#kxa-limhot", "100"); pg.dispatch_event("#kxa-limhot", "change")
+    checa("limite do ponto mais quente muda", pg.evaluate("kxaCfg().limHot") == 100)
+    pg.fill("#kxa-limhot", "300"); pg.dispatch_event("#kxa-limhot", "change")
+    checa("limite do ponto mais quente fora da faixa não entra", pg.evaluate("kxaCfg().limHot") == 100 and pg.input_value("#kxa-limhot") == "100")
+    checa("limite do ponto mais quente vale na proteção", pg.evaluate("simularLeituras([{...MIN, placas:[{...MIN.placas[0], tempHot:101}, MIN.placas[1]]}, {...MIN, placas:[{...MIN.placas[0], tempHot:101}, MIN.placas[1]]}])")["acoes"] == [["pausar", 15]])
     pg.uncheck("#kxa-protecao")
-    checa("desligar a proteção", pg.evaluate("kxaCfg().protecao") is False and pg.is_disabled("#kxa-limtemp"))
+    checa("desligar a proteção", pg.evaluate("kxaCfg().protecao") is False and pg.is_disabled("#kxa-limtemp") and pg.is_disabled("#kxa-limhot"))
     checa("protecao_desligada", pg.evaluate("simularLeituras([QUENTE, QUENTE])")["acoes"] == [])
     pg.evaluate("window.__copiado = null; window.desktop.copiar = async (t) => { window.__copiado = t; return true; }")
     pg.click("#kxa-copiar"); pg.wait_for_timeout(200)

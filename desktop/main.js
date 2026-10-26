@@ -1221,14 +1221,18 @@ ipcMain.handle("buscar-anuncios", doPainel(buscarAnunciosLeitor));
 ipcMain.handle("detalhes-anuncio", doPainel(detalhesAnuncioLeitor));
 ipcMain.handle("kryptex-ler", doPainel((qual) => lerKryptexLeitor(String(qual || ""))));
 ipcMain.handle("kryptex-entrar", doPainel(() => abrirKryptex()));
-/* app da Kryptex deste PC (localhost:8107): ler, pausar por um dos tempos permitidos e voltar a minerar (kryptex-app.js) */
+/* app da Kryptex deste PC (localhost:8107): ler, pausar por um dos tempos permitidos e voltar a minerar (kryptex-app.js).
+   Nas placas AMD, a leitura vem completada com os sensores do driver da AMD (sensores-amd.js): memória, ponto mais
+   quente, consumo da placa e rotações da ventoinha. */
 const kryptexApp = require("./kryptex-app.js");
+const sensoresAmd = require("./sensores-amd.js");
 ipcMain.handle("kryptex-app", doPainel((op, minutos) => {
-  if (op === "ler") return kryptexApp.ler();
-  if (op === "pausar") return kryptexApp.pausar(Number(minutos));
-  if (op === "voltar") return kryptexApp.voltar();
+  if (op === "ler") return kryptexApp.ler().then(sensoresAmd.juntar);
+  if (op === "pausar") return kryptexApp.pausar(Number(minutos)).then(sensoresAmd.juntar);
+  if (op === "voltar") return kryptexApp.voltar().then(sensoresAmd.juntar);
   throw new Error("pedido desconhecido");
 }));
+app.on("will-quit", () => sensoresAmd.parar());
 
 function abrirFacebook() {
   return new Promise((ok) => {

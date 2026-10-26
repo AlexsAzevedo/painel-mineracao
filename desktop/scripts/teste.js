@@ -523,6 +523,9 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
            esquenta (2 leituras quentes: pausa 15 minutos e avisa), para sozinha (3 leituras: avisa e depois avisa que voltou) e o
            app fecha (5 minutos sem responder: avisa). O painel nunca pede /user (o nome de usuário da Kryptex) */
         r.kxApp = {};
+        /* os sensores da AMD (sensores-amd.js) com o leitor de mentira: a placa do app de mentira é uma RX 9070 XT */
+        process.env.PAINEL_SENSORES_CMD = path.join(__dirname, "sensores-falso.js");
+        process.env.PAINEL_SENSORES_INTERVALO_MS = "200";
         const kxN0 = testeSegundoPlano.notificacoes.length, kxP0 = ntfy.publicados.length;
         const avisosDesde = (n) => testeSegundoPlano.notificacoes.slice(n).map((x) => x.titulo);
         const lerKxApp = async () => { for (let i = 0; i < 60 && (await js("kxa.lendo")); i++) await esperar(250); await js(`lerKryptexApp("manual").then(()=>true)`); };
@@ -531,8 +534,10 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         kxApp.estado.modo = "minerando";
         await js(`irPara("resumo")`);
         await lerKxApp(); await esperar(400);
+        await lerKxApp(); await esperar(200);   /* a segunda leitura já vem com os sensores (o leitor liga na primeira) */
         r.kxApp.leu = await js(`({estado:kxa.estado, jaRespondeu:kxa.jaRespondeu, agora:${textoAgora}, vivo:document.getElementById("vivo").innerText.replace(/\\s+/g, " "),
-          retrato:(s=>s && {estado:s.estado, placas:s.placas.map(p=>p.nome), temp:s.placas[0] && s.placas[0].temp, watts:s.placas[0] && s.placas[0].watts})(JSON.parse(localStorage.getItem("min-kx-app")||"null"))})`);
+          sensores:kxa.leitura && kxa.leitura.sensores, tempHot:kxa.leitura && kxa.leitura.placas[0].tempHot, rpm:kxa.leitura && kxa.leitura.placas[0].rpm,
+          retrato:(s=>s && {estado:s.estado, placas:s.placas.map(p=>p.nome), temp:s.placas[0] && s.placas[0].temp, watts:s.placas[0] && s.placas[0].watts, tempHot:s.placas[0] && s.placas[0].tempHot, wattsPc:s.wattsPc})(JSON.parse(localStorage.getItem("min-kx-app")||"null"))})`);
         r.kxApp.leu.segundoPlano = segundoPlano();
         await foto("kxapp");
         /* pausar 1 hora pelo Resumo e voltar */
