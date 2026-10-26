@@ -487,6 +487,17 @@ public class AtualizadorTest {
         assertFalse("avisa a página quando muda", avisos.isEmpty());
     }
 
+    /** depois de "a atualização foi cancelada", um toque novo em Atualizar o app não deixa o motivo velho na tela */
+    @Test public void novaTentativaLimpaAFalhaAnterior() throws Exception {
+        a.aoAbrir();
+        a.falhaInstalacao("a atualização foi cancelada");
+        assertTrue(a.estado().has("falhaApk"));
+        a.instalando(true);
+        assertFalse("a falha anterior some ao começar de novo", a.estado().has("falhaApk"));
+        assertFalse("e some também do que fica guardado", guardado().has("falhaApk"));
+        assertTrue(a.estado().getBoolean("instalando"));
+    }
+
     @Test public void frases() {
         assertEquals("sem internet agora", Atualizador.frase("rede", null));
         assertEquals("a versão 1.8.1 ainda não está completa no GitHub", Atualizador.frase("nao-achou", "1.8.1"));

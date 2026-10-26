@@ -385,8 +385,14 @@ public final class Atualizador {
         return null;
     }
 
+    /** começou (ou acabou) uma tentativa de instalar: uma tentativa nova apaga o motivo da falha anterior */
     public void instalando(boolean sim) {
         instalando = sim;
+        if (sim) {
+            synchronized (this) {
+                if (est().remove("falhaApk") != null) gravar();
+            }
+        }
         avisar();
     }
 
