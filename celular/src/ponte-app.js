@@ -12,11 +12,13 @@
   const PAINEL = "__PAINEL__";   /* a versão desta página (a do painel, a mesma do PC) */
   const SERVIDOR = String(window.__NTFY__ || "https://ntfy.sh").replace(/\/+$/, "");
   const URL_APK = "https://github.com/AlexsAzevedo/painel-mineracao/releases/latest/download/Painel-de-Mineracao.apk";
-  const API_VERSAO = "https://api.github.com/repos/AlexsAzevedo/painel-mineracao/releases/latest";
   const S = window.Sincronia, SINC = S.SINCRONIZADAS;
   const nativo = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const plugin = (n) => { try { return nativo && window.Capacitor.registerPlugin ? window.Capacitor.registerPlugin(n) : null; } catch (e) { return null; } };
-  const AppP = plugin("App"), DeviceP = plugin("Device"), BarrasP = plugin("SystemBars");
+  const AppP = plugin("App"), DeviceP = plugin("Device"), BarrasP = plugin("SystemBars"), AtuP = plugin("Atualizador");
+  /* erros da página até ela abrir: com algum, ela não confirma que abriu (e a parte Android volta para a anterior) */
+  let errosAteAbrir = 0, abriu = false;
+  window.addEventListener("error", () => { if (!abriu) errosAteAbrir++; });
   const L = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -28,7 +30,7 @@
      ultimoId: a última mensagem do PC já tratada; ultimaVez: quando chegou a última carta do PC (para a tela);
      tCarta: a hora do ntfy.sh da última carta do PC (para saber se uma carta é mais velha que outra, sem depender do relógio daqui);
      faltam: chaves que o celular não conseguiu guardar (sem espaço): vão no próximo "ola" para o PC mandar de novo */
-  const vazio = () => ({ versao: 0, vk: {}, hashes: {}, pend: {}, faltam: [], ultimoId: "", ultimaVez: 0, tCarta: 0, ultimaOla: 0, pc: null, vistos: [], pronto: false, versaoNova: "", conferiuVersao: 0, envios: [] });
+  const vazio = () => ({ versao: 0, vk: {}, hashes: {}, pend: {}, faltam: [], ultimoId: "", ultimaVez: 0, tCarta: 0, ultimaOla: 0, pc: null, vistos: [], pronto: false, envios: [] });
   let codigo = S.lerCodigo(L.get("pm-codigo"));
   let est = Object.assign(vazio(), L.json("pm-sinc", {}));
   let aparelho = L.get("pm-aparelho");
@@ -46,15 +48,10 @@
   function salvarJa() { clearTimeout(salvarT); L.set("pm-sinc", JSON.stringify(est)); }
   const hora = (t) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const quandoTxt = (t) => { const d = new Date(t), hoje = new Date(); return d.toDateString() === hoje.toDateString() ? "hoje às " + hora(t) : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + hora(t); };
-  function maisNova(a, b) {
-    const x = String(a || "0").split(".").map((n) => parseInt(n, 10) || 0), y = String(b || "0").split(".").map((n) => parseInt(n, 10) || 0);
-    for (let i = 0; i < 3; i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
-    return false;
-  }
 
   /* ---------- estado para o painel (selo do canto e faixa de aviso) ---------- */
   function info() {
-    return { pc: est.pc, ultimaVez: est.ultimaVez, conectado, pendentes: Object.keys(est.pend).length, versaoNova: maisNova(est.versaoNova, VERSAO) ? est.versaoNova : "", urlApk: URL_APK, vinculado: !!codigo };
+    return { pc: est.pc, ultimaVez: est.ultimaVez, conectado, pendentes: Object.keys(est.pend).length, urlApk: URL_APK, vinculado: !!codigo };
   }
   function avisar() {
     if (!estadoFn || !codigo) return;
@@ -72,7 +69,8 @@
   }
 
   /* ---------- falar com o PC ---------- */
-  const quem = () => ({ id: aparelho, nome: nomeAparelho || "Celular Android", app: VERSAO });
+  /* a versão do app instalado (a da parte Android, pelo atualizador) e a desta página */
+  const quem = () => ({ id: aparelho, nome: nomeAparelho || "Celular Android", app: (atuEst && atuEst.app && atuEst.app.versao) || VERSAO, painel: PAINEL });
   /* teto de mensagens do app: 30 por hora e 60 por dia. O ntfy.sh aceita 250 por dia de cada internet e, em casa, o
      celular divide a conta com o PC (sinal de vida, avisos e as respostas para cá). Uso normal fica bem abaixo; o teto só
      segura um defeito. O "ola" silencioso (o app aberto avisando que continua lá) para em 40 no dia, para sobrar para o resto. */
@@ -366,28 +364,80 @@
     voltouEm = Date.now();
     caiuDesde = 0; escutar();
     for (const p of pedidos.values()) p.armar();
-    ola(false); conferirVersaoApp();
+    ola(false);
     if (Object.keys(est.pend).length) agendarEnvio(1500);
   }
 
-  /* ---------- versão nova do app (Releases do GitHub), no máximo a cada 12 horas ----------
-     A versão do app vem no rótulo do .apk ("Painel-de-Mineracao.apk (app 1.5.0)"): uma versão nova só do PC não pede
-     para atualizar o app. Releases antigas, sem rótulo, valem pela versão da release. */
-  function versaoDoApk(j) {
-    const apk = (j.assets || []).find((a) => a && a.name === "Painel-de-Mineracao.apk");
-    if (!apk) return "";
-    const m = /\bapp\s+(\d+\.\d+\.\d+)/i.exec(String(apk.label || ""));
-    return m ? m[1] : String(j.tag_name || "").replace(/^v/, "");
+  /* ---------- atualização do app (o plugin Atualizador, da parte Android) ----------
+     A parte Android procura a versão nova nas releases do GitHub, confere a assinatura e baixa a página nova (e o .apk,
+     quando a parte Android muda). Aqui: pedir para procurar, trocar a página na hora certa, confirmar que esta página
+     abriu e mostrar os avisos. Sem o plugin (no navegador, no teste do aplicativo do PC), nada disso existe. */
+  let atuEst = null, trocaT = null, trocando = false;
+  const atuFns = new Set(), avisados = new Set();
+  function receberAtu(e) {
+    if (!e || typeof e !== "object") return;
+    atuEst = e;
+    for (const fn of atuFns) { try { fn(e); } catch (x) {} }
+    tentarTrocar();
   }
-  async function conferirVersaoApp() {
-    if (Date.now() - (est.conferiuVersao || 0) < 12 * 3600e3) return;
-    est.conferiuVersao = Date.now(); salvar();
-    try {
-      const r = await fetch(API_VERSAO, { cache: "no-store" });
-      if (!r.ok) return;
-      const v = versaoDoApk(await r.json());
-      est.versaoNova = v && maisNova(v, VERSAO) ? v : ""; salvar(); avisar();
-    } catch (e) {}
+  function procurarAtualizacao(forcar) {
+    if (!AtuP) return Promise.resolve(null);
+    return AtuP.procurar({ forcar: !!forcar }).then((e) => { receberAtu(e); return e; }).catch(() => null);
+  }
+  /* a página nova entra na hora, menos com o app em segundo plano, uma folha ou a configuração inicial aberta, a tela
+     de vincular ou o cursor num campo de texto (para não perder o que a pessoa digitou) */
+  const CAMPO_QUE_NAO_SEGURA = /^(button|checkbox|radio|range|submit|reset|file|color|image)$/i;
+  function podeTrocar() {
+    if (document.visibilityState !== "visible" || vincEl) return false;
+    if (document.querySelector(".folha-m.aberta")) return false;
+    const mais = document.getElementById("mais"), bv = document.getElementById("bv");
+    if ((mais && !mais.hidden) || (bv && !bv.hidden)) return false;
+    const a = document.activeElement;
+    if (a && a !== document.body) {
+      if (a.isContentEditable || a.tagName === "TEXTAREA" || a.tagName === "SELECT") return false;
+      if (a.tagName === "INPUT" && !CAMPO_QUE_NAO_SEGURA.test(a.type || "")) return false;
+    }
+    return true;
+  }
+  function tentarTrocar() {
+    if (!AtuP || trocando || !atuEst || !atuEst.pronta) { clearInterval(trocaT); trocaT = null; return; }
+    if (!podeTrocar()) { if (!trocaT) trocaT = setInterval(tentarTrocar, 2000); return; }
+    clearInterval(trocaT); trocaT = null;
+    trocando = true;
+    AtuP.usarPainel().then(receberAtu, () => {}).then(() => { trocando = false; });
+  }
+  function avisosAtu(e) {
+    if (!e || typeof window.toast !== "function") return;
+    if (e.trocou && !avisados.has("trocou")) {
+      avisados.add("trocou"); window.toast(`Painel atualizado: versão ${e.trocou.para}`);
+      AtuP.visto({ qual: "trocou" }).then(receberAtu, () => {});
+    }
+    if (e.voltou && !avisados.has("voltou")) {
+      avisados.add("voltou"); window.toast(`O painel ${e.voltou.de} não abriu direito; voltei para o ${e.voltou.para}.`);
+      AtuP.visto({ qual: "voltou" }).then(receberAtu, () => {});
+    }
+  }
+  /* esta página abriu: o script do painel rodou até o fim (irPara existe) e sem erro até aqui */
+  function confirmarAbertura() {
+    const semErro = errosAteAbrir === 0;
+    abriu = true;
+    if (!AtuP || !semErro || typeof window.irPara !== "function") return;
+    AtuP.painelOk({ versao: PAINEL }).then((e) => { receberAtu(e); avisosAtu(e); }, () => {});
+  }
+  const atualizadorPublico = AtuP ? Object.freeze({
+    estado: () => atuEst,
+    procurar: () => procurarAtualizacao(true),
+    instalarApp: () => AtuP.instalarApp().then((e) => { receberAtu(e); return e; }),
+    aoMudar: (fn) => { if (typeof fn === "function") atuFns.add(fn); }
+  }) : null;
+  if (AtuP) {
+    try { AtuP.addListener("estado", receberAtu); } catch (e) {}
+    AtuP.estado().then(receberAtu, () => {});
+    procurarAtualizacao(false);
+    setInterval(() => procurarAtualizacao(false), 6 * 3600e3);
+    window.addEventListener("load", () => setTimeout(confirmarAbertura, 0));
+    /* o app voltou para a frente: a página pronta entra agora, e o plugin vê se já é hora de procurar de novo */
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { tentarTrocar(); procurarAtualizacao(false); } });
   }
 
   /* ---------- tela de vincular ---------- */
@@ -430,7 +480,7 @@ html.pm-vinculando .app{visibility:hidden}
     vincEl.className = "pm-vinc"; vincEl.id = "pm-vinc";
     vincEl.setAttribute("role", "dialog"); vincEl.setAttribute("aria-modal", "true"); vincEl.setAttribute("aria-labelledby", "pm-t");
     vincEl.innerHTML = `<div class="pm-c">
-      <div class="pm-topo"><img src="icone.png" alt=""><div><h1 id="pm-t" tabindex="-1">Painel de Mineração</h1><small>app do celular · versão ${VERSAO}</small></div></div>
+      <div class="pm-topo"><img src="icone.png" alt=""><div><h1 id="pm-t" tabindex="-1">Painel de Mineração</h1><small>app do celular · versão ${PAINEL}</small></div></div>
       <div id="pm-inicio" class="pm-c" style="gap:16px">
         <p class="pm-sub">Vincule este celular ao painel do seu PC. Os dados ficam no PC e chegam aqui criptografados; o que você mudar aqui vai para lá.</p>
         <ol class="pm-passos"><li>No PC, abra o painel e vá em <b>Premissas › App do celular</b>.</li><li>Clique em <b>Vincular um celular</b>.</li><li>Aqui, toque em <b>Ler o QR code</b> e aponte a câmera para o código da tela do PC.</li></ol>
@@ -574,7 +624,7 @@ html.pm-vinculando .app{visibility:hidden}
 
   /* ---------- começo ---------- */
   window.desktop = Object.freeze({
-    versao: VERSAO, remoto: true, app: true,
+    versao: PAINEL, remoto: true, app: true, atualizador: atualizadorPublico,
     sync: Object.freeze({
       mudou,
       aoReceber: (fn) => { receberFn = typeof fn === "function" ? fn : null; },
@@ -602,7 +652,6 @@ html.pm-vinculando .app{visibility:hidden}
     escutar();
     if (!est.pronto) { ola(true); esperarPc(); }
     else { ola(false); if (Object.keys(est.pend).length) agendarEnvio(1500); }
-    conferirVersaoApp();
     avisar();
   }
   /* com o app aberto, a cada 14 minutos diz ao PC que continua aqui (o PC manda as mudanças na hora para quem falou com
