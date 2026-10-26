@@ -14,7 +14,8 @@ WWW = os.path.join(TMP, "www")
 
 
 class _Q(http.server.SimpleHTTPRequestHandler):
-    """a página montada; o "ntfy" daqui só responde 404 (a sincronia não é o assunto deste teste)"""
+    """a página montada; o "ntfy" daqui aceita o que o app manda e não tem nada para ler (a sincronia não é o assunto
+    deste teste: assim a faixa de "sem conexão" não aparece)"""
     def log_message(self, *a):
         pass
 
@@ -24,7 +25,17 @@ class _Q(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
-    do_POST = do_GET
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        corpo = json.dumps({"id": "t" + str(threading.get_ident()), "time": AGORA_MS // 1000, "event": "message"}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(corpo)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    do_PUT = do_POST
 
 
 _srv = socketserver.ThreadingTCPServer(("127.0.0.1", 0), functools.partial(_Q, directory=WWW))
@@ -44,7 +55,7 @@ assert f'const PAINEL = "{VERSAO_PC}";' in _txt
 open(_ponte, "w", encoding="utf-8").write(_txt.replace(f'const PAINEL = "{VERSAO_PC}";', f'const PAINEL = "{VERSAO_PAGINA}";'))
 
 ESTADO_BASE = {"app": {"versao": VERSAO_APP, "codigo": 10800}, "painel": {"versao": VERSAO_PC, "origem": "apk", "embutido": VERSAO_PC},
-               "procurando": False, "ultimaProcura": AGORA_MS - 3600_000, "instalando": False, "podeInstalar": True, "android": 34}
+               "procurando": False, "ultimaProcura": AGORA_MS - 1800_000, "instalando": False, "podeInstalar": True, "android": 34}
 
 # o Capacitor de mentira: o Atualizador guarda as chamadas e devolve o estado de __atu (mudar() avisa como o evento "estado")
 CAPACITOR = """(() => {
@@ -190,6 +201,74 @@ def ponte(p):
     checa("nenhum pedido à API do GitHub", not [u for u in _pedidos if "api.github.com" in u])
 
 
+def texto(pg, sel):
+    return pg.evaluate("(s) => { const e = document.querySelector(s); return e ? e.innerText.trim() : ''; }", sel)
+
+
+def visivel(pg, sel):
+    return pg.evaluate("(s) => { const e = document.querySelector(s); return !!e && !e.hidden && e.getClientRects().length > 0; }", sel)
+
+
+def clica(pg, sel):
+    return pg.evaluate("(s) => { const e = document.querySelector(s); if(!e) return false; e.click(); return true; }", sel)
+
+
+def painel(p):
+    pg = abrir_app(p)
+    pg.evaluate("irPara('premissas'); abrirSecao(document.getElementById('estecel-p'))")   # no celular, os quadros de Premissas abrem pelo título
+    pg.wait_for_timeout(200)
+    checa("versões no Este celular", texto(pg, "#estecel-versao") == f"painel {VERSAO_PAGINA} · app {VERSAO_APP}", texto(pg, "#estecel-versao"))
+    checa("em dia", "em dia, conferido há 30 min" in texto(pg, "#estecel-info"), texto(pg, "#estecel-info"))
+    zerar(pg)
+    clica(pg, "#estecel-procurar")
+    pg.wait_for_timeout(200)
+    checa("procurar versão nova força a procura", ["procurar", {"forcar": True}] in chamadas(pg), chamadas(pg))
+    checa("sem .apk, sem botão de instalar", not visivel(pg, "#estecel-instalar") and not visivel(pg, "#app-nova"))
+
+    mudar(pg, apk={"versao": "1.9.0"}, podeInstalar=False, android=34)
+    pg.wait_for_timeout(200)
+    faixa = texto(pg, "#app-nova")
+    checa("faixa do app", visivel(pg, "#app-nova") and "Atualização do app pronta (versão 1.9.0)." in faixa and "Na primeira vez, o Android pede" in faixa, faixa)
+    checa("botão de instalar no Este celular", visivel(pg, "#estecel-instalar") and texto(pg, "#estecel-instalar") == "Atualizar o app")
+    checa("Este celular diz que o app está pronto", "versão 1.9.0 do app pronta" in texto(pg, "#estecel-info"), texto(pg, "#estecel-info"))
+    zerar(pg)
+    clica(pg, "#app-nova .pri"); clica(pg, "#app-nova .pri")
+    pg.wait_for_timeout(300)
+    checa("um toque instala uma vez", [c[0] for c in chamadas(pg)].count("instalarApp") == 1, chamadas(pg))
+    checa("instalando", "instalando a versão 1.9.0 do app" in texto(pg, "#estecel-info") and pg.evaluate("document.querySelector('#app-nova .pri').disabled"), texto(pg, "#estecel-info"))
+    mudar(pg, apk={"versao": "1.9.0"}, podeInstalar=True, android=34)
+    pg.wait_for_timeout(200)
+    checa("sem a dica quando o Android já deixa", "Na primeira vez" not in texto(pg, "#app-nova"))
+    clica(pg, "#app-nova button.link")
+    checa("o × fecha a faixa", not visivel(pg, "#app-nova"))
+
+    mudar(pg, falhaApk="a atualização foi cancelada", apk=None)
+    pg.wait_for_timeout(200)
+    checa("falha com link", visivel(pg, "#estecel-baixar") and "a atualização foi cancelada" in texto(pg, "#estecel-p"), texto(pg, "#estecel-p"))
+    checa("link para o .apk", pg.evaluate("document.getElementById('estecel-baixar').href").endswith("/Painel-de-Mineracao.apk"))
+    mudar(pg, baixando={"qual": "painel", "versao": "1.8.1", "pct": 40})
+    pg.wait_for_timeout(200)
+    checa("baixando", "baixando a versão 1.8.1… 40%" in texto(pg, "#estecel-info"), texto(pg, "#estecel-info"))
+    mudar(pg, erro={"codigo": "rede", "msg": "sem internet agora"})
+    pg.wait_for_timeout(200)
+    checa("erro em palavras simples", "não deu para atualizar agora: sem internet agora" in texto(pg, "#estecel-info"), texto(pg, "#estecel-info"))
+    mudar(pg, precisaApp={"versao": "2.0.0"})
+    pg.wait_for_timeout(200)
+    checa("precisa do app novo", "a versão 2.0.0 precisa do app novo" in texto(pg, "#estecel-info"), texto(pg, "#estecel-info"))
+    checa("sem erros no painel", not _erros_app[id(pg)], _erros_app[id(pg)])
+
+    # o PC: a lista de celulares com a versão do painel de cada um
+    aparelhos = [{"id": "a1", "nome": "Celular A", "app": "1.8.0", "painel": "1.8.0", "visto": AGORA_MS, "ativo": True},
+                 {"id": "a2", "nome": "Celular B", "app": "1.7.1", "visto": AGORA_MS - 3600_000, "ativo": False}]
+    cfg = {"ligado": True, "aparelhos": aparelhos, "codigo": "PM1-x", "qr": "", "qrApk": "", "urlApk": "", "apk": True, "conectado": True}
+    pc = abrir(p, pc=True, dados=DADOS, extra="window.desktop.appCelular.config = async () => (%s);" % json.dumps(cfg))
+    pc.evaluate("irPara('premissas')")
+    pc.wait_for_timeout(300)
+    lista = texto(pc, "#appcel-lista")
+    checa("lista do PC", "painel 1.8.0 · app 1.8.0" in lista and "app 1.7.1" in lista and "painel 1.7.1" not in lista, lista)
+
+
 with sync_playwright() as p:
     ponte(p)
+    painel(p)
 fim()

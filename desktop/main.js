@@ -700,7 +700,7 @@ function svgQr(texto, titulo) {
 }
 function appPublico() {
   const agora = Date.now();
-  const aparelhos = Object.entries(appCel.aparelhos).map(([id, a]) => ({ id, nome: a.nome || "Celular", app: a.app || "", visto: a.visto || 0, ativo: (a.ativoAte || 0) > agora }))
+  const aparelhos = Object.entries(appCel.aparelhos).map(([id, a]) => ({ id, nome: a.nome || "Celular", app: a.app || "", painel: a.painel || "", visto: a.visto || 0, ativo: (a.ativoAte || 0) > agora }))
     .sort((a, b) => b.visto - a.visto);
   return { ligado: !!appCel.codigo, codigo: appCel.codigo, qr: appCel.codigo ? svgQr(appCel.codigo, "Código para vincular o celular") : "",
     qrApk: svgQr(URL_APK, "Endereço para baixar o app"), urlApk: URL_APK, apk: apkDisponivel, aparelhos, conectado: appConectado, ultimoEnvio: appCel.ultimoEnvio,
@@ -923,6 +923,7 @@ async function appRecebido(m) {
     a.visto = Math.max(a.visto || 0, quando); a.ativoAte = Math.max(a.ativoAte || 0, quando + APP_ATIVO);
     if (c.aparelho.nome) a.nome = String(c.aparelho.nome).slice(0, 60);
     if (c.aparelho.app) a.app = String(c.aparelho.app).slice(0, 20);
+    if (c.aparelho.painel) a.painel = String(c.aparelho.painel).slice(0, 20);   /* a versão da página do app (desde a 1.8.0) */
   }
   /* "ola" de quando o PC estava desligado não precisa de resposta: o celular manda outro quando abrir o app.
      "ola" silenciosa (o app aberto avisando que continua lá): só tem resposta se o celular ficou para trás (ou está à

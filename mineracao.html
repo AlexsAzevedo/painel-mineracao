@@ -448,6 +448,7 @@ td .ein{width:90px;text-align:right;font-family:var(--mono);padding:4px 6px}
 .remoto-aviso.info{border-left-color:var(--accent)}
 .remoto-aviso.info a{color:var(--accent);font-weight:700}
 .remoto-aviso.info button.link{color:var(--muted);margin-left:auto;font-size:1.2rem;line-height:1;padding:0 4px}
+.remoto-aviso .app-nova-dica{flex-basis:100%;color:var(--muted);font-size:.8rem}
 .appcel-codigo{margin-top:10px;width:min(220px,100%);aspect-ratio:1;border-radius:10px;overflow:hidden;background:#fff;border:1px solid var(--line)}
 .appcel-codigo svg{display:block;width:100%;height:100%}
 .appcel-passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:20px 32px;align-items:start}
@@ -1318,7 +1319,8 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div class="painel-h"><h2 id="t-estecel">Este celular</h2><small class="hint" id="estecel-versao"></small></div>
         <p class="sub" style="margin:0">Os dados ficam no PC e chegam aqui criptografados pelo ntfy.sh. O que você muda aqui vai para o PC; a busca de ofertas, a leitura de anúncios e a atualização dos dados de fora rodam no PC.</p>
         <dl class="cen" id="estecel-info"></dl>
-        <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar a versão nova do app</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
+        <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><button type="button" id="estecel-procurar" hidden>Procurar versão nova</button><button type="button" class="pri" id="estecel-instalar" hidden>Atualizar o app</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar o app pelo navegador</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
+        <p class="status erro" id="estecel-falha" hidden></p>
         <p class="status" id="estecel-status" role="status" aria-live="polite"></p>
       </article>
       <article class="painel" id="cen-p" aria-labelledby="t-cen"><div class="painel-h"><h2 id="t-cen">Cenário das contas</h2></div><dl class="cen" id="r-cenario"></dl></article>
@@ -6029,7 +6031,7 @@ function renderAppCelPc(){
     $("appcel-qr-apk").hidden = c.apk === false; $("appcel-sem-apk").hidden = c.apk !== false;
   }
   $("appcel-lista").innerHTML = aps.length
-    ? aps.map(a=>`<li><b>${esc(a.nome)}</b><small>${a.app ? "app " + esc(a.app) + " · " : ""}${a.ativo ? '<span class="on">com o app aberto</span>' : "visto " + esc(quandoVisto(a.visto))}</small></li>`).join("")
+    ? aps.map(a=>`<li><b>${esc(a.nome)}</b><small>${a.painel ? "painel " + esc(a.painel) + " · " : ""}${a.app ? "app " + esc(a.app) + " · " : ""}${a.ativo ? '<span class="on">com o app aberto</span>' : "visto " + esc(quandoVisto(a.visto))}</small></li>`).join("")
     : `<li class="hint">Nenhum celular vinculado ainda.</li>`;
   $("appcel-outro").textContent = aps.length ? "Vincular outro celular" : "Mostrar o QR code";
   $("appcel-outro").hidden = apQrAberto;
@@ -6080,31 +6082,75 @@ function renderAppCel(){
   const box = $("estecel-p"); if(!box) return;
   box.hidden = !APP; if(!APP) return;
   const i = (window.desktop.sync.info && window.desktop.sync.info()) || {};
-  $("estecel-versao").textContent = "versão " + window.desktop.versao;
+  /* o atualizador (a parte Android do app): a versão do app instalado e o andamento da atualização */
+  const atu = window.desktop.atualizador || null, e = atu ? atu.estado() : null;
+  $("estecel-versao").textContent = e && e.app ? `painel ${window.desktop.versao} · app ${e.app.versao}` : "versão " + window.desktop.versao;
   const linhas = [["PC", i.pc && i.pc.nome ? i.pc.nome + (i.pc.app ? ` · painel ${i.pc.app}` : "") : "—"],
     ["Dados do PC", i.ultimaVez ? `recebidos ${quandoVisto(i.ultimaVez)}` : "ainda não chegaram"],
     ["Conexão", i.conectado ? "ligado ao ntfy.sh" : "sem internet agora"],
-    ...(i.pendentes ? [["Para mandar", `${i.pendentes} ${plural(i.pendentes,"mudança","mudanças")} esperando o PC`]] : [])];
+    ...(i.pendentes ? [["Para mandar", `${i.pendentes} ${plural(i.pendentes,"mudança","mudanças")} esperando o PC`]] : []),
+    ...(atu ? [["Atualização", textoAtualizacaoApp(e)]] : [])];
   $("estecel-info").innerHTML = linhas.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
-  const nova = i.versaoNova || "";
-  $("estecel-baixar").hidden = !nova;
-  if(nova){ $("estecel-baixar").href = i.urlApk; $("estecel-baixar").textContent = `Baixar a versão ${nova} do app`; }
+  $("estecel-procurar").hidden = !atu;
+  $("estecel-procurar").disabled = !!(e && (e.procurando || e.baixando));
+  $("estecel-instalar").hidden = !(e && e.apk);
+  $("estecel-instalar").disabled = !!(e && e.instalando);
+  /* a instalação falhou: o motivo e o jeito de antes (baixar o .apk pelo navegador) */
+  const falha = e && e.falhaApk ? e.falhaApk : "";
+  $("estecel-falha").hidden = !falha;
+  $("estecel-falha").textContent = falha ? `Não deu para instalar o app: ${falha}.` : "";
+  $("estecel-baixar").hidden = !falha;
+  if(falha) $("estecel-baixar").href = i.urlApk;
   $("estecel-desvincular").textContent = Date.now() < ecDesvArmado ? "Confirmar: desvincular" : "Desvincular este celular";
-  renderAppNova(i);
+  renderAppNova(i, e);
 }
-/* versão nova do app: uma faixa embaixo, com o link (some por esta sessão no ×) */
-function renderAppNova(i){
+/* o andamento da atualização do app, numa frase */
+function textoAtualizacaoApp(e){
+  if(!e) return "conferindo…";
+  if(e.instalando) return `instalando a versão ${e.apk ? e.apk.versao : "nova"} do app…`;
+  if(e.baixando) return `baixando a versão ${e.baixando.versao}… ${e.baixando.pct || 0}%`;
+  if(e.pronta) return `versão ${e.pronta.versao} pronta: entra assim que você fechar o formulário`;
+  if(e.apk) return `versão ${e.apk.versao} do app pronta`;
+  if(e.precisaApp) return `a versão ${e.precisaApp.versao} precisa do app novo`;
+  if(e.procurando) return "procurando versão nova…";
+  if(e.erro) return "não deu para atualizar agora: " + e.erro.msg;
+  return "em dia" + (e.ultimaProcura ? ", conferido " + quandoVisto(e.ultimaProcura) : "");
+}
+async function instalarAppCel(botao){
+  const atu = window.desktop.atualizador; if(!atu) return;
+  if(botao) botao.disabled = true;
+  try{ await atu.instalarApp(); }catch(x){}
+  renderAppCel();
+}
+/* o app novo (a parte Android) já baixou: uma faixa no alto com o botão de instalar (o × some com ela até a próxima versão) */
+function renderAppNova(i, e){
   let b = $("app-nova");
-  const fechado = (()=>{ try{ return sessionStorage.getItem("min-app-nova-fechada") === i.versaoNova; }catch(e){ return false; } })();
-  const mostrar = !!(i.versaoNova && !fechado && !(remotoInfo && remotoInfo.aviso));
+  const v = e && e.apk ? e.apk.versao : "";
+  const fechado = (()=>{ try{ return !!v && sessionStorage.getItem("min-app-nova-fechada") === v; }catch(x){ return false; } })();
+  const mostrar = !!(v && !fechado && !(remotoInfo && remotoInfo.aviso));
   if(!b){ if(!mostrar) return; b = document.createElement("div"); b.id = "app-nova"; b.className = "remoto-aviso info"; b.setAttribute("role", "status"); document.querySelector(".main").prepend(b); }
   b.hidden = !mostrar; if(!mostrar) return;
-  b.innerHTML = `<span>Versão ${esc(i.versaoNova)} do app disponível.</span> <a href="${esc(i.urlApk)}" target="_blank" rel="noopener noreferrer">Baixar</a> <button type="button" class="link" aria-label="Fechar o aviso">×</button>`;
-  b.querySelector("button").onclick = ()=>{ try{ sessionStorage.setItem("min-app-nova-fechada", i.versaoNova); }catch(e){} b.hidden = true; };
+  const dica = e.podeInstalar === false && (e.android || 0) >= 26
+    ? `<span class="app-nova-dica">Na primeira vez, o Android pede para deixar o Mineração instalar apps: toque em Configurações, ligue a opção e volte.</span>` : "";
+  const falha = e.falhaApk ? `<span class="app-nova-dica">Não deu para instalar: ${esc(e.falhaApk)}. <a href="${esc(i.urlApk)}" target="_blank" rel="noopener noreferrer">Baixar pelo navegador</a></span>` : "";
+  b.innerHTML = `<span>Atualização do app pronta (versão ${esc(v)}).</span> <button type="button" class="pri">Atualizar o app</button> <button type="button" class="link" aria-label="Fechar o aviso">×</button>${dica}${falha}`;
+  const inst = b.querySelector("button.pri");
+  inst.disabled = !!e.instalando;
+  inst.onclick = ()=>instalarAppCel(inst);
+  b.querySelector("button.link").onclick = ()=>{ try{ sessionStorage.setItem("min-app-nova-fechada", v); }catch(x){} b.hidden = true; };
 }
 if(APP){
   renderAppCel();
   setInterval(()=>{ if(!$("v-premissas").hidden) renderAppCel(); }, 30e3);
+  if(window.desktop.atualizador){
+    window.desktop.atualizador.aoMudar(()=>renderAppCel());
+    $("estecel-procurar").addEventListener("click", async ev=>{
+      const b = ev.currentTarget; b.disabled = true;
+      try{ await window.desktop.atualizador.procurar(); }catch(x){}
+      renderAppCel();
+    });
+    $("estecel-instalar").addEventListener("click", ev=>instalarAppCel(ev.currentTarget));
+  }
   $("estecel-atualizar").addEventListener("click", async e=>{
     const b = e.currentTarget; b.disabled = true; status2("estecel-status", "Pedindo os dados ao PC…");
     try{ await window.desktop.sync.atualizar(); status2("estecel-status", `O PC respondeu às ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}. Tudo em dia.`, "ok"); }
