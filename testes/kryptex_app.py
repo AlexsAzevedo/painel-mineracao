@@ -41,6 +41,15 @@ FIXTURAS = """(() => {
     try { await simularLeituras(lista); } finally { Storage.prototype.setItem = s; }
     return n;
   };
+  /* em que minutos (desde a primeira leitura) o retrato do celular foi gravado */
+  window.minutosGravados = async (lista) => {
+    const ms = [], s = Storage.prototype.setItem, t0 = Date.now();
+    Storage.prototype.setItem = function (k, v) { if (k === "min-kx-app") ms.push(Math.round((Date.now() - t0) / 60e3)); return s.call(this, k, v); };
+    try { await simularLeituras(lista); } finally { Storage.prototype.setItem = s; }
+    return ms;
+  };
+  /* o mesmo app da Kryptex com dinheiro novo na conta (o saldo em dólar subiu) */
+  window.SALDO_NOVO = LEIT({saldoUsd: MIN.saldoUsd + 0.01, saldoBtc: (MIN.saldoUsd + 0.01) * 0.00001237});
 })();"""
 
 
@@ -166,6 +175,14 @@ def kryptex_app(p):
     r = pg.evaluate("JSON.parse(localStorage.getItem('min-kx-app'))")
     checa("retrato tem o que o celular mostra", r and r["v"] == 1 and r["estado"] == "pausada" and r["placas"][0]["temp"] == 63 and "hoje" in r and "linha" in r, r)
     checa("min-kx-app sincroniza", pg.evaluate("SINCRONIZADAS.includes('min-kx-app') && !SINCRONIZADAS.includes('min-kxa-hist')"))
+    # dinheiro novo na conta: o retrato vai de novo em até 5 minutos (o celular aberto recebe na hora), não a cada leitura;
+    # a cotação do bitcoin mexendo sozinha (o saldo em dólar igual) não é dinheiro novo
+    r = pg.evaluate("minutosGravados([[0, MIN], [1, MIN], [2, SALDO_NOVO], [3, SALDO_NOVO], [4, SALDO_NOVO], [5, SALDO_NOVO], [6, SALDO_NOVO]])")
+    checa("retrato: saldo novo vai em até 5 min", r == [0, 5], r)
+    r = pg.evaluate("minutosGravados(Array.from({length: 60}, (_, i) => [i, LEIT({saldoUsd: 8 + i / 100, saldoBtc: (8 + i / 100) * 0.00001237})]))")
+    checa("retrato: saldo mudando a cada minuto vai no máximo a cada 5 min", r == list(range(0, 60, 5)), r)
+    r = pg.evaluate("minutosGravados(Array.from({length: 60}, (_, i) => [i, LEIT({cotacoes: {brl: 4.965204, btc: 0.00001237 + i * 1e-9}, saldoUsd: 8, saldoBtc: 8 * (0.00001237 + i * 1e-9)})]))")
+    checa("retrato: só a cotação do bitcoin mexeu, não vai antes dos 30 min", r == [0, 30], r)
     # saldo vai para os dias da Kryptex (Diário)
     checa("saldo para o Diário", pg.evaluate("simularLeituras([MIN]), kxHist.saldos.length > 0 && kx.saldo && kx.saldo.moeda === 'BRL'"))
     # até a 1.6.1, o saldo do app da Kryptex (que vem em dólar) foi guardado como se fosse bitcoin: US$ 0,005 virava uns
@@ -305,10 +322,32 @@ def celular(p):
     checa("sem saldo no retrato, sem o quadro do saldo", "saldo na kryptex" not in pgc.inner_text("#agora").lower())
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
     checa("estado no topo do celular", "Minerando" in pgc.inner_text("#g-chip"))
-    pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(200)
-    checa("atualizar pelo botão", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 2)
-    pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(200)
-    checa("atualizar: no máximo 1 a cada 2 min", pgc.evaluate("window.__pedidos.filter(p=>p[0]==='kryptex-agora').length") == 2)
+    # o botão de atualizar no alto (e puxar a tela para baixo) traz também uma leitura nova do app da Kryptex do PC, mesmo
+    # com o retrato de 3 minutos; o Atualizar do quadro Agora faz o mesmo, e os dois esperam 30 s entre um e outro
+    leituras = "window.__pedidos.filter(p=>p[0]==='kryptex-agora').length"
+    pgc.evaluate("window.__atu = 0; window.__atuOrig = window.desktop.sync.atualizar; window.desktop.sync.atualizar = async () => { window.__atu++; return window.__atuOrig(); }; atuPc.ultimo = 0; 0")
+    n0 = pgc.evaluate(leituras)
+    pgc.click("#topo-atu"); pgc.wait_for_timeout(300)
+    checa("atualizar no alto: dados e leitura nova da Kryptex", pgc.evaluate(leituras) == n0 + 1 and pgc.evaluate("window.__atu") == 1, [pgc.evaluate(leituras) - n0, pgc.evaluate("window.__atu")])
+    checa("atualizar no alto: recado quando chega", "atualizados" in pgc.inner_text("#toast"), pgc.inner_text("#toast"))
+    pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(300)
+    checa("atualizar do quadro: não repete antes de 30 s", pgc.evaluate(leituras) == n0 + 1 and pgc.evaluate("window.__atu") == 1, [pgc.evaluate(leituras) - n0, pgc.evaluate("window.__atu")])
+    pgc.evaluate("atuPc.ultimo = Date.now() - 31e3; 0")
+    pgc.click("[data-kxa-atualizar]"); pgc.wait_for_timeout(300)
+    checa("atualizar do quadro: dados e leitura nova", pgc.evaluate(leituras) == n0 + 2 and pgc.evaluate("window.__atu") == 2, [pgc.evaluate(leituras) - n0, pgc.evaluate("window.__atu")])
+    # o PC não conseguiu ler o app da Kryptex: o recado diz, e os outros dados valem
+    pgc.evaluate("""window.__pedirOk0 = window.desktop.pedirAoPc; window.desktop.pedirAoPc = async (nome, args) => { window.__pedidos.push([nome, args || {}]);
+      return nome === 'kryptex-agora' ? {ok: false, texto: 'O PC não conseguiu ler o app da Kryptex: o app da Kryptex não respondeu.'} : {ok: true}; }; atuPc.ultimo = 0; 0""")
+    pgc.click("#topo-atu"); pgc.wait_for_timeout(300)
+    t = pgc.inner_text("#toast")
+    checa("atualizar no alto: leitura que falhou aparece no recado", "atualizados" in t and "não conseguiu ler o app da Kryptex" in t, t)
+    # PC desligado: os dados não vêm, e o recado sai na hora, sem esperar a leitura (que só desistiria depois de 50 s)
+    pgc.evaluate("""window.desktop.sync.atualizar = async () => { throw new Error('O PC não respondeu. Confira se ele está ligado.'); };
+      window.desktop.pedirAoPc = (nome, args) => { window.__pedidos.push([nome, args || {}]); return new Promise(() => {}); }; atuPc.ultimo = 0; 0""")
+    pgc.click("#topo-atu"); pgc.wait_for_timeout(300)
+    t = pgc.inner_text("#toast")
+    checa("PC desligado: o recado não espera a leitura", "não respondeu" in t and pgc.evaluate("atuPc.rodando") is False, [t, pgc.evaluate("atuPc.rodando")])
+    pgc.evaluate("window.desktop.pedirAoPc = window.__pedirOk0; window.desktop.sync.atualizar = window.__atuOrig; 0")
     pgc.click("details.pausar summary"); pgc.click('[data-pausa="180"]'); pgc.wait_for_timeout(200)
     checa("pausar pelo PC", pgc.evaluate("window.__pedidos.at(-1)") == ["kryptex-pausar", {"minutos": 180}])
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO_PAUSADO)); recarregarDados(['min-kx-app'])")
