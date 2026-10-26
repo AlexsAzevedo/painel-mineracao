@@ -135,7 +135,7 @@ public final class Atualizador {
                     gravar();
                     return "";
                 }
-                limparSobras();
+                if (!procurando.get()) limparSobras();   /* com um download no meio (atividade recriada), as sobras são dele */
                 String embutido = app.painelEmbutido();
                 JSONObject prova = est().optJSONObject("emProva");
                 if (prova != null) {
