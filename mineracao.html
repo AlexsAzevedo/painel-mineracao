@@ -5690,12 +5690,18 @@ function retratoKxa(agora = Date.now()){
     linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora),
     wattsPc: !ms.length ? 0 : medido ? wattsNaTomada(wp, l) : wattsPcEstimado(l), wattsMedido: medido};
 }
-/* entrou dinheiro novo na conta (ou saiu, num saque)? Pelo saldo em dólar, que é o que o app da Kryptex manda: o saldo em
-   bitcoin muda também quando só a cotação mexe */
+/* entrou dinheiro novo na conta (ou saiu, num saque)? A Kryptex guarda o saldo em bitcoin; o app manda o saldo em dólar,
+   pela cotação do momento (que muda sem dinheiro novo), e o painel volta para bitcoin com a cotação do próprio app, que vem
+   com 8 casas: um degrau de 1e-8 bitcoin por dólar, uns 0,1% do saldo. Dinheiro novo é o saldo em bitcoin mudar mais do
+   que um degrau e meio da cotação (e pelo menos 0,1%). Com um saldo grande, um ganho pequeno só aparece somado a outros
+   (até lá, vale a gravação de cada 30 minutos) */
 function saldoMudouKxa(a, b){
-  const num = (x, k) => x && x[k]!=null && Number.isFinite(+x[k]) ? +x[k] : null;
-  if(num(a, "saldoUsd")!=null && num(b, "saldoUsd")!=null) return Math.abs(num(a, "saldoUsd") - num(b, "saldoUsd")) > 1e-9;
-  return num(a, "saldoBtc")!=null && num(b, "saldoBtc")!=null && Math.abs(num(a, "saldoBtc") - num(b, "saldoBtc")) > 1e-12;
+  const btc = x => x && x.saldoBtc!=null && Number.isFinite(+x.saldoBtc) ? +x.saldoBtc : null;
+  const va = btc(a), vb = btc(b);
+  if(va==null || vb==null) return false;
+  const usd = b && Number.isFinite(+b.saldoUsd) && +b.saldoUsd > 0 ? +b.saldoUsd : 0, taxa = usd ? vb/usd : 0;   /* bitcoins por dólar */
+  const lim = Math.max(1e-3, taxa > 0 ? 1.5e-8/taxa : 0) * Math.max(va, vb);
+  return Math.abs(vb - va) > Math.max(lim, 1e-9);
 }
 function gravarKxa(forcar){
   if(!PODE_KXA() || !kxa.jaRespondeu) return false;   /* sem nenhuma leitura boa, o celular continua com a estimativa */
@@ -5896,27 +5902,35 @@ function toast(msg, acao){
   toast.t = setTimeout(()=>{ t.textContent = ""; }, acao ? 8000 : 4500);
 }
 /* celular: atualizar os dados do PC pelo botão da barra de cima (no app, também puxando a tela para baixo) e pelo
-   Atualizar do quadro Agora. Junto com os dados, pede ao PC uma leitura nova do app da Kryptex (quando o PC tem o app):
-   o quadro Agora vem com os números de agora, não com o último retrato. Cada vez são duas mensagens para o PC e as
-   respostas: no máximo uma vez a cada 30 segundos. */
+   Atualizar do quadro Agora. Junto com os dados, pede ao PC uma leitura nova do app da Kryptex (quando o PC tem o app e o
+   retrato daqui tem mais de 1 minuto e meio: o PC lê a cada minuto): o quadro Agora vem com os números de agora, não com
+   o último retrato. Cada vez são duas mensagens para o PC e as respostas: no máximo uma vez a cada 30 segundos. */
 var atuPc = {ultimo:0, rodando:false};
+var ESPERA_LEITURA_ATU = 20e3;   /* depois que os dados chegam, quanto o recado espera a leitura da Kryptex */
 async function atualizarDoPc(){
-  if(!REMOTO || !window.desktop.sync || typeof window.desktop.sync.atualizar !== "function" || atuPc.rodando) return;
+  if(!REMOTO || !window.desktop.sync || typeof window.desktop.sync.atualizar !== "function") return;
+  if(atuPc.rodando){ toast("Ainda atualizando…"); return; }
   if(Date.now() - atuPc.ultimo < 30e3){ toast("Acabou de atualizar. O que mudar no PC chega sozinho."); return; }
-  const b = $("topo-atu"), lerKx = !!(kxaSnap && kxaSnap.v===1) && typeof window.desktop.pedirAoPc === "function";
+  const idade = kxaSnap ? Date.now() - (kxaSnap.quando||0) : 0;   /* negativa demais: o relógio daqui está atrasado em relação ao do PC */
+  const b = $("topo-atu"), lerKx = !!(kxaSnap && kxaSnap.v===1) && typeof window.desktop.pedirAoPc === "function" && (idade > 90e3 || idade < -60e3);
   atuPc.rodando = true; b.setAttribute("aria-busy", "true");
+  if(lerKx) kxaPedido.auto = Date.now();   /* o pedido automático do Resumo não sai junto */
   try{
     /* os dois pedidos saem juntos; se os dados não vêm (PC desligado), o recado sai na hora, sem esperar a leitura */
     const leitura = lerKx ? pedirAoPc("kryptex-agora", {}).then(v => ({v}), e => ({e})) : Promise.resolve(null);
     await window.desktop.sync.atualizar();
-    const l = await leitura, r = l && l.v;
+    /* os dados chegaram: espera a leitura até 20 s (se demorar mais, ela entra no quadro quando chegar) */
+    let t = null;
+    const l = await Promise.race([leitura, new Promise(ok => { t = setTimeout(() => ok({demorou:true}), ESPERA_LEITURA_ATU); })]);
+    clearTimeout(t);
+    const r = l && l.v;
     atuPc.ultimo = Date.now();
-    if(lerKx) kxaPedido.auto = atuPc.ultimo;
     const h = `Dados do PC atualizados às ${horaMin(atuPc.ultimo)}`;
     toast(!lerKx || (r && r.ok) ? h + "."
+      : l.demorou ? `${h}. A leitura do app da Kryptex ainda está vindo.`
       : l.e ? `${h}, mas a leitura do app da Kryptex não veio (${(l.e && l.e.message) || "o PC não respondeu"}).`
       : `${h}. ${(r && r.texto) || "O PC não conseguiu ler o app da Kryptex."}`);
-  }catch(e){ toast((e && e.message) || "O PC não respondeu."); }
+  }catch(e){ if(lerKx) kxaPedido.auto = 0; toast((e && e.message) || "O PC não respondeu."); }
   finally{ atuPc.rodando = false; b.removeAttribute("aria-busy"); }
 }
 if(REMOTO && window.desktop.sync && typeof window.desktop.sync.atualizar === "function"){
@@ -6213,7 +6227,7 @@ else $("bkp").hidden = true;
 const NOVIDADES = [
   {v:"1.8.1", itens:[
     "No celular, o botão de atualizar no alto (e puxar a tela para baixo) e o Atualizar do quadro Agora trazem uma leitura nova do app da Kryptex do PC: o ganho de hoje, o saldo e a placa como estão agora.",
-    "Quando entra dinheiro novo na conta da Kryptex, o PC manda os valores para o celular em até 5 minutos, com o app aberto."]},
+    "Quando entra dinheiro novo na conta da Kryptex, o PC manda os valores para o celular sozinho (no máximo a cada 5 minutos), com o app aberto."]},
   {v:"1.8.0", itens:[
     "O app do celular passa a se atualizar sozinho: o painel novo entra assim que é baixado, e quando a parte do Android muda ele baixa a versão nova e instala com um toque em Atualizar o app.",
     "No celular, a versão nova só entra conferida: ela vem assinada com a mesma chave do app, e se não abrir direito o app volta sozinho para a anterior. Esta é a última vez que o app do celular precisa ser baixado pelo navegador.",
