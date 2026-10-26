@@ -57,7 +57,7 @@ def resumo(p):
     pg = abrir(p, dados=DADOS)
     checa("novidade avisa do ícone perto do relógio", pg.evaluate("(NOVIDADES.find(n => n.v === '1.6.0') || {itens: []}).itens.join(' ').includes('ícone perto do relógio')"))
     checa("novidades da 1.6.1 (celular)", pg.evaluate("(NOVIDADES.find(n => n.v === '1.6.1') || {itens: []}).itens.join(' ').includes('Anotar o dia')"))
-    checa("novidades da 1.6.2 (leitura do app da Kryptex) no começo", pg.evaluate("NOVIDADES[0].v === '1.6.2' && /para de minerar/.test(NOVIDADES[0].itens.join(' ')) && /consumo estimado/.test(NOVIDADES[0].itens.join(' '))"))
+    checa("novidades da 1.6.2 (leitura do app da Kryptex) no começo", pg.evaluate("NOVIDADES[0].v === '1.6.2' && /saldo em dólar/.test(NOVIDADES[0].itens[0]) && /para de minerar/.test(NOVIDADES[0].itens.join(' ')) && /consumo estimado/.test(NOVIDADES[0].itens.join(' '))"))
     ids = pg.eval_on_selector_all("#v-resumo [id]", "e=>e.map(x=>x.id)")
     checa("ordem", [i for i in ids if i in ("agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p")] == ["agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p"], ids)
     m = pg.evaluate("resumoMes()")

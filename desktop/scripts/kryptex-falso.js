@@ -9,6 +9,7 @@
 module.exports = function criar() {
   /* formatoPausa: como o GET /pause conta a pausa ("padrao": {pause:true, pause_until}; "so-ate": só {until}; "objeto":
      {pause:{until}}) — o formato do app de verdade com a placa pausada ainda não foi visto */
+  /* saldo: em dólar, como o app de verdade (GET /balance) */
   const estado = { modo: "minerando", formato: "real", saldo: 0.0001, temp: 63, tempMem: 78, watts: 286, pausaAte: null, formatoPausa: "padrao" };
   const pedidos = [];
 

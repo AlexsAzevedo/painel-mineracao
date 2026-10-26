@@ -26,7 +26,9 @@ srv.listen(0, "127.0.0.1", async () => {
     assert(c.tipo === "cpu" && !c.minerando && c.hash === 0 && c.rendimentoUsd === 0.31, JSON.stringify(c));   /* parado: o rendimento esperado */
     assert.equal(l.moeda, "BRL"); assert.equal(l.computador, "PC-TESTE");
     assert.deepEqual(l.cotacoes, { brl: 4.965204, btc: 0.00001237 });
-    assert.equal(l.saldoBtc, 0.0001); assert.equal(l.pausado, false); assert.equal(l.pausaAte, null);
+    /* o saldo vem em dólar (o app de verdade: US$ 0,0050 = R$ 0,02 na tela dele); em bitcoin, pela cotação do próprio app */
+    assert.equal(l.saldoUsd, 0.0001); assert(Math.abs(l.saldoBtc - 0.0001 * 0.00001237) < 1e-18, String(l.saldoBtc));
+    assert.equal(l.pausado, false); assert.equal(l.pausaAte, null);
     assert(typeof l.quando === "number" && Math.abs(l.quando - Date.now()) < 10000);
     /* nada de e-mail, código ou nome de usuário; nunca pede /user */
     const txt = JSON.stringify(l);
@@ -95,9 +97,10 @@ srv.listen(0, "127.0.0.1", async () => {
     /* o app de verdade (RX 9070 XT minerando Pearl, 25/10/2026): o que está minerando vem em "process" e "state"; em
        "algorithm_combinations" ficam os números do teste de velocidade de cada moeda, que continuam lá parada */
     const real = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "kryptex-real.json"), "utf8"));
-    const servirReal = (dev) => new Promise((ok) => {
+    const servirReal = (dev, semCotacao) => new Promise((ok) => {
       const s = http.createServer((req, res) => {
-        const R = { "/devices": dev, "/balance": { total: 0.00016888, withdrawable: 0 }, "/pause": { pause: false }, "/currency-rates": { brl: 4.965198, btc: 0.0000125, usd: 1 }, "/configuration": { currency: "brl" } };
+        const R = { "/devices": dev, "/balance": { total: 0.0050138589384519415, withdrawable: 0 }, "/pause": { pause: false }, "/configuration": { currency: "brl" },
+          ...(semCotacao ? {} : { "/currency-rates": { brl: 4.965198, btc: 0.00001251, usd: 1 } }) };
         const b = R[new URL(req.url, "http://x").pathname]; res.writeHead(b ? 200 : 404, { "Content-Type": "application/json" }); res.end(JSON.stringify(b || {}));
       });
       servidores.push(s); s.listen(0, "127.0.0.1", () => ok(s));
@@ -111,6 +114,16 @@ srv.listen(0, "127.0.0.1", async () => {
     assert(gr.temp === 45 && gr.tempMem === null && gr.watts === null && gr.ventoinha === 74, JSON.stringify(gr));
     assert.equal(gr.estado, "mining");
     assert(!lr.placas.find((x) => x.tipo === "cpu").minerando, "o processador está desligado no app");
+    /* o saldo de verdade: US$ 0,0050 (R$ 0,02 na tela do app), não 0,0050 BTC (uns R$ 1.990) */
+    assert.equal(lr.saldoUsd, 0.0050138589384519415);
+    assert(Math.abs(lr.saldoBtc - 0.0050138589384519415 * 0.00001251) < 1e-18, String(lr.saldoBtc));
+    const reais = lr.saldoBtc * lr.cotacoes.brl / lr.cotacoes.btc;
+    assert(reais > 0.02 && reais < 0.03, "em reais: " + reais);
+    /* sem a cotação, não dá para saber o saldo em bitcoin */
+    const s0 = await servirReal(real, true);
+    process.env.PAINEL_KRYPTEX_LOCAL = `http://127.0.0.1:${s0.address().port}`;
+    const lsc = await K.ler();
+    assert(lsc.ok && lsc.saldoUsd === 0.0050138589384519415 && lsc.saldoBtc === null, JSON.stringify({ usd: lsc.saldoUsd, btc: lsc.saldoBtc }));
     /* o minerador parou (sem "process", estado idle): os números do teste de velocidade não contam como minerando */
     const parada = JSON.parse(JSON.stringify(real)), gp = parada.find((x) => x.device.name === "AMD Radeon RX 9070 XT");
     delete gp.process; gp.state = { state: "idle" };

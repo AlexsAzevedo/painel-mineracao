@@ -95,6 +95,38 @@ def kryptex_app(p):
     checa("min-kx-app sincroniza", pg.evaluate("SINCRONIZADAS.includes('min-kx-app') && !SINCRONIZADAS.includes('min-kxa-hist')"))
     # saldo vai para os dias da Kryptex (Diário)
     checa("saldo para o Diário", pg.evaluate("simularLeituras([MIN]), kxHist.saldos.length > 0 && kx.saldo && kx.saldo.moeda === 'BRL'"))
+    # até a 1.6.1, o saldo do app da Kryptex (que vem em dólar) foi guardado como se fosse bitcoin: US$ 0,005 virava uns
+    # R$ 1.990 de ganho. A primeira leitura com cotação converte as leituras guardadas e os saldos que elas puseram nos dias
+    # da Kryptex (os do site ficam como estão), e os dias já calculados com eles são calculados de novo
+    mig = pg.evaluate("""(() => {
+      const agora = Date.now(), d = new Date(agora); d.setHours(0, 0, 0, 0); const ini = d.getTime();
+      const ts = [ini - 60 * 60e3, ini - 30 * 60e3, ini + 11 * 3600e3, ini + 11.5 * 3600e3], usd = [0, 0, 0.004862, 0.0050139];
+      const preco = 4.965198 / 0.00001251, ontem = isoLocal(new Date(ini - 3600e3));
+      kxa = novoKxa();
+      kxaHist = {amostras: ts.map((t, i) => [t, usd[i], null, i >= 2 ? 1 : 0, i >= 2 ? 1.1e14 : 0, 46, null])};   // gravado pela 1.6.1 (sem "v")
+      kxHist.saldos = [[ini - 2 * 3600e3, 0.00000005, 400000], ...ts.map((t, i) => [t + 7, usd[i], preco])];
+      kx.saldo = {btc: 0.0050139, fiat: 0.0050139 * preco, moeda: "BRL", preco, quando: ts[3] + 7};
+      kx.dias = {[ontem]: {btc: 0.000211, valor: 84, moeda: "BRL", horas: null, aproximado: true, parcial: "22:00", fonte: "saldo"}};
+      const l = LEIT({cotacoes: {brl: 4.965198, btc: 0.00001251}, saldoBtc: 0.0050139 * 0.00001251});
+      processarLeituraKxa(l, agora);
+      const r = {v: kxaHist.v, guardado: JSON.parse(localStorage.getItem("min-kxa-hist")).v, a3: kxaHist.amostras[3][1], site: kxHist.saldos[0][1],
+        s4: kxHist.saldos[4][1], saldo: kx.saldo.btc, fiat: kx.saldo.fiat, ontem: kx.dias[ontem] && kx.dias[ontem].valor,
+        ganho: hojeKxa(kxaHist.amostras, agora, 1.0, precoBtcBrl(l)).ganho};
+      processarLeituraKxa(l, agora + 60e3);   // a segunda leitura não converte de novo
+      r.a3b = kxaHist.amostras[3][1];
+      if(typeof carregarKxaHist !== "function") return r;
+      localStorage.setItem("min-kxa-hist", JSON.stringify({v: 2, amostras: [[1, 0.5, null, 0, 0, null, null]]}));
+      const c2 = carregarKxaHist();
+      localStorage.setItem("min-kxa-hist", JSON.stringify({amostras: [[1, 0.5, null, 0, 0, null, null]]}));
+      const c1 = carregarKxaHist();
+      r.carrega = [c2.v, c2.amostras.length, c1.v || 1, c1.amostras.length];
+      return r;
+    })()""")
+    checa("1.6.1: as leituras guardadas passam para bitcoin (uma vez só)", mig["v"] == 2 and mig["guardado"] == 2 and abs(mig["a3"] - 0.0050139 * 0.00001251) < 1e-15 and mig["a3b"] == mig["a3"], mig)
+    checa("1.6.1: o ganho de hoje volta ao certo (R$ 0,02, não R$ 1.990)", 0.02 < mig["ganho"] < 0.03, mig)
+    checa("1.6.1: os saldos do app nos dias da Kryptex também (os do site não)", abs(mig["s4"] - 0.0050139 * 0.00001251) < 1e-15 and mig["site"] == 0.00000005, mig)
+    checa("1.6.1: o saldo de agora e o dia de ontem refeitos", mig["saldo"] < 1e-6 and mig["fiat"] < 0.03 and mig["ontem"] is not None and mig["ontem"] < 0.01, mig)
+    checa("o histórico do app guarda a versão", mig.get("carrega") == [2, 1, 1, 1], mig)
     # a tela Agora ao vivo
     pg.evaluate("simularLeituras([MIN, MIN])"); pg.evaluate("irPara('resumo')")
     t = pg.inner_text("#agora")

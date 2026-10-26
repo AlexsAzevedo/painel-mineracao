@@ -129,11 +129,15 @@ async function ler() {
   const pausado = [po.pause, po.paused, po.is_paused, sub.paused].some((v) => v === true) || (pa != null && pa > quando);
   const tx = (rates && typeof rates.rates === "object" && rates.rates) || rates || {};
   const desconhecidos = new Set();
+  /* o saldo vem em dólar (o app de verdade: US$ 0,0050, que a tela dele mostra como R$ 0,02); em bitcoin, pela cotação do
+     próprio app (bitcoins por dólar). Sem a cotação, o painel não tem como saber o saldo em bitcoin */
+  const usd = balance && num(balance.total) != null && num(balance.total) >= 0 ? num(balance.total) : null, btcPorUsd = pos(tx.btc);
   return {
     ok: true, quando, pausado, pausaAte: pausado ? (pa ?? null) : null,
     moeda: String((conf && conf.currency) || "").toUpperCase().slice(0, 8), computador: String((conf && conf.computer_name) || "").slice(0, 60),
-    cotacoes: { brl: pos(tx.brl), btc: pos(tx.btc) },
-    saldoBtc: balance && num(balance.total) != null && num(balance.total) >= 0 ? num(balance.total) : null,
+    cotacoes: { brl: pos(tx.brl), btc: btcPorUsd },
+    saldoUsd: usd,
+    saldoBtc: usd != null && btcPorUsd ? usd * btcPorUsd : null,
     placas: devices.slice(0, 16).map((d) => placaDe(d, pausado, desconhecidos)),
     desconhecidos: [...desconhecidos],
     /* para acertar a leitura com o app de verdade: só os nomes das chaves de cada resposta, nunca os valores */

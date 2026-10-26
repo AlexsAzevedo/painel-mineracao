@@ -5451,7 +5451,9 @@ function kxaCfg(){
 function mudarKxaCfg(o){ cfg.kxa = {...kxaCfg(), ...o}; salvarCfg(); }
 const novoKxa = () => ({leitura:null, quando:0, ultimaOk:0, jaRespondeu:false, estado:"", minerandoDesde:0, quentes:0, ultimaProtecao:0, protecao:null,
   semMinerar:{}, avisouParou:{}, minerou:{}, avisouFechado:false, primeiraFalha:0, ultimaFalha:0, falhouProtecao:0, ultimoSaldo:0, gravado:0, lendo:false, falha:""});
-var kxa = novoKxa(), kxaHist = (()=>{ const h = lsGet("min-kxa-hist"); return {amostras: h && Array.isArray(h.amostras) ? h.amostras : []}; })();
+/* as leituras guardadas neste PC. v: 2 a partir da 1.6.2, com o saldo em bitcoin (até a 1.6.1, ele ficou em dólar: migrarSaldoKxa) */
+function carregarKxaHist(){ const h = lsGet("min-kxa-hist"); return {v: h && h.v, amostras: h && Array.isArray(h.amostras) ? h.amostras : []}; }
+var kxa = novoKxa(), kxaHist = carregarKxaHist();
 var kxaSnap = lsGet("min-kx-app");   /* o último retrato: no celular, o que veio do PC; no PC, o que ele gravou */
 const nomePlaca = p => {
   const n = String(p && p.nome || "").replace(/\((TM|R)\)/gi, "").replace(/\s+/g, " ").trim()
@@ -5538,6 +5540,31 @@ function guardarLeitura(l, agora){
   if(kxa.estado==="minerando"){ if(antes!=="minerando" || !kxa.minerandoDesde) kxa.minerandoDesde = agora; }
   else kxa.minerandoDesde = 0;
 }
+/* até a 1.6.1, o saldo do app da Kryptex (que vem em dólar) foi guardado como se fosse bitcoin: US$ 0,005 virava uns
+   R$ 1.990 de ganho. Na primeira leitura com a cotação, converte para bitcoin as leituras guardadas, os saldos que elas
+   puseram nos dias da Kryptex (o mesmo valor, gravado logo depois da leitura; os lidos no site já estão em bitcoin) e o
+   saldo de agora; os dias já calculados com esses saldos são calculados de novo. */
+function migrarSaldoKxa(l){
+  if(kxaHist.v>=2) return;
+  const f = l && l.ok && l.cotacoes && l.cotacoes.btc>0 ? l.cotacoes.btc : 0;
+  if(!f) return;
+  const doApp = [];
+  for(const a of kxaHist.amostras) if(Array.isArray(a) && a[1]!=null){ doApp.push([a[0], a[1]]); a[1] = a[1]*f; }
+  const veioDoApp = (t, v) => doApp.some(([ta, va]) => va===v && t>=ta && t - ta < 60e3);
+  if(kx && kxHist){
+    let desde = Infinity;
+    for(const s of kxHist.saldos) if(Array.isArray(s) && veioDoApp(s[0], s[1])){ s[1] = s[1]*f; desde = Math.min(desde, s[0]); }
+    if(kx.saldo && veioDoApp(kx.saldo.quando, kx.saldo.btc)){ kx.saldo.btc = kx.saldo.btc*f; kx.saldo.fiat = kx.saldo.preco>0 ? kx.saldo.btc*kx.saldo.preco : null; }
+    if(desde<Infinity){
+      const d0 = isoLocal(new Date(desde));
+      for(const d of Object.keys(kx.dias)) if(d>=d0) delete kx.dias[d];
+      kx.gravado = 0;   /* o celular recebe os dias refeitos na próxima gravação */
+    }
+    lsSet("min-kx-hist", kxHist);
+  }
+  kxaHist.v = 2;
+  lsSet("min-kxa-hist", kxaHist);
+}
 function processarLeituraKxa(l, agora){
   let avisou = false;
   const aviso = (...a) => { avisoKx(...a); avisou = true; };
@@ -5568,6 +5595,7 @@ function processarLeituraKxa(l, agora){
       if(kxa.semMinerar[p.id]>=3 && !kxa.avisouParou[p.id]){ kxa.avisouParou[p.id] = true; aviso("parou", `${nomePlaca(p)} parou de minerar`, "O app da Kryptex mostra a placa sem minerar há 3 minutos, sem pausa."); }
     }
   }
+  migrarSaldoKxa(l);
   /* as leituras de cada minuto (para a linha do dia, a luz e a média de 24 h) */
   const ms = l.placas.filter(p=>p.minerando), pr = principalKxa(l), gpus = l.placas.filter(p=>p.tipo==="gpu");
   const watts = ms.length ? (ms.some(p=>p.watts!=null) ? ms.reduce((a,p)=>a + (p.watts||0), 0) : null) : 0;
@@ -6058,6 +6086,7 @@ else $("bkp").hidden = true;
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
   {v:"1.6.2", itens:[
+    "Corrigido o ganho de hoje pelo app da Kryptex: o app manda o saldo em dólar, e o painel lia como se fosse bitcoin (US$ 0,005 aparecia como uns R$ 1.990). As leituras que ficaram guardadas são corrigidas sozinhas.",
     "App da Kryptex deste PC: o painel agora percebe quando a placa para de minerar. Antes, com o app da Kryptex aberto e a mineração parada, ele podia continuar dizendo Minerando e não avisava.",
     "Placas AMD: o app da Kryptex não informa o consumo nem a temperatura da memória delas. O quadro da mineração passa a mostrar o consumo estimado do PC na tomada, e o ritmo de agora já desconta a luz (antes, o lucro aparecia igual ao ganho)."]},
   {v:"1.6.1", itens:[
