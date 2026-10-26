@@ -43,7 +43,8 @@ public static class SensoresAmd
     [DllImport("atiadlxx.dll")] static extern int ADL2_Device_PMLog_Device_Destroy(IntPtr ctx, uint disp);
 
     /* AdapterInfo no Windows: 9 ints e 6 textos de 256 bytes; ADLPMLogDataOutput: int size + 256 x (supported, value) */
-    const int TAM_INFO = 1572, MAX_SENSORES = 256, TAM_SAIDA = 4 + MAX_SENSORES * 8, AMD = 0x1002;
+    /* AMD: o ADL dá o código do fabricante com os dígitos de 0x1002 lidos como decimal (1002; a Intel aparece como 8086) */
+    const int TAM_INFO = 1572, MAX_SENSORES = 256, TAM_SAIDA = 4 + MAX_SENSORES * 8, AMD = 1002, AMD_HEX = 0x1002;
     /* ADLSensorType */
     const int CLK_GFX = 1, CLK_MEM = 2, T_BORDA = 8, T_MEMORIA = 9, FAN_RPM = 14, FAN_PCT = 15, USO_GFX = 19,
               V_GFX = 21, P_CHIP = 23, T_QUENTE = 27, P_PLACA = 73;
@@ -110,7 +111,7 @@ public static class SensoresAmd
                     string nome = (Marshal.PtrToStringAnsi(new IntPtr(p.ToInt64() + 280)) ?? "").Trim();
                     lidos.Add("{\"i\":" + N(indice) + ",\"bus\":" + N(bus) + ",\"vendor\":" + N(vendor) + ",\"nome\":" + Texto(nome)
                         + ",\"presente\":" + N(presente) + ",\"existe\":" + N(existe) + "}");
-                    if (vendor != AMD || vistos.Contains(bus)) continue;
+                    if ((vendor != AMD && vendor != AMD_HEX) || vistos.Contains(bus)) continue;
                     vistos.Add(bus);
                     Placa pl = new Placa();
                     pl.indice = indice; pl.bus = bus; pl.nome = nome;
