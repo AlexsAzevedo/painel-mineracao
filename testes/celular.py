@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from apoio import *  # noqa: F401,F403
 
 TITULOS = {"resumo": "Resumo", "diario": "Diário de ganhos", "minhas": "Minhas placas", "ofertas": "Ofertas", "anuncio": "Analisar anúncio",
-           "placas": "Todas as placas", "setup": "Montar setup", "premissas": "Premissas"}
+           "placas": "Todas as placas", "sim": "Simulador", "setup": "Montar setup", "premissas": "Premissas"}
 # números grandes que quebram em duas linhas (a altura passa de 1,6 vez o tamanho da letra)
 QUEBRADOS = """[...document.querySelectorAll('.view:not([hidden]) .kpi b, .view:not([hidden]) .tile b')]
   .filter(b => b.getClientRects().length && b.getBoundingClientRect().height > parseFloat(getComputedStyle(b).fontSize) * 1.6).map(b => b.textContent.trim())"""

@@ -270,6 +270,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   --good:#3DD68C; --good-soft:rgba(61,214,140,.13); --warn:#F2B544; --warn-soft:rgba(242,181,68,.12); --bad:#FF7B72; --bad-soft:rgba(255,123,114,.13); --shadow:rgba(0,0,0,.55);
   --side-bg:#090C11; --side-fg:#E8EDF4; --side-muted:#8E9AAE; --side-hover:#131921; --side-active:rgba(245,165,36,.14); --side-accent:#F5A524; --side-line:#1A222D; --side-bad:#FF7B72;
   --viz-real:#F5A524; --viz-est:#66758C; --viz-grid:#1A2330; --viz-axis:#243040;
+  --viz-a:#3987e5; --viz-b:#d95926; --viz-c:#199e70;
   --foto:#202A37; --scrim:rgba(5,8,12,.66); --onscrim:#FFFFFF;
   --display:"Sora", "Segoe UI", system-ui, sans-serif;
   --num:"Sora", "Segoe UI", system-ui, sans-serif;
@@ -284,6 +285,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   --good:#0B6B47; --good-soft:#DCF3E8; --warn:#8A5A00; --warn-soft:#FBEFD2; --bad:#B42318; --bad-soft:#FCE6E3; --shadow:rgba(15,23,38,.12);
   --side-bg:#FFFFFF; --side-fg:#0F1726; --side-muted:#566175; --side-hover:#F3F5F8; --side-active:#FCEFD9; --side-accent:#A35F00; --side-line:#DFE4EC; --side-bad:#B42318;
   --viz-real:#E59A1C; --viz-est:#8E9AAD; --viz-grid:#EEF1F5; --viz-axis:#C9D1DC;
+  --viz-a:#2a78d6; --viz-b:#eb6834; --viz-c:#1baf7a;
   --foto:#E6EAF0; --scrim:rgba(12,16,22,.62); --onscrim:#FFFFFF;
   color-scheme:light;
 }
@@ -517,6 +519,48 @@ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:760px){.dados-l{grid-template-columns:1fr}}
 .maqs{display:flex;flex-direction:column;gap:18px}
 .maq{background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0}
+/* simulador de compra: as opções lado a lado (no celular, uma embaixo da outra); a faixa de cima de cada uma tem a cor da
+   linha dela no gráfico */
+.sim-barra{align-items:center}
+.sim-barra > label{flex:1 1 260px;max-width:340px}
+.sim-barra > .nota-mini{flex:2 1 260px;min-width:0}
+.sim-ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;align-items:start}
+.sim-op{--sim-cor:var(--line);background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--sim-cor);border-radius:14px;padding:12px 18px 18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.sim-op[data-op="A"]{--sim-cor:var(--viz-a)}
+.sim-op[data-op="B"]{--sim-cor:var(--viz-b)}
+.sim-op[data-op="C"]{--sim-cor:var(--viz-c)}
+.sim-op-h{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px}
+.sim-op-h h2{margin:0;font-family:var(--display);font-size:1.05rem}
+.sim-op label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sim-grupo{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:10px}
+.sim-grupo > legend{padding:0;margin:0 0 8px;font-weight:600;font-size:.9rem}
+.sim-grupo .seg{display:flex}
+.sim-linha{display:grid;grid-template-columns:72px minmax(0,1fr) 40px;grid-template-areas:"mod mod del" "qtd pre pre" "maq maq maq";gap:8px;align-items:start}
+.sim-linha + .sim-linha{border-top:1px solid var(--line);padding-top:12px}
+.sim-mod{grid-area:mod}.sim-qtd{grid-area:qtd}.sim-pre{grid-area:pre}.sim-maq{grid-area:maq}
+.sim-del{grid-area:del;align-self:end;min-height:40px;padding:4px;font-size:1.2rem;line-height:1}
+.sim-emp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.sim-res{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px}
+.sim-res p{margin:0}
+.sim-resumo{display:flex;flex-direction:column;gap:4px;font-size:.9rem}
+.sim-cen{display:flex;flex-direction:column;gap:3px;font-size:.88rem}
+.sim-cen-t{font-weight:600}
+.sim-cen-t span{font-weight:400;color:var(--muted)}
+.sim-falta{color:var(--muted)}
+.sim-mais{min-height:120px;border:1px dashed var(--line);border-radius:14px;background:transparent;color:var(--muted)}
+.sim-mais:hover{background:var(--sunk);color:var(--fg)}
+.sim-cens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.sim-cens label{display:flex;flex-direction:column;gap:4px;min-width:0}
+@media (max-width:899px){
+  .sim-op input:not([type=radio]),.sim-op select,.sim-cens input,#sim-prazo{min-height:44px}
+  .sim-op{padding:10px 16px 16px}
+  .barra.sim-barra{display:flex;flex-direction:column;align-items:stretch}
+  .sim-barra > label,.sim-barra > .nota-mini{flex:none;max-width:none}
+  .sim-barra select{width:100%}
+  .sim-emp{grid-template-columns:1fr 1fr}
+  .sim-emp label:first-child{grid-column:1/-1}
+  .sim-cens{grid-template-columns:1fr}
+}
 .maq-h{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .maq-nome{font-family:var(--display);font-weight:600;font-size:1.12rem;background:transparent;border-color:transparent;padding:4px 6px;margin-left:-7px;flex:0 1 260px;width:auto}
 .maq-nome:hover{border-color:var(--line)}
@@ -1085,6 +1129,7 @@ details.saiba > :not(summary){margin-bottom:14px}
       <button type="button" class="item" data-view="ofertas" aria-current="false" id="nav-ofertas" hidden><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Ofertas</span><span class="badge" id="b-ofertas"></span></button>
       <button type="button" class="item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span><span class="badge" id="b-anuncio"></span></button>
       <button type="button" class="item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span><span class="badge" id="b-placas"></span></button>
+      <button type="button" class="item" data-view="sim" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 6-7"/><path d="M15 7h3v3"/></svg><span>Simulador</span></button>
       <p class="menu-t">Ajustes</p>
       <button type="button" class="item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span><span class="badge" id="b-setup"></span></button>
       <button type="button" class="item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
@@ -1311,6 +1356,27 @@ details.saiba > :not(summary){margin-bottom:14px}
         <span><b>Atenção:</b> a receita muda todo dia com o preço da moeda e a dificuldade da rede. Para trazer os números de hoje, use Premissas › Dados de fora › Receitas da Kryptex. “Editar dados das placas” serve para pôr um número seu (o consumo medido da sua placa, por exemplo), que passa na frente do da Kryptex.</span>
       </div>
     </details>
+    </section>
+
+    <section class="view" id="v-sim" aria-labelledby="t-sim" hidden>
+      <header class="vh"><div><h1 id="t-sim" tabindex="-1">Simulador</h1><p class="sub">Quanto as placas rendem, quanto custam e quando se pagam, à vista, no cartão ou com empréstimo.</p></div></header>
+      <div class="barra sim-barra">
+        <label><span class="lbl">Prazo das contas</span><select id="sim-prazo"><option value="0">Até o fim das parcelas</option><option value="12">12 meses</option><option value="24">24 meses</option><option value="36">36 meses</option></select></label>
+        <p class="nota-mini" id="sim-fator"></p>
+      </div>
+      <div class="sim-ops" id="sim-ops"></div>
+      <details class="saiba" id="sim-ajuste">
+        <summary>Ajustar cenários</summary>
+        <div class="sim-cens-c">
+          <p class="nota-mini">Quanto o ganho da mineração muda a cada mês em cada cenário: o preço das moedas e a dificuldade da rede juntos. Negativo é cair.</p>
+          <div class="sim-cens">
+            <label><span class="lbl">Estável</span><input type="number" step="0.5" min="-20" max="10" data-cen="estavel"><span class="hint">% ao mês</span></label>
+            <label><span class="lbl">Caindo devagar</span><input type="number" step="0.5" min="-20" max="10" data-cen="devagar"><span class="hint">% ao mês</span></label>
+            <label><span class="lbl">Caindo rápido</span><input type="number" step="0.5" min="-20" max="10" data-cen="rapido"><span class="hint">% ao mês</span></label>
+          </div>
+        </div>
+      </details>
+      <p class="nota-mini" id="sim-pe">Conta com estimativas: o rendimento da mineração e o preço das placas mudam. Não é recomendação de compra nem de empréstimo.</p>
     </section>
 
     <section class="view" id="v-premissas" aria-labelledby="t-premissas" hidden>
@@ -1594,6 +1660,7 @@ details.saiba > :not(summary){margin-bottom:14px}
   <div class="mais" id="mais" role="dialog" aria-modal="true" aria-label="Mais telas" hidden>
     <button type="button" class="mais-item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span></button>
     <button type="button" class="mais-item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span></button>
+    <button type="button" class="mais-item" data-view="sim" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 6-7"/><path d="M15 7h3v3"/></svg><span>Simulador</span></button>
     <button type="button" class="mais-item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span></button>
     <button type="button" class="mais-item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
     <p class="sync mais-sync" id="mais-sync"><i></i>Carregando…</p>
@@ -2097,7 +2164,7 @@ function renderRig(){
     : `<div class="empty">Nenhuma placa cadastrada ainda. <span class="so-pc">Busque o modelo acima, informe quanto pagou e quando ela começa a minerar.</span><span class="so-cel">Toque em Adicionar placa e informe o modelo, quanto pagou e quando ela começa a minerar.</span><button type="button" class="pri so-cel" data-folha="m-folha" data-foco="f-placa">Adicionar placa</button></div>`;
   renderRetornos();
 }
-function render(){ syncInputs(); renderCat(); renderRig(); renderAnalise(); renderSetup(); renderDiario(); renderResumo(); renderCenario(); renderDadosFora(); renderMarca(); renderPerfil(); renderOfModelos(); renderOfertas(); }
+function render(){ syncInputs(); renderCat(); renderRig(); renderAnalise(); renderSetup(); renderDiario(); renderResumo(); renderCenario(); renderDadosFora(); renderMarca(); renderPerfil(); renderOfModelos(); renderOfertas(); renderSim(); }
 /* placas cadastradas mudaram: tudo que depende delas */
 function aoMudarPlacas(){ renderRig(); renderSetup(); renderDiario(); renderResumo(); }
 
@@ -6629,9 +6696,9 @@ setInterval(()=>{ if(ganhosEstado==="ativo") tickGanhos(); }, 1000);
 function renderCenario(){
   $("chips-cen").innerHTML = `Contas com <span>dólar ${brl(cfg.dolar)}</span><span>luz ${brl(cfg.tarifa+(+cfg.bandeira||0))}/kWh</span><span>margem ${cfg.margem}%</span><span>retorno em ${cfg.meses} meses</span><button type="button" class="link" data-ir="premissas">Mudar premissas</button>`;
 }
-const VIEWS = ["resumo","diario","minhas","ofertas","anuncio","placas","setup","premissas"];
+const VIEWS = ["resumo","diario","minhas","ofertas","anuncio","placas","sim","setup","premissas"];
 /* no celular, as telas que ficam na folha "Mais" (as outras estão na barra de baixo) */
-const NA_FOLHA = ["anuncio","placas","setup","premissas"];
+const NA_FOLHA = ["anuncio","placas","sim","setup","premissas"];
 let maisVoltar = null;
 function abrirMais(){
   $("mais").hidden = false; $("mais-fundo").hidden = false; $("aba-mais").setAttribute("aria-expanded", "true");
@@ -6743,6 +6810,8 @@ $("mais-fundo").addEventListener("click", fecharMais);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("mais").hidden){ e.preventDefault(); fecharMais(); } });
 function irPara(v, foco){
   if(!VIEWS.includes(v) || (v==="ofertas" && !OF_PODE())) v = "resumo";
+  gravarSimJa();   /* o simulador grava ao sair da tela (até lá, espera: cada gravação vira mensagem entre o PC e o celular) */
+  if(v==="sim") renderSim();
   fecharFolha();
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
   document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
@@ -6972,6 +7041,176 @@ function simularTudo(){
   const s = simCfg(), F = fatorSim(), prazo = prazoSim(s);
   return {s, F, prazo, ops: s.opcoes.map(op=>simularOpcao(op, F, prazo, s.cenarios))};
 }
+
+/* a tela: renderSim monta as opções (os campos) e renderSimRes, os resultados. Enquanto o cursor está num campo, o
+   render() geral (que roda quando chegam dados do PC) só refaz os resultados, para não apagar o que está sendo digitado */
+var SIM_NOMES = {estavel:"Estável", devagar:"Caindo devagar", rapido:"Caindo rápido"};
+const mesSim = m => mesAnoIso(somaMesesIso(hojeISO().slice(0,8)+"01", m));
+const pctSim = v => (v>0 ? "+" : v<0 ? "−" : "") + n1(Math.abs(v)) + "%";
+const juntarE = l => l.length<2 ? (l[0] || "") : l.slice(0,-1).join(", ") + " e " + l[l.length-1];
+function dicaPrecoSim(c, mp){
+  if(mp.fonte==="seu") return "o seu preço em Todas as placas";
+  if(mp.fonte==="novo"){ const loja = (MERCADO.precos[c.id] || {}).loja; return loja ? `sugerido: nova, ${loja}` : "sugerido: nova"; }
+  if(mp.fonte==="usado") return "sugerido: usada";
+  return "sugerido: um anúncio que você analisou";
+}
+function htmlOpcaoSim(op, n){
+  const L = op.nome, reais = maqsReais(), noPc = x => x.maq!=="novo" && reais.some(m=>m.id===x.maq) ? x.maq : "novo";
+  const marcas = [...new Set(CATALOGO.map(c=>c.marca))];
+  const listaPlacas = sel => `<option value=""${sel ? "" : " selected"}>Escolha a placa</option>` + marcas.map(mc=>`<optgroup label="${esc(mc)}">`
+    + CATALOGO.filter(c=>c.marca===mc).map(c=>`<option value="${esc(c.id)}"${c.id===sel ? " selected" : ""}>${esc(c.curto)}</option>`).join("") + "</optgroup>").join("");
+  const at = (i, campo) => `data-op="${L}"${i==null ? "" : ` data-i="${i}"`} data-campo="${campo}"`;
+  const linhas = op.placas.map((x, i)=>{
+    const c = byId[novoId(x.modelo)], mp = c ? melhorPreco(c) : null, maq = noPc(x);
+    const preco = x.preco > 0 ? x.preco : (mp ? mp.v : ""), dica = c && !(x.preco > 0) ? (mp ? dicaPrecoSim(c, mp) : "sem preço sugerido: ponha o que encontrou") : "";
+    return `<div class="sim-linha">
+      <label class="sim-mod"><span class="lbl">Placa</span><select ${at(i, "modelo")}>${listaPlacas(c ? c.id : "")}</select></label>
+      <button type="button" class="ghost sim-del" data-sim="del-linha" data-op="${L}" data-i="${i}" aria-label="Remover esta placa" title="Remover esta placa">×</button>
+      <label class="sim-qtd"><span class="lbl">Qtd.</span><input type="number" min="1" max="20" step="1" inputmode="numeric" ${at(i, "qtd")} value="${x.qtd}"></label>
+      <label class="sim-pre"><span class="lbl">Preço de cada</span><input type="number" min="0" step="1" inputmode="decimal" ${at(i, "preco")} value="${preco}">${dica ? `<span class="hint">${esc(dica)}</span>` : ""}</label>
+      <label class="sim-maq"><span class="lbl">Em qual PC</span><select ${at(i, "maq")}>${reais.map(m=>`<option value="${esc(m.id)}"${m.id===maq ? " selected" : ""}>${esc(m.nome)}</option>`).join("")}<option value="novo"${maq==="novo" ? " selected" : ""}>Um PC novo</option></select></label>
+    </div>`;
+  }).join("");
+  const pcNovo = op.placas.some(x=>noPc(x)==="novo")
+    ? `<label><span class="lbl">Custo do PC novo</span><input type="number" min="0" step="10" inputmode="decimal" ${at(null, "pcNovo.custo")} value="${op.pcNovo.custo || ""}" placeholder="0"><span class="hint">Fonte de 650 W Gold e o resto do PC: entra no preço da compra</span></label>` : "";
+  const radio = (grupo, campo, v, txt, atual) => `<label><input type="radio" name="sim-${grupo}-${L}" value="${v}" ${at(null, campo)}${v===atual ? " checked" : ""}><span>${txt}</span></label>`;
+  const cartao = op.pagamento.tipo==="cartao", emp = op.dinheiro.tipo==="emprestimo";
+  return `<article class="sim-op" data-op="${L}" aria-labelledby="sim-t-${L}">
+    <div class="sim-op-h"><h2 id="sim-t-${L}">Opção ${L}</h2>${n>1 ? `<button type="button" class="ghost" data-sim="del-op" data-op="${L}">Remover</button>` : ""}</div>
+    <fieldset class="sim-grupo"><legend>Placas</legend>${linhas || `<p class="nota-mini">Nenhuma placa nesta opção.</p>`}
+      <div><button type="button" class="link" data-sim="add-linha" data-op="${L}">+ Placa</button></div>${pcNovo}</fieldset>
+    <fieldset class="sim-grupo"><legend>Como paga as placas</legend>
+      <div class="seg radios">${radio("pag", "pagamento.tipo", "avista", "À vista", op.pagamento.tipo)}${radio("pag", "pagamento.tipo", "cartao", "No cartão", op.pagamento.tipo)}</div>
+      ${cartao ? `<label><span class="lbl">Parcelas sem juros</span><input type="number" min="1" max="24" step="1" inputmode="numeric" ${at(null, "pagamento.parcelas")} value="${op.pagamento.parcelas}"></label>` : ""}</fieldset>
+    <fieldset class="sim-grupo"><legend>De onde vem o dinheiro</legend>
+      <div class="seg radios">${radio("din", "dinheiro.tipo", "meu", "Dinheiro meu", op.dinheiro.tipo)}${radio("din", "dinheiro.tipo", "emprestimo", "Empréstimo", op.dinheiro.tipo)}</div>
+      ${emp ? `<div class="sim-emp">
+        <label><span class="lbl">Valor recebido</span><input type="number" min="0" step="100" inputmode="decimal" ${at(null, "dinheiro.valor")} value="${op.dinheiro.valor || ""}"></label>
+        <label><span class="lbl">Parcelas</span><input type="number" min="1" max="120" step="1" inputmode="numeric" ${at(null, "dinheiro.parcelas")} value="${op.dinheiro.parcelas}"></label>
+        <label><span class="lbl">Valor da parcela</span><input type="number" min="0" step="0.01" inputmode="decimal" ${at(null, "dinheiro.parcela")} value="${op.dinheiro.parcela || ""}"></label>
+      </div><p class="nota-mini sim-juros" aria-live="polite"></p>`
+      : `<p class="nota-mini">${cartao ? "O dinheiro da compra fica rendendo na conta até cada parcela sair." : "O dinheiro sai da conta na compra."}</p>`}</fieldset>
+    <div class="sim-res" aria-live="polite"></div>
+    <ul class="avisos sim-avisos" hidden></ul>
+  </article>`;
+}
+function textoJurosSim(d){
+  const i = taxaEmprestimo(d.valor, d.parcelas, d.parcela);
+  if(i==null) return "";
+  if(i===0) return "Sem juros: as parcelas somam o valor recebido.";
+  const pct = (v, casas) => (v*100).toLocaleString("pt-BR", {minimumFractionDigits:casas, maximumFractionDigits:casas});
+  return `Juros de ${pct(i, 2)}% ao mês (${pct(Math.pow(1+i, 12) - 1, 1)}% ao ano): ${brl0(d.parcela*Math.round(d.parcelas) - d.valor)} no total.`;
+}
+function htmlResSim(r, T){
+  const lucro1 = r.bruto1 - r.min.luz, parcelas = r.cen.estavel.meses.some(x=>x.parcCartao>0 || x.parcEmp>0);
+  let h = `<p class="sim-resumo"><span>Compra: <b>${brl0(r.preco)}</b>${r.custoPc>0 ? ` (placas ${brl0(r.precoPlacas)} e PC ${brl0(r.custoPc)})` : ""}</span>`
+    + `<span>Lucro da mineração no 1º mês: <b>${sinal(lucro1)}</b> (ganho de ${brl0(r.bruto1)} menos a luz de ${brl0(r.min.luz)})</span></p>`;
+  for(const k of Object.keys(SIM_CENARIOS)){
+    const f = r.cen[k], fim = f.fim.resultado, rev = f.fim.comRevenda;
+    const paga = f.sePaga!=null ? `<b>Se paga em ${mesSim(f.sePaga)}</b> (mês ${f.sePaga})` : `<b>Não se paga em ${T.prazo} meses</b>`;
+    const conta = f.pior.conta < -0.5 ? `${f.pior.m ? "Em " + mesSim(f.pior.m) : "Na compra"} faltam <b>${brl0(-f.pior.conta)}</b>: você precisaria pôr esse dinheiro.`
+      : parcelas ? "Dá para pagar as parcelas: a conta nunca fica no vermelho." : "A conta nunca fica no vermelho.";
+    h += `<div class="sim-cen" data-cen="${k}"><p class="sim-cen-t">${SIM_NOMES[k]} <span>(${pctSim(T.s.cenarios[k])} ao mês)</span></p><p>${paga}</p>`
+      + `<p>No fim (${T.prazo} meses): ${fim>=0 ? "sobram" : "faltam"} <b>${brl0(Math.abs(fim))}</b>; com a revenda das placas, ${rev>=0 ? "sobram" : "faltam"} ${brl0(Math.abs(rev))}.</p>`
+      + `<p>${conta}</p></div>`;
+  }
+  return h;
+}
+function renderSimRes(T){
+  if(!$("sim-ops")) return;
+  T = T || simularTudo();
+  const F = T.F, ativo = document.activeElement;
+  $("sim-fator").textContent = F.fonte==="real"
+    ? `Rendimento corrigido pelo real: ${F.placas.length>1 ? "as suas " + juntarE(F.placas) + " estão" : "a sua " + (F.placas[0] || "placa") + " está"} rendendo ${Math.round(F.f*100)}% da estimativa da Kryptex.`
+    : `Rendimento pela estimativa da Kryptex, com a sua margem de segurança de ${n1(+cfg.margem||0)}%: o painel ainda não tem leitura do app da Kryptex para corrigir pelo real.`;
+  const sel = $("sim-prazo");
+  sel.options[0].textContent = `Até o fim das parcelas (${prazoSim({...T.s, prazo:0})} meses)`;
+  if(ativo!==sel) sel.value = String(T.s.prazo);
+  document.querySelectorAll("#sim-ajuste input[data-cen]").forEach(i=>{ if(i!==ativo) i.value = String(T.s.cenarios[i.dataset.cen]); });
+  for(const r of T.ops){
+    const card = document.querySelector(`.sim-op[data-op="${r.nome}"]`); if(!card) continue;
+    const op = T.s.opcoes.find(o=>o.nome===r.nome), jur = card.querySelector(".sim-juros"), av = card.querySelector(".sim-avisos");
+    if(jur) jur.textContent = op ? textoJurosSim(op.dinheiro) : "";
+    av.innerHTML = r.avisos.map(a=>`<li class="${a.c}"><span>${esc(a.t)}</span></li>`).join(""); av.hidden = !r.avisos.length;
+    card.querySelector(".sim-res").innerHTML = r.ok ? htmlResSim(r, T) : `<p class="sim-falta">${esc(r.texto)}</p>`;
+  }
+}
+/* o campo com foco antes de montar de novo, para devolver o foco a ele */
+function chaveSim(e){
+  const op = e.dataset.op || (e.closest(".sim-op") || {dataset:{}}).dataset.op;
+  return {op, i:e.dataset.i, campo:e.dataset.campo, sim:e.dataset.sim, radio: e.type==="radio" ? e.value : null};
+}
+function focarSim(k){
+  if(!k) return;
+  const dentro = k.op ? `.sim-op[data-op="${k.op}"] ` : "";
+  const s = k.campo ? `${dentro}[data-campo="${k.campo}"]${k.i!=null ? `[data-i="${k.i}"]` : ""}${k.radio!=null ? `[value="${k.radio}"]` : ""}`
+    : k.sim ? `[data-sim="${k.sim}"]${k.op ? `[data-op="${k.op}"]` : ""}${k.i!=null ? `[data-i="${k.i}"]` : ""}` : "";
+  const e = s && document.querySelector(s);
+  if(e) e.focus({preventScroll:true});
+}
+function renderSim(forcar){
+  const box = $("sim-ops"); if(!box) return;
+  const a = document.activeElement, dentro = !!a && box.contains(a);
+  if(!forcar && dentro && a.matches("input:not([type=radio]),select")){ renderSimRes(); return; }
+  const chave = dentro ? chaveSim(a) : null, T = simularTudo(), n = T.s.opcoes.length;
+  box.innerHTML = T.s.opcoes.map(op=>htmlOpcaoSim(op, n)).join("")
+    + (n < SIM_LETRAS.length ? `<button type="button" class="sim-mais" data-sim="add-op">+ Opção</button>` : "");
+  focarSim(chave);
+  renderSimRes(T);
+}
+/* um campo mudou: põe o valor na opção dele (s: a cópia de simCfg do mudarSim) */
+function porCampoSim(s, e){
+  const op = s.opcoes.find(o=>o.nome===e.dataset.op); if(!op) return;
+  const num = () => e.value==="" ? null : +e.value, c = e.dataset.campo;
+  if(e.dataset.i!=null){
+    const x = op.placas[+e.dataset.i]; if(!x) return;
+    if(c==="modelo"){ x.modelo = e.value; x.preco = null; }   /* outra placa: o preço volta a ser o sugerido */
+    else if(c==="maq") x.maq = e.value;
+    else if(c==="qtd" || c==="preco") x[c] = num();
+    return;
+  }
+  if(e.type==="radio"){ if(!e.checked) return; if(c==="pagamento.tipo") op.pagamento.tipo = e.value; else if(c==="dinheiro.tipo") op.dinheiro.tipo = e.value; return; }
+  const [grupo, k] = c.split(".");
+  if(["pcNovo", "pagamento", "dinheiro"].includes(grupo) && op[grupo]) op[grupo][k] = num();
+}
+$("sim-ops").addEventListener("input", e=>{
+  const el = e.target.closest("[data-campo]");
+  if(!el || el.type==="radio" || el.tagName==="SELECT") return;
+  mudarSim(s=>porCampoSim(s, el)); renderSimRes();
+});
+$("sim-ops").addEventListener("change", e=>{
+  const el = e.target.closest("[data-campo]"); if(!el) return;
+  mudarSim(s=>porCampoSim(s, el)); renderSim(true);
+});
+$("sim-ops").addEventListener("click", e=>{
+  const b = e.target.closest("[data-sim]"); if(!b) return;
+  const L = b.dataset.op, acao = b.dataset.sim;
+  let foco = null;
+  mudarSim(s=>{
+    const op = s.opcoes.find(o=>o.nome===L);
+    if(acao==="add-op"){
+      const livre = SIM_LETRAS.find(x=>!s.opcoes.some(o=>o.nome===x)); if(!livre) return;
+      s.opcoes.push(opcaoVazia(livre)); foco = {op:livre, campo:"modelo", i:"0"};
+    } else if(acao==="del-op"){
+      if(s.opcoes.length<2) return;
+      s.opcoes = s.opcoes.filter(o=>o.nome!==L); foco = {sim:"add-op"};
+    } else if(acao==="add-linha" && op){
+      const ult = op.placas[op.placas.length-1];
+      op.placas.push({modelo:"", qtd:1, preco:null, maq: ult ? ult.maq : opcaoVazia(L).placas[0].maq}); foco = {op:L, campo:"modelo", i:String(op.placas.length-1)};
+    } else if(acao==="del-linha" && op){
+      op.placas.splice(+b.dataset.i, 1); foco = {op:L, sim:"add-linha"};
+    }
+  });
+  renderSim(true);
+  focarSim(foco);
+});
+$("sim-prazo").addEventListener("change", e=>{ mudarSim(s=>{ s.prazo = +e.target.value; }); renderSimRes(); });
+document.querySelectorAll("#sim-ajuste input[data-cen]").forEach(i=>i.addEventListener("input", ()=>{
+  mudarSim(s=>{ s.cenarios[i.dataset.cen] = i.value==="" ? null : +i.value; }); renderSimRes();
+}));
+/* página escondida (o app foi para trás, a aba foi fechada): grava o que o simulador esperava */
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") gravarSimJa(); });
+window.addEventListener("pagehide", ()=>gravarSimJa());
 
 /* ---------- carga inicial ---------- */
 let configNoBanco = false;

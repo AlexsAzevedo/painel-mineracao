@@ -32,6 +32,43 @@ def perto(v, alvo, tol):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v - alvo) < tol
 
 
+def texto(pg, sel):
+    """Texto visível de um elemento ("" se ele não existe)."""
+    return pg.evaluate("(s) => { const e = document.querySelector(s); return e ? e.innerText.trim() : ''; }", sel)
+
+
+def existe(pg, sel):
+    return pg.evaluate("(s) => !!document.querySelector(s)", sel)
+
+
+def visivel(pg, sel):
+    return pg.evaluate("(s) => { const e = document.querySelector(s); return !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'; }", sel)
+
+
+def clica(pg, sel):
+    """Clica pelo próprio painel: False se o elemento não existe."""
+    return pg.evaluate("(s) => { const e = document.querySelector(s); if(!e) return false; e.click(); return true; }", sel)
+
+
+def preenche(pg, sel, v):
+    """Escreve num campo como a pessoa (evento input e change)."""
+    return pg.evaluate("([s, v]) => { const e = document.querySelector(s); if(!e) return false; e.value = v; e.dispatchEvent(new Event('input', {bubbles:true})); e.dispatchEvent(new Event('change', {bubbles:true})); return true; }", [sel, v])
+
+
+def escolhe(pg, sel, v):
+    """Escolhe numa lista (evento change)."""
+    return pg.evaluate("([s, v]) => { const e = document.querySelector(s); if(!e) return false; e.value = v; e.dispatchEvent(new Event('change', {bubbles:true})); return true; }", [sel, v])
+
+
+def marca(pg, sel):
+    """Marca um botão de opção (rádio)."""
+    return pg.evaluate("(s) => { const e = document.querySelector(s); if(!e) return false; e.checked = true; e.dispatchEvent(new Event('change', {bubbles:true})); return true; }", sel)
+
+
+def valor(pg, sel):
+    return pg.evaluate("(s) => { const e = document.querySelector(s); return e ? e.value : null; }", sel)
+
+
 def contas(p):
     pg = abrir(p, dados=DADOS_SIM)
     F = "(o) => fluxoSim({preco:1200, cartao:0, emprestimo:null, bruto:200, luz:50, taxa:0, prazo:12, rendMes:0, revendaEm:()=>0, ...o})"
@@ -148,8 +185,121 @@ def opcoes(p):
     checa("sem erros (opções)", not erros(pg), erros(pg)[:3])
 
 
+A, B, C = (".sim-op[data-op='%s']" % x for x in "ABC")
+# conta as gravações da configuração (cada uma vira mensagem entre o PC e o celular)
+CONTA_CFG = "window.__gravouCfg = 0; (() => { const s = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'min-cfg') window.__gravouCfg++; return s.call(this, k, v); }; })();"
+# o retrato do app da Kryptex que o PC mandou (com a correção pelo real da RX 9070 XT)
+RETRATO = {"v": 1, "quando": AGORA_MS - 60_000, "estado": "minerando", "pausaAte": None, "computador": "PC-TESTE", "fatorKx": 0.74,
+           "placas": [{"nome": "RX 9070 XT", "tipo": "gpu", "minerando": True, "moeda": "PRL", "minerador": "srbminer", "hash": 1.13e14, "temp": 63, "watts": 286}],
+           "hoje": {"ganho": 9.62, "luz": 5.09, "lucro": 4.53, "kwh": 5.3, "desde": None}, "ritmo": {"brutoDia": 14.7, "lucroDia": 6.9},
+           "saldoBtc": 0.00012, "saldoUsd": 9.7, "precoBtc": 401000, "linha": [], "protecao": None, "minerandoDesde": AGORA_MS - 5 * 3600_000, "hash24": 1.12e14}
+# três opções prontas: A com o empréstimo do Alex no cartão, B num PC novo, C no PC principal
+SIM_PRONTO = {"opcoes": [
+    {"nome": "A", "placas": [{"modelo": "rtx-5070", "qtd": 2, "preco": 5159, "maq": "m-pc"}], "pagamento": {"tipo": "cartao", "parcelas": 12},
+     "dinheiro": {"tipo": "emprestimo", "valor": 10000, "parcelas": 20, "parcela": 674.65}},
+    {"nome": "B", "placas": [{"modelo": "rtx-5060", "qtd": 3, "preco": None, "maq": "novo"}], "pcNovo": {"custo": 1500}},
+    {"nome": "C", "placas": [{"modelo": "rtx-5070", "qtd": 1, "preco": None, "maq": "m-pc"}]}], "prazo": 0}
+
+
+def tela(p):
+    pg = abrir(p, dados=DADOS_SIM, pc=True, hash="sim")
+    checa("abre o Simulador", visivel(pg, "#v-sim") and texto(pg, "#t-sim") == "Simulador", texto(pg, "#t-sim"))
+    checa("começa com a opção A vazia e o + Opção", js(pg, "document.querySelectorAll('#sim-ops .sim-op').length") == 1 and visivel(pg, "[data-sim='add-op']"))
+    escolhe(pg, f"{A} [data-i='0'][data-campo='modelo']", "rtx-5070")
+    checa("preço sugerido (o melhorPreco)", valor(pg, f"{A} [data-i='0'][data-campo='preco']") == "5159", valor(pg, f"{A} [data-i='0'][data-campo='preco']"))
+    preenche(pg, f"{A} [data-i='0'][data-campo='qtd']", "2")
+    marca(pg, f"{A} input[name='sim-pag-A'][value='cartao']")
+    preenche(pg, f"{A} [data-campo='pagamento.parcelas']", "12")
+    marca(pg, f"{A} input[name='sim-din-A'][value='emprestimo']")
+    preenche(pg, f"{A} [data-campo='dinheiro.valor']", "10000")
+    t = texto(pg, f"{A} .sim-res")
+    checa("empréstimo só com o valor: diz o que falta", t.startswith("Preencha"), t)
+    preenche(pg, f"{A} [data-campo='dinheiro.parcela']", "400")
+    t = texto(pg, f"{A} .sim-res")
+    checa("parcelas que somam menos que o valor: avisa", "somam menos" in t, t)
+    preenche(pg, f"{A} [data-campo='dinheiro.parcelas']", "20")
+    preenche(pg, f"{A} [data-campo='dinheiro.parcela']", "674.65")
+    j = texto(pg, f"{A} .sim-juros")
+    checa("juros do empréstimo do Alex", "3,04% ao mês" in j and "43,2% ao ano" in j and "R$ 3.493" in j, j)
+    cen = pg.evaluate("(s) => [...document.querySelectorAll(s + ' .sim-cen')].map(e => e.innerText)", A)
+    checa("três cenários, cada um com o mês em que se paga", len(cen) == 3 and all("Se paga" in c or "Não se paga" in c for c in cen), cen)
+    clica(pg, "[data-sim='add-op']")
+    escolhe(pg, f"{B} [data-i='0'][data-campo='modelo']", "rtx-5060")
+    preenche(pg, f"{B} [data-i='0'][data-campo='qtd']", "3")
+    checa("sem PC novo, sem o custo do PC", not existe(pg, f"{B} [data-campo='pcNovo.custo']"))
+    escolhe(pg, f"{B} [data-i='0'][data-campo='maq']", "novo")
+    checa("PC novo: aparece o custo do PC", visivel(pg, f"{B} [data-campo='pcNovo.custo']"))
+    preenche(pg, f"{B} [data-campo='pcNovo.custo']", "1500")
+    checa("o PC novo entra no preço", "R$ 9.300" in texto(pg, f"{B} .sim-res"), texto(pg, f"{B} .sim-res"))
+    clica(pg, "[data-sim='add-op']")
+    escolhe(pg, f"{C} [data-i='0'][data-campo='modelo']", "rtx-5070")
+    preenche(pg, f"{C} [data-i='0'][data-campo='qtd']", "3")
+    checa("três opções: o + Opção some", not existe(pg, "[data-sim='add-op']"))
+    checa("aviso da fonte acima de 80%", "113%" in texto(pg, f"{C} .avisos"), texto(pg, f"{C} .avisos"))
+    t = texto(pg, "#v-sim")
+    checa("sem NaN, Infinity nem undefined na tela", not any(x in t for x in ("NaN", "Infinity", "undefined")), [x for x in ("NaN", "Infinity", "undefined") if x in t])
+    # com o cursor num campo, o render() (que roda quando chegam dados do PC) não tira o foco nem o que foi digitado
+    pg.fill(f"{A} [data-campo='dinheiro.valor']", "12000")
+    pg.evaluate("render()")
+    r = pg.evaluate("(() => { const a = document.activeElement; return [a.dataset.campo, a.closest('.sim-op') && a.closest('.sim-op').dataset.op, a.value]; })()")
+    checa("render() com o cursor num campo mantém o foco e o valor", r == ["dinheiro.valor", "A", "12000"], r)
+    clica(pg, f"{A} [data-sim='del-op']")
+    r = pg.evaluate("[...document.querySelectorAll('#sim-ops .sim-op')].map(e => e.dataset.op)")
+    checa("apagar A: B e C continuam com as letras e o + Opção volta", r == ["B", "C"] and existe(pg, "[data-sim='add-op']"), r)
+    pg.evaluate("setup.maquinas = []; render()")
+    checa("máquina apagada no Montar setup: C avisa e usa o PC novo", "não existe mais" in texto(pg, f"{C} .avisos"), texto(pg, f"{C} .avisos"))
+    checa("sem erros (tela)", not erros(pg), erros(pg)[:3])
+
+
+def guardar(p):
+    pg = abrir(p, dados=DADOS_SIM, pc=True, extra=CONTA_CFG)
+    pg.wait_for_timeout(1000)
+    n0 = js(pg, "window.__gravouCfg")
+    pg.evaluate("irPara('sim')")
+    pg.wait_for_timeout(1000)
+    checa("só abrir o Simulador não grava", js(pg, "window.__gravouCfg") == n0, [n0, js(pg, "window.__gravouCfg")])
+    escolhe(pg, f"{A} [data-i='0'][data-campo='modelo']", "rtx-5070")
+    preenche(pg, f"{A} [data-i='0'][data-campo='qtd']", "2")
+    pg.wait_for_timeout(1500)
+    checa("mexer não grava na hora", js(pg, "window.__gravouCfg") == n0, [n0, js(pg, "window.__gravouCfg")])
+    pg.evaluate("irPara('resumo')")
+    checa("sair da tela grava uma vez", js(pg, "window.__gravouCfg") == n0 + 1, [n0, js(pg, "window.__gravouCfg")])
+    salvo = js(pg, "JSON.parse(localStorage.getItem('min-cfg'))")
+    pg2 = abrir(p, dados={**DADOS_SIM, "min-cfg": salvo}, hash="sim")
+    r = [valor(pg2, f"{A} [data-i='0'][data-campo='modelo']"), valor(pg2, f"{A} [data-i='0'][data-campo='qtd']")]
+    checa("abre de novo igual", r == ["rtx-5070", "2"], r)
+    pg.evaluate("irPara('sim')")
+    preenche(pg, f"{A} [data-i='0'][data-campo='qtd']", "3")
+    js(pg, "salvarPendentes()")
+    checa("salvarPendentes grava o que o simulador esperava", js(pg, "window.__gravouCfg") == n0 + 2, [n0, js(pg, "window.__gravouCfg")])
+    preenche(pg, f"{A} [data-i='0'][data-campo='qtd']", "4")
+    pg.evaluate("Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true}); document.dispatchEvent(new Event('visibilitychange'))")
+    checa("esconder a página grava", js(pg, "window.__gravouCfg") == n0 + 3, [n0, js(pg, "window.__gravouCfg")])
+    checa("sem erros (guardar)", not erros(pg) and not erros(pg2), (erros(pg) + erros(pg2))[:3])
+
+
+def celular(p):
+    pg = abrir(p, largura=390, altura=844, dados={**DADOS_SIM, "min-cfg": {**CFG, "sim": SIM_PRONTO}, "min-kx-app": RETRATO}, celular=True)
+    pg.evaluate("irPara('sim')")
+    pg.wait_for_timeout(300)
+    checa("celular: título no topo", texto(pg, "#topo-t") == "Simulador", texto(pg, "#topo-t"))
+    checa("celular: na folha Mais", existe(pg, "#mais .mais-item[data-view='sim']"))
+    caixas = pg.evaluate("[...document.querySelectorAll('#sim-ops .sim-op')].map(e => { const r = e.getBoundingClientRect(); return [r.left, r.right, r.top, r.bottom]; })")
+    checa("celular: as 3 opções uma embaixo da outra", len(caixas) == 3 and all(c[0] >= 0 and c[1] <= 390 for c in caixas)
+          and all(caixas[i + 1][2] >= caixas[i][3] for i in range(2)), caixas)
+    checa("celular: sem rolagem para o lado", pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), pg.evaluate("document.documentElement.scrollWidth"))
+    f = texto(pg, "#sim-fator")
+    checa("celular: a correção pelo real do PC", "74%" in f and "RX 9070 XT" in f, f)
+    altos = pg.evaluate("[...document.querySelectorAll('#sim-ops input:not([type=radio]), #sim-ops select')].filter(e => e.getClientRects().length).every(e => e.getBoundingClientRect().height >= 44)")
+    checa("celular: campos com 44 px de altura", altos)
+    checa("sem erros (celular)", not erros(pg), erros(pg)[:3])
+
+
 with sync_playwright() as p:
     contas(p)
     mineracao(p)
     opcoes(p)
+    tela(p)
+    guardar(p)
+    celular(p)
 fim()

@@ -27,8 +27,8 @@ def tema(p):
 def menu(p):
     pg = abrir(p, dados={"min-cfg": CFG})  # 1366
     checa("grupos", pg.eval_on_selector_all(".menu-t", "e=>e.map(x=>x.textContent)") == ["Acompanhar", "Comprar", "Ajustes"])
-    checa("ordem", pg.eval_on_selector_all(".menu .item[data-view]", "e=>e.map(x=>x.dataset.view)") == ["resumo", "diario", "minhas", "ofertas", "anuncio", "placas", "setup", "premissas"])
-    checa("ordem das telas", pg.evaluate("VIEWS") == ["resumo", "diario", "minhas", "ofertas", "anuncio", "placas", "setup", "premissas"])
+    checa("ordem", pg.eval_on_selector_all(".menu .item[data-view]", "e=>e.map(x=>x.dataset.view)") == ["resumo", "diario", "minhas", "ofertas", "anuncio", "placas", "sim", "setup", "premissas"])
+    checa("ordem das telas", pg.evaluate("VIEWS") == ["resumo", "diario", "minhas", "ofertas", "anuncio", "placas", "sim", "setup", "premissas"])
     checa("sem barra no PC", pg.is_hidden(".abas"))
     checa("estado no rodapé", pg.is_visible("#vivo") and pg.is_visible(".side-pe .tema-sel"))
     pg = abrir(p, largura=390, altura=844, dados={"min-cfg": CFG})
