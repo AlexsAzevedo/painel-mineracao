@@ -513,6 +513,133 @@ def placas(p):
     checa("sem erros (placas)", not erros(pg) and not erros(pg2), (erros(pg) + erros(pg2))[:3])
 
 
+PL = '#web-lista .web-placa[data-id="%s"] '
+OPCOES = "simCfg().opcoes.map(o => [o.nome, o.placas.map(x => [x.modelo, x.qtd, x.preco, x.maq])])"
+RADIOS = "(s => [...document.querySelectorAll(s + '.web-escolha [data-esc-preco]')].map(r => [r.value, r.checked, r.closest('label').innerText.trim()]))"
+BOTOES = "(s => [...document.querySelectorAll(s + '.web-escolha [data-esc-op]')].map(b => [b.dataset.escOp, b.innerText.trim()]))"
+FOCO = "(s => document.activeElement && document.activeElement.matches(s))"
+ESCOLHAS_ABERTAS = "[...document.querySelectorAll('.web-escolha')].filter(e => !e.hidden).length"
+
+
+def simular_pela_lista(pg, card, onde, preco=None, lugar=PL):
+    """Simular numa placa da lista (ou das Melhores compras), com o preço escolhido, e onde colocar"""
+    clica(pg, "#aba-placas")
+    clica(pg, lugar % card + "[data-simular]")
+    if preco is not None:
+        clica(pg, lugar % card + '.web-escolha [data-esc-preco][value="%s"]' % preco)
+    return clica(pg, lugar % card + '.web-escolha [data-esc-op="%s"]' % onde)
+
+
+def simular_lista(p):
+    pg = abrir_web(p)
+    if not existe(pg, PL % "rtx-5060" + "[data-simular]"):
+        return checa("simular pela lista: o botão Simular de cada placa existe", False)
+    clica(pg, "#aba-placas")
+    clica(pg, PL % "rtx-5060" + "[data-simular]")
+    radios, botoes = js(pg, RADIOS + "('%s')" % (PL % "rtx-5060")), js(pg, BOTOES + "('%s')" % (PL % "rtx-5060"))
+    checa("simular pela lista: a escolha abre na placa, com o menor preço marcado", visivel(pg, PL % "rtx-5060" + ".web-escolha")
+          and radios == [["2600", True, "Usada R$ 2.600"], ["2665", False, "Nova R$ 2.665"]], radios)
+    checa("simular pela lista: onde colocar, Opção A ou Nova opção, e Cancelar", [b[0] for b in botoes] == ["A", "nova"] and botoes[0][1].startswith("Opção A")
+          and botoes[1][1] == "Nova opção" and existe(pg, PL % "rtx-5060" + ".web-escolha [data-esc-cancelar]"), botoes)
+    checa("simular pela lista: o Simular diz que a escolha está aberta", js(pg, "document.querySelector('%s[data-simular]').getAttribute('aria-expanded')" % (PL % "rtx-5060")) == "true")
+    # a nova, na Opção A que só tem a linha vazia: entra nela, e o Simular abre com o cursor na quantidade
+    clica(pg, PL % "rtx-5060" + '.web-escolha [data-esc-preco][value="2665"]')
+    clica(pg, PL % "rtx-5060" + '.web-escolha [data-esc-op="A"]')
+    r = [js(pg, OPCOES), js(pg, "document.querySelector('#aba-simular').getAttribute('aria-selected')"), visivel(pg, "#v-sim"),
+         js(pg, FOCO + "('.sim-op[data-op=\"A\"] [data-campo=\"qtd\"][data-i=\"0\"]')"), js(pg, ESCOLHAS_ABERTAS)]
+    checa("simular pela lista: na linha vazia da Opção A, com o preço escolhido, e o Simular aberto nela",
+          r == [[["A", [["rtx-5060", 1, 2665, "pc-pessoal"]]]], "true", True, True, 0], r)
+    # numa opção com placa: mais uma linha, no PC da última
+    escolhe(pg, A + '[data-campo="maq"][data-i="0"]', "pc-i5")
+    simular_pela_lista(pg, "rtx-5070", "A")
+    r = [js(pg, OPCOES), js(pg, FOCO + "('.sim-op[data-op=\"A\"] [data-campo=\"qtd\"][data-i=\"1\"]')")]
+    checa("simular pela lista: numa opção com placa, entra como mais uma linha, com 1 placa e o PC da última",
+          r == [[["A", [["rtx-5060", 1, 2665, "pc-i5"], ["rtx-5070", 1, 5159, "pc-i5"]]]], True], r)
+    # uma linha vazia no fim (do + Placa) recebe a placa, em vez de ficar sobrando
+    clica(pg, "[data-sim='add-linha'][data-op='A']")
+    simular_pela_lista(pg, "rtx-3070-ti", "A")
+    r = js(pg, OPCOES)
+    checa("simular pela lista: a linha vazia que sobrou recebe a placa", r == [["A", [["rtx-5060", 1, 2665, "pc-i5"], ["rtx-5070", 1, 5159, "pc-i5"],
+                                                                                    ["rtx-3070-ti", 1, 2250, "pc-i5"]]]], r)
+    # Nova opção: a B, com a placa
+    simular_pela_lista(pg, "rtx-3080-ti", "nova")
+    r = [js(pg, OPCOES)[1:], js(pg, FOCO + "('.sim-op[data-op=\"B\"] [data-campo=\"qtd\"][data-i=\"0\"]')")]
+    checa("simular pela lista: Nova opção cria a B com a placa", r == [[["B", [["rtx-3080-ti", 1, 3500, "pc-pessoal"]]]], True], r)
+    # das Melhores compras também, e uma escolha aberta de cada vez
+    clica(pg, "#aba-placas")
+    melhor = js(pg, "document.querySelector('#web-melhores li[data-id]').dataset.id")
+    clica(pg, PL % "rtx-5060" + "[data-simular]")
+    clica(pg, '#web-melhores li[data-id="%s"] [data-simular]' % melhor)
+    checa("simular pela lista: das Melhores compras, a escolha abre no item (e a outra fecha)",
+          visivel(pg, '#web-melhores li[data-id="%s"] .web-escolha' % melhor) and js(pg, ESCOLHAS_ABERTAS) == 1
+          and js(pg, "document.querySelector('%s[data-simular]').getAttribute('aria-expanded')" % (PL % "rtx-5060")) == "false")
+    clica(pg, '#web-melhores li[data-id="%s"] .web-escolha [data-esc-op="nova"]' % melhor)
+    r = [x[0] for x in js(pg, OPCOES)] + [campo(js(pg, OPCOES), 2, 1, 0, 0)]
+    checa("simular pela lista: das Melhores compras, numa Nova opção (a C)", r == ["A", "B", "C", melhor], r)
+    # com 3 opções: sem Nova opção
+    clica(pg, "#aba-placas")
+    clica(pg, PL % "rtx-5060-ti" + "[data-simular]")
+    checa("simular pela lista: com 3 opções, sem Nova opção", [b[0] for b in js(pg, BOTOES + "('%s')" % (PL % "rtx-5060-ti"))] == ["A", "B", "C"])
+    checa("simular pela lista: com 3 opções, simularPlaca não cria a quarta", js(pg, "(() => { const a = JSON.stringify(cfg.sim); return [simularPlaca('rtx-5060', 'nova', 2600), JSON.stringify(cfg.sim) === a]; })()") == [None, True])
+    # Cancelar e Esc: fecham sem mudar nada, com o cursor de volta no Simular
+    antes = js(pg, "JSON.stringify(cfg.sim)")
+    clica(pg, PL % "rtx-5060-ti" + ".web-escolha [data-esc-cancelar]")
+    r = [js(pg, "JSON.stringify(cfg.sim)") == antes, js(pg, ESCOLHAS_ABERTAS), js(pg, "document.querySelector('#aba-placas').getAttribute('aria-selected')"),
+         js(pg, FOCO + "('%s[data-simular]')" % (PL % "rtx-5060-ti"))]
+    checa("simular pela lista: Cancelar fecha sem mudar nada", r == [True, 0, "true", True], r)
+    pg.locator(PL % "rtx-5060-ti" + "[data-simular]").click()
+    dentro = js(pg, "!!document.activeElement.closest('.web-escolha')")
+    pg.keyboard.press("Escape")
+    r = [dentro, js(pg, "JSON.stringify(cfg.sim)") == antes, js(pg, ESCOLHAS_ABERTAS), js(pg, FOCO + "('%s[data-simular]')" % (PL % "rtx-5060-ti"))]
+    checa("simular pela lista: o cursor entra na escolha, e Esc fecha sem mudar nada", r == [True, True, 0, True], r)
+    # uma escolha aberta fecha ao trocar de aba (as opções podem mudar lá)
+    clica(pg, PL % "rtx-5060-ti" + "[data-simular]")
+    clica(pg, "#aba-dados"); clica(pg, "#aba-placas")
+    checa("simular pela lista: trocar de aba fecha a escolha", js(pg, ESCOLHAS_ABERTAS) == 0)
+    # sem preço no Brasil (com Mostrar todas): entra sem preço
+    js(pg, MARCA_TODAS % "true")
+    clica(pg, PL % "gtx-1650-super" + "[data-simular]")
+    radios = js(pg, RADIOS + "('%s')" % (PL % "gtx-1650-super"))
+    clica(pg, PL % "gtx-1650-super" + '.web-escolha [data-esc-op="B"]')
+    r = [radios, campo(js(pg, OPCOES), 1, 1, 1)]
+    checa("simular pela lista: placa sem preço entra sem preço, para digitar no Simular",
+          r == [[["", True, "Sem preço: você digita no Simular"]], ["gtx-1650-super", 1, None, "pc-pessoal"]], r)
+    checa("simular pela lista: o Simular pede o preço que falta", "Falta o preço da GTX 1650 Super" in texto(pg, '#web-quadros .web-quadro[data-op="B"]'), texto(pg, '#web-quadros .web-quadro[data-op="B"]'))
+    js(pg, MARCA_TODAS % "false")
+    # sem PCs (todos removidos em Meus dados): a linha nova vai para Um PC novo
+    clica(pg, "#aba-dados")
+    for _ in range(3):
+        clica(pg, "#web-pcs [data-pc-del]")
+    simular_pela_lista(pg, "rtx-5060", "A")
+    r = [js(pg, "pcs.length"), campo(js(pg, OPCOES), 0, 1, 3)]
+    checa("simular pela lista: sem PCs, a linha nova vai para Um PC novo", r == [0, ["rtx-5060", 1, 2600, "novo"]], r)
+    pg.wait_for_timeout(2500)
+    g = js(pg, "JSON.parse(localStorage.getItem('sim-web')).sim.opcoes.map(o => [o.nome, o.placas.map(x => x.modelo)])")
+    checa("simular pela lista: fica guardado", g == [["A", ["rtx-5060", "rtx-5070", "rtx-3070-ti", "rtx-5060"]], ["B", ["rtx-3080-ti", "gtx-1650-super"]], ["C", [melhor]]], g)
+    # a linha vazia guardada com um PC que não existe mais recebe a placa em Um PC novo; uma opção sem linhas, no primeiro PC
+    vazia = {"nome": "A", "placas": [{"modelo": "", "qtd": 1, "preco": None, "maq": "pc-pessoal"}], "pcNovo": {"custo": 0},
+             "pagamento": {"tipo": "avista", "parcelas": 12}, "dinheiro": {"tipo": "meu", "valor": 0, "parcelas": 12, "parcela": 0}}
+    pg2 = abrir_web(p, estado={"v": 1, "t": 1, "pcs": [], "sim": {"prazo": 0, "cenarioGrafico": "estavel", "opcoes": [vazia, {**vazia, "nome": "B", "placas": []}]}})
+    simular_pela_lista(pg2, "rtx-5060", "A")
+    js(pg2, "pcs = pcsOk(%s); renderPcs(); 1" % json.dumps(PCS_PAR))
+    simular_pela_lista(pg2, "rtx-5070", "B")
+    r = [campo(js(pg2, OPCOES), 0, 1), campo(js(pg2, OPCOES), 1, 1)]
+    checa("simular pela lista: linha vazia com PC que sumiu vai para Um PC novo; opção sem linhas, no primeiro PC",
+          r == [[["rtx-5060", 1, 2600, "novo"]], [["rtx-5070", 1, 5159, "m-pc"]]], r)
+    # no celular: a escolha e o Simular sem rolar para o lado, com o gráfico na largura da tela e botões de 44 px
+    pg3 = abrir_web(p, largura=390, altura=844)
+    clica(pg3, "#aba-placas")
+    clica(pg3, PL % "rtx-5070" + "[data-simular]")
+    aberta = [js(pg3, "document.documentElement.scrollWidth"),
+              js(pg3, "[...document.querySelectorAll('.web-escolha:not([hidden]) button, .web-escolha:not([hidden]) label')].map(e => Math.round(e.getBoundingClientRect().height))")]
+    clica(pg3, PL % "rtx-5070" + '.web-escolha [data-esc-op="A"]')
+    r = js(pg3, "[document.documentElement.scrollWidth, innerWidth, (e => e && e.getBoundingClientRect().width)(document.querySelector('#sim-graf svg')), document.querySelector('#sim-graf').clientWidth]")
+    checa("celular: Simular pela lista sem rolar para o lado, com o gráfico na largura da tela",
+          aberta[0] <= 390 and r[0] <= r[1] and r[2] is not None and r[2] <= r[3] + 0.5, [aberta[0], r])
+    checa("celular: os botões e os preços da escolha com 44 px", aberta[1] and min(aberta[1]) >= 44, aberta[1])
+    checa("sem erros (simular pela lista)", not any(erros(x) for x in (pg, pg2, pg3)), [e for x in (pg, pg2, pg3) for e in erros(x)][:3])
+
+
 def foco_real(p):
     """Com cliques e teclas de verdade: depois de digitar num campo, o clique ou o Tab seguinte chega aonde a pessoa quis."""
     pg = abrir_web(p)
@@ -687,6 +814,7 @@ with sync_playwright() as p:
     abas(p)
     resumo(p)
     placas(p)
+    simular_lista(p)
     tela(p)
     foco_real(p)
     guardar(p)

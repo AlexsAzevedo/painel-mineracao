@@ -163,6 +163,18 @@ body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(
 .web-procurar a{color:var(--accent)}
 /* fora das áreas: escondida, não abre uma linha vazia no fim do cartão */
 .web-escolha{grid-column:1/-1}
+/* Simular pela lista: a escolha do preço e de onde pôr a placa, dentro da própria placa */
+.web-escolha:not([hidden]){display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 28px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
+.web-melhores .web-escolha{grid-column:2/-1}
+.web-esc-preco{border:0;margin:0;padding:0;min-width:0}
+.web-esc-preco legend,.web-esc-ops > .lbl{display:block;padding:0;margin-bottom:6px}
+.web-esc-rs{display:flex;flex-wrap:wrap;gap:4px 16px}
+.web-esc-r{display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer}
+.web-esc-r input{width:auto;margin:0;accent-color:var(--accent)}
+.web-esc-ops{min-width:0}
+.web-esc-bs{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.web-esc-bs button[data-esc-op]{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;text-align:left;line-height:1.25}
+.web-esc-bs button small{font-weight:400;font-size:.75rem;color:var(--muted)}
 .web-busca-c{display:grid;grid-template-columns:repeat(2,minmax(0,240px));gap:12px 16px}
 .web-busca-c label{display:flex;flex-direction:column;gap:4px;min-width:0}
 /* em bloco, não flex: a .view com margem automática ocupa a largura toda */
@@ -205,6 +217,10 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
   .web-q-res{font-size:1.15rem}
   .web-quadro-mais{min-height:64px}
   .web-placa{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nome acoes" "conta conta" "precos precos" "procurar procurar";padding:12px 14px}
+  .web-escolha:not([hidden]){flex-direction:column;align-items:stretch;gap:12px}
+  .web-esc-rs,.web-esc-bs{flex-direction:column;gap:6px}
+  .web-esc-r,.web-esc-bs button{min-height:44px}
+  .web-esc-bs button{width:100%}
   .web-filtros{display:grid;grid-template-columns:1fr 1fr}
   .web-filtros .busca,.web-filtros .ordem,.web-filtros .check{grid-column:1/-1}
   .web-filtros select,.web-filtros input#pl-teto{width:100%}
@@ -685,7 +701,7 @@ function htmlPlaca({c, r}){
     <div class="web-pl-nome"><b>${esc(c.curto)}</b><small>${esc(c.marca)} · ${c.w} W</small>${etq ? `<span class="web-pl-etq">${etq}</span>` : ""}</div>
     <div class="web-pl-conta">${r.lucro > 0 ? `<span>lucro <b>${brl0(r.lucro)}/mês</b></span>` : `<span class="neg">A luz come o lucro</span>`}<small><span>ganha ${brl0(r.ganho)}/mês</span> · <span>luz ${brl0(r.luz)}/mês</span></small></div>
     <div class="web-pl-precos">${precos}</div>
-    <div class="web-pl-acoes"><button type="button" class="pri" data-simular="${esc(c.id)}">Simular</button></div>
+    <div class="web-pl-acoes"><button type="button" class="pri" data-simular="${esc(c.id)}" aria-expanded="false">Simular</button></div>
     <details class="web-procurar"><summary>Procurar agora</summary>
       <p>Usadas: ${lk.usadas.map(([n, u])=>linkFora(n, u)).join("")}</p>
       <p>Novas: ${lk.novas.map(([n, u])=>linkFora(n, u)).join("")}</p>
@@ -700,7 +716,7 @@ function renderPlacas(){
     .sort((a,b)=>a.r.meses.menor-b.r.meses.menor).slice(0, 5);
   $("web-melhores").innerHTML = melhores.length ? melhores.map(({c, r}, i)=>`<li data-id="${esc(c.id)}"><span class="pos">${i+1}</span>`
     + `<span class="nm">${esc(c.curto)}<small><span>${r.menor===r.novo ? "nova" : "usada"} ${brl0(r.menor)}</span> · <span>lucro ${brl0(r.lucro)}/mês</span></small></span>`
-    + `<span class="val">${n1(r.meses.menor)} meses<small>para se pagar</small></span><button type="button" data-simular="${esc(c.id)}">Simular</button></li>`).join("")
+    + `<span class="val">${n1(r.meses.menor)} meses<small>para se pagar</small></span><button type="button" data-simular="${esc(c.id)}" aria-expanded="false">Simular</button><div class="web-escolha" hidden></div></li>`).join("")
     : `<li><span class="nm">Nenhuma placa com preço no Brasil se paga com os seus números.</span></li>`;
   $("web-placas-nota").textContent = `Preços da pesquisa do painel de ${MERCADO.data}: usada é o preço típico dos anúncios do Marketplace e da OLX na região; nova, o menor à vista nas lojas. `
     + `Para o preço de agora, use "Procurar agora". A conta é a da placa sozinha: no Simular entram a fonte e o resto do PC, e o número muda um pouco.`;
@@ -724,10 +740,87 @@ $("web-busca").addEventListener("change", e=>{
 document.querySelector('#web-busca [data-busca="uf"]').innerHTML = Object.entries(UF_NOMES).sort((a,b)=>a[1].localeCompare(b[1], "pt-BR"))
   .map(([uf, nome])=>`<option value="${uf}">${esc(nome)} (${uf})</option>`).join("");
 
+/* ---------- Simular pela lista: a placa vai para uma opção do simulador ---------- */
+/* o PC em que a linha fica de verdade: o escolhido, se ainda está em Seus PCs; senão Um PC novo (como o simulador conta) */
+const pcDeVerdade = m => m && m!=="novo" && pcs.some(p=>p.id===m) ? m : "novo";
+/* a linha sem placa: a lista dela mostra "Escolha a placa" e a conta não a usa */
+const linhaSemPlaca = x => !byId[novoId(x.modelo)];
+/* põe a placa id na opção onde (A, B, C ou "nova") com o preço (null: sem preço, para digitar no Simular): na primeira linha
+   sem placa, se houver; senão numa linha nova, com 1 placa, no PC da última linha (sem linhas: o primeiro PC, ou Um PC novo).
+   Abre o Simular na opção, com o cursor na quantidade. Devolve a letra usada, ou null quando a opção não existe mais (ou
+   "nova" com as 3 já criadas), sem mudar nada */
+function simularPlaca(id, onde, preco){
+  const s0 = simCfg(), livre = SIM_LETRAS.find(x=>!s0.opcoes.some(o=>o.nome===x));
+  const L = onde==="nova" ? livre : s0.opcoes.some(o=>o.nome===onde) ? onde : null;
+  if(!L || !byId[id]) return null;
+  const v = +preco > 0 ? +preco : null;
+  let i = 0;
+  mudarSim(s=>{
+    if(onde==="nova") s.opcoes.push(opcaoVazia(L));
+    const op = s.opcoes.find(o=>o.nome===L), vazia = op.placas.findIndex(linhaSemPlaca);
+    if(vazia >= 0){ op.placas[vazia] = {...op.placas[vazia], modelo:id, preco:v, maq:pcDeVerdade(op.placas[vazia].maq)}; i = vazia; return; }
+    const ult = op.placas[op.placas.length-1];
+    op.placas.push({modelo:id, qtd:1, preco:v, maq: ult ? pcDeVerdade(ult.maq) : ((maqsReais()[0] || {}).id || "novo")});
+    i = op.placas.length - 1;
+  });
+  /* a aba antes das contas: o gráfico mede a largura de verdade */
+  abrirAba("simular"); renderSim(true); irParaOpcao(L, "qtd", String(i));
+  return L;
+}
+/* os botões de onde pôr a placa: as opções que existem (com as placas de cada uma), a nova e Cancelar */
+function botoesEscolha(){
+  const s = simCfg();
+  return s.opcoes.map(o=>{ const l = linhasSim(o);
+    return `<button type="button" data-esc-op="${o.nome}">Opção ${o.nome}<small>${l.length ? esc(placasSimTxt({linhas:l})) : "sem placa"}</small></button>`; }).join("")
+    + (s.opcoes.length < SIM_LETRAS.length ? `<button type="button" data-esc-op="nova">Nova opção</button>` : "")
+    + `<button type="button" class="link" data-esc-cancelar>Cancelar</button>`;
+}
+/* a escolha da placa c: o preço (usada ou nova, já com o menor marcado; sem preço, entra sem) e onde pôr */
+function htmlEscolha(c, grupo){
+  const r = contaPlaca(c), ps = [["Usada", r.usado], ["Nova", r.novo]].filter(x=>x[1]), menor = Math.min(...ps.map(x=>x[1]));
+  const marcado = ps.findIndex(x=>x[1]===menor), radio = (v, txt, sim) => `<label class="web-esc-r"><input type="radio" name="${grupo}" data-esc-preco value="${v}"${sim ? " checked" : ""}>${txt}</label>`;
+  return `<fieldset class="web-esc-preco"><legend class="lbl">Preço</legend><div class="web-esc-rs">`
+    + (ps.length ? ps.map(([t, v], i)=>radio(v, `${t} ${brl0(v)}`, i===marcado)).join("") : radio("", "Sem preço: você digita no Simular", true)) + `</div></fieldset>`
+    + `<div class="web-esc-ops" role="group" aria-label="Colocar em"><span class="lbl" aria-hidden="true">Colocar em</span><div class="web-esc-bs">${botoesEscolha()}</div></div>`;
+}
+/* uma escolha aberta de cada vez; fecha também ao trocar de aba (as opções podem mudar lá) */
+function fecharEscolhas(){
+  for(const e of document.querySelectorAll(".web-escolha:not([hidden])")){ e.hidden = true; e.innerHTML = ""; }
+  for(const b of document.querySelectorAll("[data-simular][aria-expanded='true']")) b.setAttribute("aria-expanded", "false");
+}
+function abrirEscolha(b){
+  const cont = b.closest("[data-id]"), box = cont && cont.querySelector(".web-escolha"), c = cont && byId[cont.dataset.id];
+  if(!box || !c) return;
+  const estava = !box.hidden;
+  fecharEscolhas();
+  if(estava) return;   /* tocar de novo no Simular fecha */
+  box.innerHTML = htmlEscolha(c, (cont.closest("#web-melhores") ? "esc-m-" : "esc-l-") + c.id);
+  box.hidden = false; b.setAttribute("aria-expanded", "true");
+  (box.querySelector("[data-esc-preco]:checked") || box.querySelector("[data-esc-op]")).focus();
+}
+function fecharEscolhaDe(cont){ fecharEscolhas(); const b = cont && cont.querySelector("[data-simular]"); if(b) b.focus(); }
+$("painel-placas").addEventListener("click", e=>{
+  const b = e.target.closest("[data-simular]"); if(b){ abrirEscolha(b); return; }
+  const box = e.target.closest(".web-escolha"), cont = box && box.closest("[data-id]"); if(!cont) return;
+  if(e.target.closest("[data-esc-cancelar]")){ fecharEscolhaDe(cont); return; }
+  const op = e.target.closest("[data-esc-op]"); if(!op) return;
+  const r = box.querySelector("[data-esc-preco]:checked");
+  if(simularPlaca(cont.dataset.id, op.dataset.escOp, r && r.value!=="" ? +r.value : null)) return;
+  /* as opções mudaram enquanto a escolha estava aberta: mostra as de agora */
+  box.querySelector(".web-esc-bs").innerHTML = botoesEscolha();
+  box.querySelector("[data-esc-op]").focus();
+});
+$("painel-placas").addEventListener("keydown", e=>{
+  if(e.key!=="Escape") return;
+  const cont = e.target.closest("[data-id]"); if(!cont || !cont.querySelector(".web-escolha:not([hidden])")) return;
+  e.preventDefault(); fecharEscolhaDe(cont);
+});
+
 /* ---------- as abas: Simular, Placas e Meus dados ---------- */
 const ABAS = ["simular", "placas", "dados"];
 function abrirAba(nome, foco = false){
   if(!ABAS.includes(nome)) nome = "simular";
+  fecharEscolhas();
   for(const a of ABAS){
     const t = $("aba-" + a), sel = a===nome;
     t.setAttribute("aria-selected", sel ? "true" : "false");
