@@ -304,6 +304,7 @@ def tela(p):
     preenche(pg, PC % ("pc-i5", "jaGasta"), "-20")
     r = [valor(pg, NUM % "dolar"), valor(pg, PC % ("pc-i5", "fonteW")), valor(pg, PC % ("pc-i5", "jaGasta"))]
     checa("campo com letras, vazio ou negativo: mostra o valor que vale", r == ["5,42", "500", "0"], r)
+    clica(pg, "#aba-dados")
     preenche(pg, PC % ("pc-pessoal", "nome"), "Gamer")
     checa("PC renomeado: o nome novo na lista da opção", "Gamer" in lista_pcs(pg) and valor(pg, A + '[data-campo="maq"]') == "pc-pessoal", lista_pcs(pg))
     clica(pg, '[data-pc-del="pc-pessoal"]')
@@ -320,11 +321,44 @@ def tela(p):
     checa("sem erros na tela", not erros(pg), erros(pg)[:3])
 
 
+def abas(p):
+    pg = abrir_web(p)
+    r = js(pg, "[...document.querySelectorAll('.web-abas [role=tab]')].map(t => [t.id, t.getAttribute('aria-selected'), t.getAttribute('aria-controls'), t.tabIndex])")
+    checa("três abas, Simular aberta", r == [["aba-simular", "true", "painel-simular", 0], ["aba-placas", "false", "painel-placas", -1], ["aba-dados", "false", "painel-dados", -1]], r)
+    r = js(pg, "['painel-simular', 'painel-placas', 'painel-dados'].map(i => { const e = document.getElementById(i); return e ? [e.getAttribute('role'), e.getAttribute('aria-labelledby')] : null; })")
+    checa("os painéis das abas", r == [["tabpanel", "aba-simular"], ["tabpanel", "aba-placas"], ["tabpanel", "aba-dados"]], r)
+    checa("só o painel da aba aberta aparece", visivel(pg, "#v-sim") and not visivel(pg, "#painel-placas") and not visivel(pg, "#web-numeros"))
+    if not existe(pg, "#aba-simular"):
+        return checa("abas: as abas existem", False)
+    pg.focus("#aba-simular"); pg.keyboard.press("ArrowRight")
+    r = [js(pg, "document.activeElement.id"), visivel(pg, "#painel-placas"), visivel(pg, "#v-sim")]
+    checa("seta para a direita: Placas", r == ["aba-placas", True, False], r)
+    pg.keyboard.press("End")
+    pg.keyboard.press("ArrowRight")
+    checa("End e a seta voltam ao começo", js(pg, "document.activeElement.id") == "aba-simular" and visivel(pg, "#v-sim"))
+    pg.keyboard.press("ArrowLeft")
+    checa("seta para a esquerda no começo: Meus dados", js(pg, "document.activeElement.id") == "aba-dados" and visivel(pg, "#web-numeros") and visivel(pg, "#web-pcs"))
+    pg.keyboard.press("Home")
+    checa("Home: Simular", js(pg, "document.activeElement.id") == "aba-simular" and visivel(pg, "#v-sim"))
+    clica(pg, "#aba-dados")
+    checa("a aba fica guardada neste aparelho", js(pg, "localStorage.getItem('sim-web-aba')") == "dados")
+    checa("barra das abas presa no alto", js(pg, "getComputedStyle(document.querySelector('.web-abas')).position") == "sticky")
+    pg2 = abrir_web(p, extra="try{ if(!sessionStorage.getItem('__aba')){ localStorage.setItem('sim-web-aba', 'placas'); sessionStorage.setItem('__aba', '1'); } }catch(e){}")
+    checa("abre na aba guardada", visivel(pg2, "#painel-placas") and js(pg2, "document.getElementById('aba-placas').getAttribute('aria-selected')") == "true")
+    pg3 = abrir_web(p, extra="try{ if(!sessionStorage.getItem('__aba')){ localStorage.setItem('sim-web-aba', 'outra'); sessionStorage.setItem('__aba', '1'); } }catch(e){}")
+    checa("aba guardada que não existe: Simular", visivel(pg3, "#v-sim"))
+    pg4 = abrir_web(p, sem_storage=True)
+    clica(pg4, "#aba-placas")
+    checa("sem armazenamento: abre em Simular e troca de aba sem erro", visivel(pg4, "#painel-placas") and not erros(pg4), erros(pg4)[:3])
+    checa("sem erros (abas)", not any(erros(x) for x in (pg, pg2, pg3)), [e for x in (pg, pg2, pg3) for e in erros(x)][:3])
+
+
 def foco_real(p):
     """Com cliques e teclas de verdade: depois de digitar num campo, o clique ou o Tab seguinte chega aonde a pessoa quis."""
     pg = abrir_web(p)
-    if not (existe(pg, NUM % "dolar") and existe(pg, PC % ("pc-i5", "jaGasta"))):
-        return checa("foco de verdade: os campos de Seus números e Seus PCs existem", False)
+    if not (existe(pg, NUM % "dolar") and existe(pg, PC % ("pc-i5", "jaGasta")) and existe(pg, "#aba-dados")):
+        return checa("foco de verdade: os campos de Seus números e Seus PCs e as abas existem", False)
+    clica(pg, "#aba-dados")
     pg.click(NUM % "dolar"); pg.keyboard.press("Control+A"); pg.keyboard.type("5,6")
     pg.click(NUM % "luz")
     r = [js(pg, "document.activeElement.dataset.num"), js(pg, "numeros.dolar"), valor(pg, NUM % "dolar")]
@@ -333,10 +367,13 @@ def foco_real(p):
     r = [valor(pg, NUM % "luz"), js(pg, "numeros.luz"), js(pg, "document.activeElement.dataset.num")]
     checa("luz negativa e Tab: o campo mostra 0 e o foco segue", r == ["0", 0, "horas"], r)
     pg.click(PC % ("pc-i5", "jaGasta")); pg.keyboard.press("Control+A"); pg.keyboard.type("120")
+    pg.click("#aba-simular")
+    r = [js(pg, "document.activeElement.id"), js(pg, "pcs[1].jaGasta"), visivel(pg, "#v-sim")]
+    checa("já gasta e clique na aba Simular: o foco vai para a aba e o valor fica", r == ["aba-simular", 120, True], r)
     pg.click(A + '[data-campo="modelo"]')
-    r = [js(pg, "document.activeElement.matches('.sim-op[data-op=\"A\"] [data-campo=\"modelo\"]')"), js(pg, "pcs[1].jaGasta")]
-    checa("já gasta e clique na placa da opção A: o foco vai para a placa", r == [True, 120], r)
+    checa("e a placa da opção A recebe o clique", js(pg, "document.activeElement.matches('.sim-op[data-op=\"A\"] [data-campo=\"modelo\"]')") is True)
     pg.keyboard.press("Escape")
+    pg.click("#aba-dados")
     pg.click(PC % ("pc-i7", "nome")); pg.keyboard.press("Control+A"); pg.keyboard.type("Rig da garagem")
     pg.click(NUM % "real")
     r = [js(pg, "document.activeElement.dataset.num"), lista_pcs(pg)[2]]
@@ -372,18 +409,27 @@ def celular(p):
     pg = abrir_web(p, largura=390, altura=844)
     montar_a(pg)
     clica(pg, "[data-sim='add-op']")
-    caixas = js(pg, "['#web-numeros', '#web-pcs', '.sim-op[data-op=\"A\"]', '.sim-op[data-op=\"B\"]'].map(s => { const e = document.querySelector(s); if(!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.right, r.top, r.bottom]; })")
-    checa("celular: Seus números, Seus PCs e as opções uma embaixo da outra", isinstance(caixas, list) and all(caixas)
-          and all(c[0] >= 0 and c[1] <= 390 for c in caixas) and all(caixas[i + 1][2] >= caixas[i][3] for i in range(3)), caixas)
-    checa("celular: sem rolagem para o lado", js(pg, "document.documentElement.scrollWidth <= innerWidth"), js(pg, "document.documentElement.scrollWidth"))
-    altos = js(pg, "[...document.querySelectorAll('#web-numeros input, #web-pcs input, #web-pcs select, #web-pcs button')].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height))")
-    checa("celular: campos e botões com 44 px de altura", altos and min(altos) >= 44, altos)
+    caixa = "(s => { const e = document.querySelector(s); if(!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.right, r.top, r.bottom]; })"
+    largura = {}
+    for aba in ("simular", "placas", "dados"):
+        clica(pg, f"#aba-{aba}")
+        largura[aba] = js(pg, "document.documentElement.scrollWidth")
+    checa("celular: as três abas", js(pg, "document.querySelectorAll('.web-abas [role=tab]').length") == 3)
+    checa("celular: nenhuma aba rola para o lado", all(v is not None and v <= 390 for v in largura.values()), largura)
+    clica(pg, "#aba-dados")
+    cx = js(pg, f"['#web-numeros', '#web-pcs'].map({caixa})")
+    checa("celular: Seus números em cima de Seus PCs", isinstance(cx, list) and all(cx) and all(c[0] >= 0 and c[1] <= 390 for c in cx) and cx[1][2] >= cx[0][3], cx)
+    altos = js(pg, "[...document.querySelectorAll('#web-numeros input, #web-pcs input, #web-pcs select, #web-pcs button, .web-abas [role=tab]')].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height))")
+    checa("celular: campos, botões e abas com 44 px de altura", altos and min(altos) >= 44, altos)
+    clica(pg, "#aba-simular")
+    cx = js(pg, f"['.sim-op[data-op=\"A\"]', '.sim-op[data-op=\"B\"]'].map({caixa})")
+    checa("celular: as opções uma embaixo da outra", isinstance(cx, list) and all(cx) and all(c[0] >= 0 and c[1] <= 390 for c in cx) and cx[1][2] >= cx[0][3], cx)
     checa("sem erros (celular)", not erros(pg), erros(pg)[:3])
 
 
 def sem_armazenamento(p):
     pg = abrir_web(p, sem_storage=True)
-    checa("sem onde guardar: abre com os valores iniciais", valor(pg, NUM % "dolar") == "5,42" and len(js(pg, NOMES_PCS)) == 3)
+    checa("sem onde guardar: abre com os valores iniciais, em Simular", valor(pg, NUM % "dolar") == "5,42" and len(js(pg, NOMES_PCS)) == 3 and visivel(pg, "#v-sim"))
     montar_a(pg)
     preenche(pg, NUM % "real", "80")
     pg.wait_for_timeout(2500)
@@ -424,6 +470,7 @@ def banco(p):
     checa("banco da página: diz que abre igual no PC e no celular", "abre igual no PC e no celular" in texto(pg, "#web-guardado"), texto(pg, "#web-guardado"))
     checa("banco da página: só abrir não grava", js(pg, "__banco.sets") == 0)
     checa("banco da página: o navegador fica com o do banco", campo(js(pg, "JSON.parse(localStorage.getItem('sim-web'))"), "numeros", "real") == 61)
+    clica(pg, "#aba-dados")
     pg.click(NUM % "real"); pg.keyboard.press("Control+A"); pg.keyboard.type("65")
     pg.wait_for_timeout(2800)
     r = [js(pg, f"__banco.docs['{DOC}'].numeros.real"), js(pg, f"__banco.docs['{DOC}'].t"), js(pg, "__banco.sets")]
@@ -477,6 +524,7 @@ with sync_playwright() as p:
     gerar(p)
     contas(p)
     paridade(p)
+    abas(p)
     tela(p)
     foco_real(p)
     guardar(p)

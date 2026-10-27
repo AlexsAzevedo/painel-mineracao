@@ -99,7 +99,15 @@ details.saiba > :not(summary){margin-bottom:14px}
 
 /* só da página */
 body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px))}
-main.web > .view + .view{margin-top:20px}   /* em bloco, não flex: a .view com margem automática ocupa a largura toda */
+/* em bloco, não flex: a .view com margem automática ocupa a largura toda */
+.web-topo-v{gap:16px}
+.web-painel{margin-top:20px}
+/* as abas: presas no alto ao rolar, com o fundo da página por trás */
+.web-abas{position:sticky;top:0;z-index:20;max-width:1160px;margin:20px auto 0;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--line)}
+.web-abas-l{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--sunk)}
+.web-abas [role=tab]{min-height:40px;padding:6px 22px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600}
+.web-abas [role=tab]:hover{color:var(--fg);background:transparent}
+.web-abas [role=tab][aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px -1px var(--shadow)}
 .web-topo h1{font-size:clamp(1.6rem,2.6vw,2.05rem);font-weight:700}
 .web-topo .sub{max-width:76ch}
 .web-topo .nota-mini{margin-top:6px}
@@ -120,7 +128,10 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
 .web-pc-del{grid-area:del;min-height:40px;padding:4px;font-size:1.2rem;line-height:1}
 @media (max-width:899px){
   body{padding-top:16px}
-  main.web > .view + .view{margin-top:14px}
+  .web-painel{margin-top:14px}
+  .web-abas{margin-top:14px}
+  .web-abas-l{display:flex}
+  .web-abas [role=tab]{flex:1 1 0;min-height:44px;padding:6px 8px}
   .web-nums{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
   .web-dados input,.web-dados select{min-height:44px}
   .web-pc{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;grid-template-areas:"nome nome del" "fonte selo selo" "ja ja ja"}
@@ -133,12 +144,29 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&family=JetBrains+Mono:wght@400&display=swap">
 
 <main class="web">
-  <div class="view web-dados">
+  <div class="view web-topo-v">
     <header class="web-topo">
       <h1>Simulador de placas</h1>
       <p class="sub">Quanto as placas rendem, quanto custam e quando se pagam, à vista, no cartão ou com empréstimo, com os seus números e os seus PCs. As contas são as do Simulador do Painel de Mineração.</p>
       <p class="nota-mini" id="web-guardado" role="status" aria-live="polite"></p>
     </header>
+    <section class="web-resumo" id="web-resumo" aria-label="Resumo das opções"></section>
+  </div>
+  <!-- a barra das abas é filha direta do <main> para ficar presa no alto a página inteira -->
+  <div class="web-abas">
+    <div class="web-abas-l" role="tablist" aria-label="Partes da página">
+      <button type="button" role="tab" id="aba-simular" aria-controls="painel-simular" aria-selected="true">Simular</button>
+      <button type="button" role="tab" id="aba-placas" aria-controls="painel-placas" aria-selected="false" tabindex="-1">Placas</button>
+      <button type="button" role="tab" id="aba-dados" aria-controls="painel-dados" aria-selected="false" tabindex="-1">Meus dados</button>
+    </div>
+  </div>
+  <div class="web-painel" role="tabpanel" id="painel-simular" aria-labelledby="aba-simular">
+<!--@@TELA@@-->
+  </div>
+  <div class="web-painel view" role="tabpanel" id="painel-placas" aria-labelledby="aba-placas" hidden>
+    <div id="web-placas"></div>
+  </div>
+  <div class="web-painel view web-dados" role="tabpanel" id="painel-dados" aria-labelledby="aba-dados" hidden>
     <section class="painel" id="web-numeros" aria-labelledby="t-web-num">
       <div class="painel-h"><h2 id="t-web-num">Seus números</h2></div>
       <div class="web-nums">
@@ -158,7 +186,6 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
       <div><button type="button" class="link" id="web-pc-add">+ PC</button></div>
     </section>
   </div>
-<!--@@TELA@@-->
 </main>
 
 <script>
@@ -437,7 +464,33 @@ document.addEventListener("visibilitychange", ()=>{
 });
 window.addEventListener("pagehide", ()=>{ if(estadoT) salvarEstado(); });
 
+/* ---------- as abas: Simular, Placas e Meus dados ---------- */
+const ABAS = ["simular", "placas", "dados"];
+function abrirAba(nome, foco = false){
+  if(!ABAS.includes(nome)) nome = "simular";
+  for(const a of ABAS){
+    const t = $("aba-" + a), sel = a===nome;
+    t.setAttribute("aria-selected", sel ? "true" : "false");
+    t.tabIndex = sel ? 0 : -1;
+    $("painel-" + a).hidden = !sel;
+  }
+  try{ localStorage.setItem("sim-web-aba", nome); }catch(e){}
+  if(foco) $("aba-" + nome).focus();
+}
+const abaGuardada = () => { try{ return localStorage.getItem("sim-web-aba"); }catch(e){ return null; } };
+document.querySelector(".web-abas").addEventListener("click", e=>{ const t = e.target.closest("[role=tab]"); if(t) abrirAba(t.id.slice(4)); });
+/* setas: a aba do lado (dando a volta); Home e End: a primeira e a última */
+document.querySelector(".web-abas").addEventListener("keydown", e=>{
+  const t = e.target.closest("[role=tab]"); if(!t) return;
+  const i = ABAS.indexOf(t.id.slice(4)), n = ABAS.length;
+  const j = e.key==="ArrowRight" ? (i+1)%n : e.key==="ArrowLeft" ? (i-1+n)%n : e.key==="Home" ? 0 : e.key==="End" ? n-1 : -1;
+  if(j<0) return;
+  e.preventDefault();
+  abrirAba(ABAS[j], true);
+});
+
 /* ---------- abrir ---------- */
+abrirAba(abaGuardada());
 $("v-sim").hidden = false;
 const localAberto = lerLocal(), tinhaLocal = !!(localAberto && typeof localAberto==="object");
 aplicarEstado(estadoOk(localAberto));   /* na hora: o deste navegador, ou os valores iniciais */
