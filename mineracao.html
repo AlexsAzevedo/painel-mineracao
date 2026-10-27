@@ -550,6 +550,12 @@ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .sim-mais{min-height:120px;border:1px dashed var(--line);border-radius:14px;background:transparent;color:var(--muted)}
 .sim-mais:hover{background:var(--sunk);color:var(--fg)}
 .sim-cens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.k-sim{width:18px;height:0;border-top:2px solid var(--viz-a)}
+.k-sim.b{border-top:2px dashed var(--viz-b)}
+.k-sim.c{border-top:2px dotted var(--viz-c)}
+.sim-tab-d .sim-tab-op{margin:10px 0 8px}
+.sim-tab-d table{max-width:none;min-width:560px;margin-top:0}
+.sim-tab-d .tw{margin-bottom:8px}
 .sim-cens label{display:flex;flex-direction:column;gap:4px;min-width:0}
 @media (max-width:899px){
   .sim-op input:not([type=radio]),.sim-op select,.sim-cens input,#sim-prazo{min-height:44px}
@@ -1365,6 +1371,17 @@ details.saiba > :not(summary){margin-bottom:14px}
         <p class="nota-mini" id="sim-fator"></p>
       </div>
       <div class="sim-ops" id="sim-ops"></div>
+      <article class="painel" id="sim-graf-p" aria-labelledby="t-sim-graf">
+        <div class="painel-h rel-h"><h2 id="t-sim-graf">Resultado mês a mês</h2><label class="rel-ano"><span class="lbl">Cenário</span><select id="sim-cen"><option value="estavel">Estável</option><option value="devagar">Caindo devagar</option><option value="rapido">Caindo rápido</option></select></label></div>
+        <div class="legenda" id="sim-leg"></div>
+        <div class="graf" id="sim-graf"></div>
+        <p class="nota-mini">Resultado: o dinheiro na conta, menos o que ainda deve (empréstimo e cartão) e o dinheiro seu que foi para a compra. Zero é quando a compra se pagou.</p>
+        <details class="hist-tab sim-tab-d" id="sim-tab-d"><summary>Ver em tabela</summary>
+          <label class="rel-ano sim-tab-op"><span class="lbl">Opção</span><select id="sim-tab-op"></select></label>
+          <div class="tw"><table id="sim-tab"><thead><tr><th>Mês</th><th class="n">Lucro da mineração</th><th class="n">Parcelas</th><th class="n">Rendimento</th><th class="n">Na conta</th><th class="n">Resultado</th></tr></thead><tbody></tbody></table></div>
+          <p class="nota-mini">O lucro da mineração entra na conta no mês em que é minerado; na vida real ele fica no saldo da Kryptex, em bitcoin, até o saque.</p>
+        </details>
+      </article>
       <details class="saiba" id="sim-ajuste">
         <summary>Ajustar cenários</summary>
         <div class="sim-cens-c">
@@ -6811,9 +6828,9 @@ document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("mais").hidd
 function irPara(v, foco){
   if(!VIEWS.includes(v) || (v==="ofertas" && !OF_PODE())) v = "resumo";
   gravarSimJa();   /* o simulador grava ao sair da tela (até lá, espera: cada gravação vira mensagem entre o PC e o celular) */
-  if(v==="sim") renderSim();
   fecharFolha();
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
+  if(v==="sim") renderSim();
   document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
   $("aba-mais").setAttribute("aria-current", NA_FOLHA.includes(v) ? "page" : "false");
   $("topo-t").textContent = $("t-"+v).textContent;
@@ -7134,7 +7151,92 @@ function renderSimRes(T){
     av.innerHTML = r.avisos.map(a=>`<li class="${a.c}"><span>${esc(a.t)}</span></li>`).join(""); av.hidden = !r.avisos.length;
     card.querySelector(".sim-res").innerHTML = r.ok ? htmlResSim(r, T) : `<p class="sim-falta">${esc(r.texto)}</p>`;
   }
+  desenharSim(T);
 }
+/* o gráfico: o resultado acumulado de cada opção mês a mês, no cenário escolhido (uma linha por opção, na cor e no traço
+   da letra dela, como na faixa do quadro), com a linha do zero, o mês em que se paga e o valor no fim. Uma escala só, em R$ */
+var simLarg = 0, simTabOp = "";   /* simTabOp: a opção da tabela (só nesta tela, não grava) */
+var SIM_TRACO = {A:"", B:"7 5", C:"2 5"};
+const placasSimTxt = r => juntarE(r.linhas.map(l=>`${l.q>1 ? l.q+"× " : ""}${l.c.curto}`));
+function desenharSim(T){
+  const box = $("sim-graf"), leg = $("sim-leg"), sel = $("sim-cen"), k = T.s.cenarioGrafico, ok = T.ops.filter(r=>r.ok);
+  [...sel.options].forEach(o=>{ o.textContent = `${SIM_NOMES[o.value]} (${pctSim(T.s.cenarios[o.value])} ao mês)`; });
+  if(document.activeElement!==sel) sel.value = k;
+  renderTabSim(T, ok, k);
+  if(!ok.length){ box.innerHTML = `<p class="nota-mini">Escolha as placas de uma opção para ver o gráfico.</p>`; leg.innerHTML = ""; simLarg = 0; return; }
+  leg.innerHTML = ok.map(r=>`<span><i class="k-sim ${r.nome.toLowerCase()}"></i>Opção ${r.nome}: ${esc(placasSimTxt(r))}</span>`).join("");
+  const P = T.prazo, series = ok.map(r=>({L:r.nome, f:r.cen[k], v:r.cen[k].meses.map(x=>x.resultado)}));
+  let lo = 0, hi = 0;
+  for(const s of series) for(const v of s.v){ if(v<lo) lo = v; if(v>hi) hi = v; }
+  const passo = [10,20,25,50,100,200,250,500,1000,2000,2500,5000,10000,20000,25000,50000,100000,200000,250000,500000].find(s=>(hi-lo)/s<=6) || Math.ceil((hi-lo)/6);
+  const fundo = Math.floor(lo/passo)*passo, topo = Math.max(fundo + passo, Math.ceil(hi/passo)*passo);
+  const W = Math.max(300, Math.round(box.clientWidth || 640)), H = 260, mL = 58, mR = 96, mT = 14, mB = 28, pw = W-mL-mR, ph = H-mT-mB;
+  simLarg = W;
+  const X = m => mL + (P ? m/P : 0)*pw, Y = v => mT + ph - (v-fundo)/(topo-fundo)*ph;
+  const eixo = v => { const a = Math.abs(v); return (v<0 ? "−" : "") + (a>=1000 ? (a/1000).toLocaleString("pt-BR", {maximumFractionDigits:1}) + " mil" : a.toLocaleString("pt-BR")); };
+  let g = "";
+  for(let v=fundo; v<=topo+1e-9; v+=passo) g += `<line x1="${mL}" x2="${W-mR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--viz-grid)" stroke-width="1"/><text x="${mL-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${eixo(v)}</text>`;
+  g += `<line class="sim-zero" x1="${mL}" x2="${W-mR}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="var(--viz-axis)" stroke-width="1.5"/>`;
+  /* os meses embaixo, com uns 64 px entre os rótulos */
+  const pulo = Math.max(1, Math.ceil((P+1)/Math.max(2, Math.floor(pw/64))));
+  let xs = "";
+  for(let m=0; m<=P; m+=pulo) xs += `<text x="${X(m).toFixed(1)}" y="${H-8}" text-anchor="middle">${mesSim(m).replace(/\/20(\d\d)$/, "/$1")}</text>`;
+  let linhas = "", marcas = "";
+  for(const s of series){
+    const cor = `var(--viz-${s.L.toLowerCase()})`, d = s.v.map((v,m)=>`${m ? "L" : "M"}${X(m).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+    linhas += `<path class="sim-l" data-op="${s.L}" d="${d}" fill="none" stroke="${cor}" stroke-width="2"${SIM_TRACO[s.L] ? ` stroke-dasharray="${SIM_TRACO[s.L]}"` : ""} stroke-linecap="round" stroke-linejoin="round"/>`;
+    if(s.f.sePaga!=null) marcas += `<circle class="sim-paga" cx="${X(s.f.sePaga).toFixed(1)}" cy="${Y(s.v[s.f.sePaga]).toFixed(1)}" r="4" fill="${cor}" stroke="var(--surface)" stroke-width="2"/>`;
+  }
+  /* o valor no fim de cada linha, com pelo menos 14 px entre um rótulo e outro */
+  const rot = series.map(s=>({L:s.L, v:s.v[P], y:Y(s.v[P]) + 4})).sort((a,b)=>a.y-b.y);
+  for(let i=1; i<rot.length; i++) rot[i].y = Math.max(rot[i].y, rot[i-1].y + 14);
+  if(rot.length && rot[rot.length-1].y > H - mB){ rot[rot.length-1].y = H - mB; for(let i=rot.length-2; i>=0; i--) rot[i].y = Math.min(rot[i].y, rot[i+1].y - 14); }
+  const fins = rot.map(o=>`<text class="v" x="${(X(P) + 8).toFixed(1)}" y="${o.y.toFixed(1)}">${o.L} ${sinal(o.v)}</text>`).join("");
+  const desc = `Resultado acumulado mês a mês, cenário ${SIM_NOMES[k].toLowerCase()} (${pctSim(T.s.cenarios[k])} ao mês): `
+    + series.map(s=>`Opção ${s.L} ${s.f.sePaga!=null ? "se paga no mês " + s.f.sePaga : "não se paga em " + P + " meses"} e termina com ${brl0(s.v[P])}`).join("; ") + ".";
+  box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(desc)}">${g}${xs}${linhas}${marcas}${fins}<line class="cross" x1="0" x2="0" y1="${mT}" y2="${mT+ph}"/><rect class="pt-hit" x="${mL}" y="${mT}" width="${pw}" height="${ph}"/></svg><div class="tip" hidden></div>`;
+  /* cruz que segue o mouse (ou as setas do teclado) e mostra o resultado de cada opção naquele mês */
+  const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), cruz = box.querySelector(".cross");
+  let atual = 0;
+  const mostrar = m => {
+    atual = Math.max(0, Math.min(P, Math.round(m)));
+    const cx = X(atual); cruz.setAttribute("x1", cx.toFixed(1)); cruz.setAttribute("x2", cx.toFixed(1)); cruz.classList.add("on");
+    tip.replaceChildren();
+    const t = document.createElement("span"); t.className = "t"; t.textContent = atual ? `${mesSim(atual)} (mês ${atual})` : `${mesSim(0)} (a compra)`; tip.append(t);
+    for(const s of series){
+      const r = document.createElement("span"); r.className = "r";
+      const i = document.createElement("i"); i.className = `k-sim ${s.L.toLowerCase()}`;
+      const b = document.createElement("b"); b.textContent = sinal(s.v[atual]);
+      const n = document.createElement("span"); n.textContent = `Opção ${s.L}`;
+      r.append(i, b, n); tip.append(r);
+    }
+    tip.hidden = false;
+    const tw = tip.offsetWidth; tip.style.left = Math.min(W - tw, Math.max(0, cx - tw/2)) + "px"; tip.style.top = "0px";
+  };
+  const esconder = () => { tip.hidden = true; cruz.classList.remove("on"); };
+  svg.addEventListener("pointermove", ev=>{ const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left)*(W/r.width); mostrar((px - mL)/pw*P); });
+  svg.addEventListener("pointerleave", esconder);
+  svg.addEventListener("focus", ()=>mostrar(atual));
+  svg.addEventListener("blur", esconder);
+  svg.addEventListener("keydown", ev=>{
+    const alvo = ev.key==="ArrowRight" ? atual+1 : ev.key==="ArrowLeft" ? atual-1 : ev.key==="Home" ? 0 : ev.key==="End" ? P : null;
+    if(alvo!=null){ mostrar(alvo); ev.preventDefault(); }
+  });
+}
+/* a mesma conta em tabela, mês a mês, da opção escolhida no cenário do gráfico */
+function renderTabSim(T, ok, k){
+  const sel = $("sim-tab-op"), corpo = $("sim-tab").tBodies[0];
+  if(!ok.length){ sel.innerHTML = ""; corpo.innerHTML = ""; return; }
+  if(!ok.some(r=>r.nome===simTabOp)) simTabOp = ok[0].nome;
+  sel.innerHTML = ok.map(r=>`<option value="${r.nome}"${r.nome===simTabOp ? " selected" : ""}>Opção ${r.nome}</option>`).join("");
+  const f = ok.find(r=>r.nome===simTabOp).cen[k];
+  corpo.innerHTML = f.meses.map(x=>`<tr><td>${x.m ? `${mesSim(x.m)} (mês ${x.m})` : `${mesSim(0)} (a compra)`}</td><td class="n">${x.m ? sinal(x.lucro) : "—"}</td>`
+    + `<td class="n">${x.parcCartao + x.parcEmp > 0 ? brl0(x.parcCartao + x.parcEmp) : "—"}</td><td class="n">${x.m ? brl0(x.rend) : "—"}</td><td class="n">${brl0(x.conta)}</td><td class="n">${sinal(x.resultado)}</td></tr>`).join("");
+}
+$("sim-cen").addEventListener("change", e=>{ mudarSim(s=>{ s.cenarioGrafico = e.target.value; }); renderSimRes(); });
+$("sim-tab-op").addEventListener("change", e=>{ simTabOp = e.target.value; renderSimRes(); });
+/* a largura do gráfico vem da tela: desenha de novo quando ela muda (e quando a tela aparece) */
+if("ResizeObserver" in window) new ResizeObserver(()=>{ const w = Math.round($("sim-graf").clientWidth); if(w && Math.abs(w - simLarg) > 8 && !$("v-sim").hidden) renderSimRes(); }).observe($("sim-graf"));
 /* o campo com foco antes de montar de novo, para devolver o foco a ele */
 function chaveSim(e){
   const op = e.dataset.op || (e.closest(".sim-op") || {dataset:{}}).dataset.op;

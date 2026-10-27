@@ -295,6 +295,42 @@ def celular(p):
     checa("sem erros (celular)", not erros(pg), erros(pg)[:3])
 
 
+def grafico(p):
+    # A: 2× RTX 5070 no PC principal, no cartão em 12×, com o empréstimo do Alex; B: 3× RTX 5060 num PC novo, à vista, com
+    # dinheiro seu; C: sem placa (fica fora do gráfico)
+    sim = {"opcoes": [SIM_PRONTO["opcoes"][0],
+                      {"nome": "B", "placas": [{"modelo": "rtx-5060", "qtd": 3, "preco": None, "maq": "novo"}]},
+                      {"nome": "C", "placas": [{"modelo": "", "qtd": 1, "preco": None, "maq": "m-pc"}]}], "prazo": 0}
+    pg = abrir(p, dados={**DADOS_SIM, "min-cfg": {**CFG, "sim": sim}}, pc=True, hash="sim")
+    linhas = "[...document.querySelectorAll('#sim-graf path.sim-l')].map(e => [e.dataset.op, e.getAttribute('stroke')])"
+    rotulo = "(document.querySelector('#sim-graf svg') || {getAttribute: () => ''}).getAttribute('aria-label')"
+    r = js(pg, linhas)
+    checa("uma linha por opção que deu conta, com a cor da letra", r == [["A", "var(--viz-a)"], ["B", "var(--viz-b)"]], r)
+    rot = js(pg, rotulo)
+    checa("linha do zero e descrição", existe(pg, "#sim-graf line.sim-zero") and "cenário estável" in str(rot), rot)
+    escolhe(pg, "#sim-cen", "rapido")
+    rot = js(pg, rotulo)
+    checa("trocar o cenário do gráfico", js(pg, "simCfg().cenarioGrafico") == "rapido" and "caindo rápido" in str(rot), rot)
+    if existe(pg, "#sim-graf svg"):
+        pg.focus("#sim-graf svg")
+        pg.keyboard.press("ArrowRight")
+    dica = texto(pg, "#sim-graf .tip")
+    checa("dica com o mês e as duas opções", "mês 1" in dica and "Opção A" in dica and "Opção B" in dica, dica)
+    clica(pg, "#sim-tab-d summary")
+    escolhe(pg, "#sim-tab-op", "B")
+    r = [js(pg, "document.querySelectorAll('#sim-tab tbody tr').length"), js(pg, "simularTudo().prazo")]
+    checa("tabela mês a mês da opção B", isinstance(r[1], int) and r[0] == r[1] + 1 and "Opção B" in texto(pg, "#sim-tab-op"), r)
+    checa("legenda com as opções", texto(pg, "#sim-leg").count("Opção") == 2, texto(pg, "#sim-leg"))
+    clica(pg, ".sim-op[data-op='A'] [data-sim='del-op']")
+    r = js(pg, linhas)
+    checa("apagar A não troca a cor de B", r == [["B", "var(--viz-b)"]], r)
+    pg.evaluate("cfg.tarifa = 5; render()")   # luz cara: B (3× RTX 5060 num PC novo, pela estimativa) dá prejuízo
+    rot = js(pg, rotulo)
+    checa("prejuízo: B não se paga, sem NaN no gráfico", "Opção B não se paga" in str(rot) and "NaN" not in js(pg, "document.getElementById('sim-graf').innerHTML"), rot)
+    checa("prejuízo: o eixo desce abaixo de zero", "−" in texto(pg, "#sim-graf"), texto(pg, "#sim-graf")[:200])
+    checa("sem erros (gráfico)", not erros(pg), erros(pg)[:3])
+
+
 with sync_playwright() as p:
     contas(p)
     mineracao(p)
@@ -302,4 +338,5 @@ with sync_playwright() as p:
     tela(p)
     guardar(p)
     celular(p)
+    grafico(p)
 fim()
