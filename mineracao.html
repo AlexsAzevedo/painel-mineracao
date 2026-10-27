@@ -1864,7 +1864,8 @@ async function gravarCfg(){
 /* grava já o que estava esperando para ser gravado (a configuração e o setup esperam meio segundo): o PC e o celular
    chamam antes de comparar os dados com os do outro lado, para não passar por cima do que acabou de ser digitado */
 function salvarPendentes(){
-  if(saveT){ clearTimeout(saveT); gravarCfg(); }
+  /* simT: o simulador de compra espera 15 s para gravar a configuração (gravarSimJa, mais abaixo) */
+  if(saveT || simT){ clearTimeout(saveT); if(simT){ clearTimeout(simT); simT = null; } gravarCfg(); }
   try{ if(setupT){ clearTimeout(setupT); gravarSetup(); } }catch(e){}   /* setupT é declarado mais abaixo */
 }
 async function addPlaca(p){
@@ -6878,6 +6879,98 @@ function fatorSim(){
   if(f==null) return {f: Math.max(0.01, 1 - (+cfg.margem||0)/100), fonte:"estimativa", placas:[]};
   const gs = ((de && de.placas) || []).filter(p=>p && p.tipo==="gpu"), ms = gs.filter(p=>p.minerando);
   return {f, fonte:"real", placas:[...new Set((ms.length ? ms : gs).map(nomePlaca))]};
+}
+/* o que a pessoa montou fica em cfg.sim (a configuração, que já sincroniza entre o PC, o celular e o painel online).
+   Gravar gasta mensagem entre o PC e o celular: o simulador muda cfg.sim na hora, mas só grava 15 s depois da última
+   mudança, ao sair da tela, ao esconder a página e quando a sincronia pede (salvarPendentes) */
+var SIM_GRAVA = 15e3, simT = null;
+var SIM_LETRAS = ["A", "B", "C"], SIM_CENARIOS = {estavel:0, devagar:-1.5, rapido:-4};
+const simNum = (v, padrao) => { if(v===null || v===undefined || v==="") return padrao; const n = +v; return Number.isFinite(n) ? n : padrao; };
+const simEntre = (v, a, b) => Math.min(b, Math.max(a, v));
+/* uma opção arrumada: números convertidos e dentro dos limites (o que chega pela sincronia pode vir de outra versão) */
+function simOpcao(o, nome){
+  o = o && typeof o==="object" ? o : {};
+  const pg = o.pagamento && typeof o.pagamento==="object" ? o.pagamento : {}, d = o.dinheiro && typeof o.dinheiro==="object" ? o.dinheiro : {};
+  return {nome,
+    placas: (Array.isArray(o.placas) ? o.placas : []).filter(x=>x && typeof x==="object").map(x=>{
+      const p = simNum(x.preco, null);
+      return {modelo: typeof x.modelo==="string" ? x.modelo : "", qtd: simEntre(Math.round(simNum(x.qtd, 1)), 1, 20), preco: p!=null && p>0 ? p : null,
+        maq: typeof x.maq==="string" && x.maq ? x.maq : "novo"};
+    }),
+    pcNovo: {custo: Math.max(0, simNum(o.pcNovo && o.pcNovo.custo, 0))},
+    pagamento: {tipo: pg.tipo==="cartao" ? "cartao" : "avista", parcelas: simEntre(Math.round(simNum(pg.parcelas, 12)), 1, 24)},
+    dinheiro: {tipo: d.tipo==="emprestimo" ? "emprestimo" : "meu", valor: Math.max(0, simNum(d.valor, 0)),
+      parcelas: simEntre(Math.round(simNum(d.parcelas, 12)), 1, 120), parcela: Math.max(0, simNum(d.parcela, 0))}};
+}
+/* uma opção nova: uma linha sem placa (no primeiro PC que já existe), à vista e com o dinheiro seu */
+function opcaoVazia(letra){
+  return simOpcao({placas:[{modelo:"", qtd:1, preco:null, maq: (maqsReais()[0] || {}).id || "novo"}]}, letra);
+}
+/* cfg.sim arrumado ao ler: até 3 opções (A, B e C, a primeira de cada letra), prazo 0 (até o fim das parcelas), 12, 24
+   ou 36 meses, cenários em % ao mês entre −20 e 10, e o cenário do gráfico */
+function simCfg(){
+  const c = (typeof cfg==="object" && cfg && cfg.sim && typeof cfg.sim==="object") ? cfg.sim : {}, vistas = new Set(), opcoes = [];
+  for(const o of (Array.isArray(c.opcoes) ? c.opcoes : [])){
+    if(!o || typeof o!=="object" || !SIM_LETRAS.includes(o.nome) || vistas.has(o.nome)) continue;
+    vistas.add(o.nome); opcoes.push(simOpcao(o, o.nome));
+  }
+  opcoes.sort((a,b)=>a.nome<b.nome ? -1 : 1);
+  const cen = c.cenarios && typeof c.cenarios==="object" ? c.cenarios : {}, cenarios = {};
+  for(const k of Object.keys(SIM_CENARIOS)){ const v = simNum(cen[k], NaN); cenarios[k] = Number.isFinite(v) ? simEntre(v, -20, 10) : SIM_CENARIOS[k]; }
+  const prazo = Math.round(simNum(c.prazo, 0));
+  return {opcoes: opcoes.length ? opcoes : [opcaoVazia("A")], prazo: [12, 24, 36].includes(prazo) ? prazo : 0, cenarios,
+    cenarioGrafico: Object.keys(SIM_CENARIOS).includes(c.cenarioGrafico) ? c.cenarioGrafico : "estavel"};
+}
+/* muda o simulador: na hora em cfg.sim, e grava depois (SIM_GRAVA) */
+function mudarSim(fn){
+  const s = JSON.parse(JSON.stringify(simCfg()));
+  fn(s);
+  cfg.sim = s;
+  clearTimeout(simT); simT = setTimeout(gravarSim, SIM_GRAVA);
+}
+function gravarSim(){ simT = null; gravarCfg(); }
+/* grava já o que o simulador esperava para gravar */
+function gravarSimJa(){ if(!simT) return; clearTimeout(simT); gravarSim(); }
+/* o prazo das contas, o mesmo para todas as opções (para comparar no mesmo mês): o escolhido, ou até o fim das parcelas
+   (do cartão e do empréstimo), no mínimo 12 e no máximo 60 meses */
+function prazoSim(s){
+  const fixo = Math.round(+(s && s.prazo) || 0);
+  if([12, 24, 36].includes(fixo)) return fixo;
+  let p = 12;
+  for(const o of (s && Array.isArray(s.opcoes) ? s.opcoes : [])){
+    if(o && o.pagamento && o.pagamento.tipo==="cartao") p = Math.max(p, Math.round(+o.pagamento.parcelas || 0));
+    if(o && o.dinheiro && o.dinheiro.tipo==="emprestimo") p = Math.max(p, Math.round(+o.dinheiro.parcelas || 0));
+  }
+  return Math.min(60, p);
+}
+/* a conta de uma opção nos 3 cenários (F: a correção do fatorSim; prazo: o prazoSim). ok:false diz o que falta */
+function simularOpcao(op, F, prazo, cenarios = simCfg().cenarios){
+  op = simOpcao(op, op && op.nome);
+  const linhas = linhasSim(op), avisos = [], base = {nome: op.nome, avisos};
+  if(!linhas.length) return {...base, ok:false, motivo:"placa", texto:"Escolha uma placa para ver as contas."};
+  const min = mineracaoSim(op);
+  for(const m of min.maqs){
+    if(m.sumiu) avisos.push({c:"w", t:"A máquina escolhida não existe mais em Montar setup: a conta usa Um PC novo."});
+    if(m.avisoFonte) avisos.push({c:"w", t:`A fonte de ${m.fonteW} W do ${m.nome} fica com ${Math.round(m.carga*100)}% de carga com estas placas (o bom é até 80%).`});
+  }
+  const precoPlacas = linhas.reduce((s,l)=>s + l.preco*l.q, 0), custoPc = min.usaNovo ? op.pcNovo.custo : 0, preco = precoPlacas + custoPc;
+  if(!(preco > 0)) return {...base, ok:false, motivo:"preco", texto:"Ponha o preço das placas."};
+  const d = op.dinheiro, emprestimo = d.tipo==="emprestimo" ? {valor:d.valor, parcelas:d.parcelas, parcela:d.parcela} : null;
+  if(emprestimo && taxaEmprestimo(d.valor, d.parcelas, d.parcela)==null){
+    const texto = !(d.valor > 0) || !(d.parcela > 0) ? "Preencha o valor do empréstimo, o número de parcelas e o valor de cada parcela."
+      : d.parcela*d.parcelas < d.valor ? "Confira o empréstimo: as parcelas somam menos que o valor recebido."
+      : "Confira o empréstimo: os juros passam de 100% ao mês.";
+    return {...base, ok:false, motivo:"emprestimo", texto};
+  }
+  const bruto1 = min.bruto*(+F.f || 0), cartao = op.pagamento.tipo==="cartao" ? op.pagamento.parcelas : 0, rendMes = taxaMesCdi(), cen = {};
+  for(const k of Object.keys(SIM_CENARIOS))
+    cen[k] = fluxoSim({preco, cartao, emprestimo, bruto:bruto1, luz:min.luz, taxa:cenarios[k], prazo, rendMes, revendaEm: m=>revendaSim(op, m)});
+  return {...base, ok:true, linhas, preco, precoPlacas, custoPc, min, bruto1, juros: cen.estavel.juros, cen};
+}
+/* todas as opções com a mesma correção e o mesmo prazo */
+function simularTudo(){
+  const s = simCfg(), F = fatorSim(), prazo = prazoSim(s);
+  return {s, F, prazo, ops: s.opcoes.map(op=>simularOpcao(op, F, prazo, s.cenarios))};
 }
 
 /* ---------- carga inicial ---------- */

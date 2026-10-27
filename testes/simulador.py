@@ -104,7 +104,52 @@ def mineracao(p):
     checa("sem erros (mineração)", not erros(pg), erros(pg)[:3])
 
 
+OP = "{nome:'A', placas:[{modelo:'rtx-5070', qtd:2, preco:5159, maq:'m-pc'}], pcNovo:{custo:0}, pagamento:{tipo:'cartao', parcelas:12}, dinheiro:{tipo:'emprestimo', valor:10000, parcelas:20, parcela:674.65}}"
+
+
+def opcoes(p):
+    pg = abrir(p, dados=DADOS_SIM)
+    r = js(pg, "(() => { delete cfg.sim; const s = simCfg(); return [s.opcoes.map(o => o.nome), s.opcoes[0].placas.length, s.prazo, s.cenarios, s.cenarioGrafico]; })()")
+    checa("padrão: a opção A vazia", r == [["A"], 1, 0, {"estavel": 0, "devagar": -1.5, "rapido": -4}, "estavel"], r)
+    r = js(pg, "(() => { cfg.sim = {opcoes:[{nome:'A', placas:'x'}, null, {nome:'Z'}, {nome:'B', placas:[{modelo:'rtx-5070', qtd:'2', preco:'5159', maq:'m-pc'}], pagamento:{tipo:'cartao', parcelas:99}}, {nome:'C'}, {nome:'A'}], prazo:'24', cenarios:{estavel:'x', devagar:-50, rapido:3}, cenarioGrafico:'outro'}; const s = simCfg(); return [s.opcoes.map(o => o.nome), s.opcoes[0].placas, s.opcoes[1].placas[0].qtd, s.opcoes[1].placas[0].preco, s.opcoes[1].pagamento.parcelas, s.prazo, s.cenarios, s.cenarioGrafico]; })()")
+    checa("cfg.sim estragado é arrumado ao ler", r == [["A", "B", "C"], [], 2, 5159, 24, 24, {"estavel": 0, "devagar": -20, "rapido": 3}, "estavel"], r)
+    r = js(pg, "[prazoSim({prazo:0, opcoes:[{pagamento:{tipo:'cartao', parcelas:10}, dinheiro:{tipo:'meu'}}]}), prazoSim({prazo:0, opcoes:[{pagamento:{tipo:'cartao', parcelas:12}, dinheiro:{tipo:'emprestimo', parcelas:20}}, {pagamento:{tipo:'avista'}, dinheiro:{tipo:'meu'}}]}), prazoSim({prazo:0, opcoes:[{pagamento:{tipo:'avista'}, dinheiro:{tipo:'emprestimo', parcelas:96}}]}), prazoSim({prazo:36, opcoes:[]})]")
+    checa("prazo automático", r == [12, 20, 60, 36], r)
+    R = js(pg, f"(() => {{ const r = simularOpcao({OP}, {{f:0.74, fonte:'real', placas:[]}}, 20, {{estavel:0, devagar:-1.5, rapido:-4}}); return {{ok:r.ok, preco:r.preco, i:r.juros.i, total:r.juros.total, b1:r.cen.estavel.meses[1].bruto, d2:r.cen.devagar.meses[2].bruto, n:r.cen.rapido.meses.length}}; }})()")
+    checa("2× RTX 5070 com o empréstimo do Alex", campo(R, "ok") is True and campo(R, "preco") == 10318 and perto(campo(R, "i"), 0.030401, 5e-6)
+          and round(campo(R, "total") or 0) == 3493 and campo(R, "n") == 21, R)
+    checa("bruto = estimativa sem margem × correção, e o cenário cai",
+          perto(campo(R, "b1"), 1295.7633 * 0.74, 0.01) and perto(campo(R, "d2"), (campo(R, "b1") or 0) * 0.985, 1e-6), R)
+    r = js(pg, "[{valor:0, parcelas:20, parcela:674.65}, {valor:10000, parcelas:20, parcela:0}, {valor:10000, parcelas:20, parcela:400}].map(d => simularOpcao({...%s, dinheiro:{tipo:'emprestimo', ...d}}, fatorSim(), 20).texto)" % OP)
+    checa("empréstimo pela metade ou impossível: diz o que falta",
+          isinstance(r, list) and str(r[0]).startswith("Preencha") and str(r[1]).startswith("Preencha") and "somam menos" in str(r[2]), r)
+    checa("sem placa", js(pg, "simularOpcao({...%s, placas:[{modelo:'', qtd:1, preco:null, maq:'novo'}]}, fatorSim(), 12).motivo" % OP) == "placa")
+    r = js(pg, "simularOpcao({...%s, placas:[{modelo:'placa-que-nao-existe', qtd:1, preco:900, maq:'novo'}, {modelo:'rtx-5060', qtd:1, preco:2665, maq:'novo'}], pcNovo:{custo:1500}}, fatorSim(), 20).preco" % OP)
+    checa("modelo fora do catálogo é ignorado; o PC novo entra no preço", r == 4165, r)
+    r = js(pg, "simularOpcao({...%s, placas:[{modelo:'rtx-5060', qtd:1, preco:2665, maq:'m-apagada'}]}, fatorSim(), 20).avisos.map(a => a.t).join(' ')" % OP)
+    checa("aviso da máquina que sumiu", "não existe mais" in str(r), r)
+    r = js(pg, "simularOpcao({...%s, placas:[{modelo:'rtx-5070', qtd:3, preco:5159, maq:'m-pc'}]}, fatorSim(), 20).avisos.map(a => a.t).join(' ')" % OP)
+    checa("aviso da fonte acima de 80%", "A fonte de 750 W do PC principal fica com 113% de carga" in str(r), r)
+    # gravar gasta mensagem (o PC e o celular sincronizam o min-cfg): mudarSim muda na hora e só grava depois de SIM_GRAVA;
+    # gravarSimJa e salvarPendentes gravam já o que estava esperando, uma vez só
+    pg.evaluate("window.__gravouCfg = 0; (() => { const s = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'min-cfg') window.__gravouCfg++; return s.call(this, k, v); }; })()")
+    js(pg, "mudarSim(s => { s.prazo = 24; })")
+    pg.wait_for_timeout(1200)
+    r = js(pg, "[simCfg().prazo, window.__gravouCfg]")
+    checa("mudarSim muda na hora e não grava antes de SIM_GRAVA", r == [24, 0], r)
+    js(pg, "gravarSimJa()")
+    r = js(pg, "[window.__gravouCfg, JSON.parse(localStorage.getItem('min-cfg')).sim.prazo]")
+    checa("gravarSimJa grava uma vez", r == [1, 24], r)
+    js(pg, "gravarSimJa()")
+    checa("sem nada esperando, gravarSimJa não grava", js(pg, "window.__gravouCfg") == 1)
+    js(pg, "mudarSim(s => { s.prazo = 36; }); salvarPendentes()")
+    r = js(pg, "[window.__gravouCfg, JSON.parse(localStorage.getItem('min-cfg')).sim.prazo]")
+    checa("salvarPendentes grava o que o simulador esperava", r == [2, 36], r)
+    checa("sem erros (opções)", not erros(pg), erros(pg)[:3])
+
+
 with sync_playwright() as p:
     contas(p)
     mineracao(p)
+    opcoes(p)
 fim()
