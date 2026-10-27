@@ -827,6 +827,10 @@ function abrirAba(nome, foco = false){
     t.tabIndex = sel ? 0 : -1;
     $("painel-" + a).hidden = !sel;
   }
+  /* lá embaixo, com a barra presa no alto, a aba nova começa logo abaixo da barra (senão a página ficaria no meio dela) */
+  const barra = document.querySelector(".web-abas"), painel = $("painel-" + nome);
+  const alvo = scrollY + painel.getBoundingClientRect().top - barra.offsetHeight - (parseFloat(getComputedStyle(painel).marginTop) || 0);
+  if(scrollY > alvo + 1) window.scrollTo(0, Math.max(0, alvo));
   try{ localStorage.setItem("sim-web-aba", nome); }catch(e){}
   if(foco) $("aba-" + nome).focus();
 }

@@ -345,6 +345,20 @@ def abas(p):
     clica(pg, "#aba-dados")
     checa("a aba fica guardada neste aparelho", js(pg, "localStorage.getItem('sim-web-aba')") == "dados")
     checa("barra das abas presa no alto", js(pg, "getComputedStyle(document.querySelector('.web-abas')).position") == "sticky")
+    # trocar de aba lá embaixo (a barra presa no alto) leva ao começo da aba nova, logo abaixo da barra; lá em cima, não rola
+    TOPO = "(n => { const b = document.querySelector('.web-abas').getBoundingClientRect(), p = document.getElementById('painel-' + n).getBoundingClientRect(); return [Math.round(b.top), Math.round(p.top - b.bottom)]; })"
+    for largura, altura in ((1366, 900), (390, 844)):
+        pg5 = abrir_web(p, largura=largura, altura=altura)
+        pg5.locator("#aba-placas").click()
+        js(pg5, MARCA_TODAS % "true")
+        js(pg5, "window.scrollTo(0, document.documentElement.scrollHeight)")
+        pg5.locator("#aba-dados").click()
+        embaixo = js(pg5, TOPO + "('dados')")
+        js(pg5, "window.scrollTo(0, 0)")
+        pg5.locator("#aba-placas").click()
+        r = [embaixo, js(pg5, "scrollY")]
+        checa(f"trocar de aba lá embaixo leva ao começo da aba nova ({largura} px)", r[0] is not None and r[0][0] == 0 and 0 <= r[0][1] <= 24 and r[1] == 0, r)
+        checa(f"sem erros (trocar de aba lá embaixo, {largura} px)", not erros(pg5), erros(pg5)[:3])
     pg2 = abrir_web(p, extra="try{ if(!sessionStorage.getItem('__aba')){ localStorage.setItem('sim-web-aba', 'placas'); sessionStorage.setItem('__aba', '1'); } }catch(e){}")
     checa("abre na aba guardada", visivel(pg2, "#painel-placas") and js(pg2, "document.getElementById('aba-placas').getAttribute('aria-selected')") == "true")
     pg3 = abrir_web(p, extra="try{ if(!sessionStorage.getItem('__aba')){ localStorage.setItem('sim-web-aba', 'outra'); sessionStorage.setItem('__aba', '1'); } }catch(e){}")
