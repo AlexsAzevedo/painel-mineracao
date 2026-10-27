@@ -7041,6 +7041,8 @@ function simularOpcao(op, F, prazo, cenarios = simCfg().cenarios){
     if(m.sumiu) avisos.push({c:"w", t:"A máquina escolhida não existe mais em Montar setup: a conta usa Um PC novo."});
     if(m.avisoFonte) avisos.push({c:"w", t:`A fonte de ${m.fonteW} W do ${m.nome} fica com ${Math.round(m.carga*100)}% de carga com estas placas (o bom é até 80%).`});
   }
+  const semPreco = [...new Set(linhas.filter(l=>!(l.preco > 0)).map(l=>l.c.curto))];
+  if(semPreco.length) return {...base, ok:false, motivo:"preco", texto:`Falta o preço ${juntarE(semPreco.map(n=>"da " + n))}: ponha o que encontrou.`};
   const precoPlacas = linhas.reduce((s,l)=>s + l.preco*l.q, 0), custoPc = min.usaNovo ? op.pcNovo.custo : 0, preco = precoPlacas + custoPc;
   if(!(preco > 0)) return {...base, ok:false, motivo:"preco", texto:"Ponha o preço das placas."};
   const d = op.dinheiro, emprestimo = d.tipo==="emprestimo" ? {valor:d.valor, parcelas:d.parcelas, parcela:d.parcela} : null;
@@ -7086,7 +7088,7 @@ function htmlOpcaoSim(op, n){
       <label class="sim-mod"><span class="lbl">Placa</span><select ${at(i, "modelo")}>${listaPlacas(c ? c.id : "")}</select></label>
       <button type="button" class="ghost sim-del" data-sim="del-linha" data-op="${L}" data-i="${i}" aria-label="Remover esta placa" title="Remover esta placa">×</button>
       <label class="sim-qtd"><span class="lbl">Qtd.</span><input type="number" min="1" max="20" step="1" inputmode="numeric" ${at(i, "qtd")} value="${x.qtd}"></label>
-      <label class="sim-pre"><span class="lbl">Preço de cada</span><input type="number" min="0" step="1" inputmode="decimal" ${at(i, "preco")} value="${preco}">${dica ? `<span class="hint">${esc(dica)}</span>` : ""}</label>
+      <label class="sim-pre"><span class="lbl">Preço de cada</span><input type="number" min="0" step="1" inputmode="decimal" ${at(i, "preco")} value="${preco}"><span class="hint"${dica ? "" : " hidden"}>${esc(dica)}</span></label>
       <label class="sim-maq"><span class="lbl">Em qual PC</span><select ${at(i, "maq")}>${reais.map(m=>`<option value="${esc(m.id)}"${m.id===maq ? " selected" : ""}>${esc(m.nome)}</option>`).join("")}<option value="novo"${maq==="novo" ? " selected" : ""}>Um PC novo</option></select></label>
     </div>`;
   }).join("");
@@ -7281,11 +7283,36 @@ $("sim-ops").addEventListener("input", e=>{
   const el = e.target.closest("[data-campo]");
   if(!el || el.type==="radio" || el.tagName==="SELECT") return;
   mudarSim(s=>porCampoSim(s, el)); renderSimRes();
+  /* a dica do preço muda já enquanto digita: se ela mudasse ao sair do campo, a tela andaria no meio do clique seguinte */
+  if(el.dataset.campo==="preco") ajustarCampoSim(el, true);
 });
 $("sim-ops").addEventListener("change", e=>{
   const el = e.target.closest("[data-campo]"); if(!el) return;
+  /* campo de número: o input já guardou o valor. O change sai quando o campo perde o foco, no meio do clique (ou do Tab)
+     seguinte: montar a tela de novo aqui apagaria o que a pessoa acabou de clicar. Só arruma o que o próprio campo mostra */
+  if(el.type!=="radio" && el.tagName!=="SELECT"){ ajustarCampoSim(el); return; }
   mudarSim(s=>porCampoSim(s, el)); renderSim(true);
 });
+/* o campo de número mostra o valor que vale na conta (a quantidade de 1 a 20, o preço sugerido quando ficou vazio, com a
+   dica de onde ele veio), sem montar a tela de novo. soDica: só a dica do preço (enquanto digita, sem mexer no campo) */
+function ajustarCampoSim(el, soDica){
+  const op = simCfg().opcoes.find(o=>o.nome===el.dataset.op), c = el.dataset.campo; if(!op) return;
+  if(el.dataset.i!=null){
+    const x = op.placas[+el.dataset.i]; if(!x) return;
+    if(c==="qtd" && !soDica) el.value = String(x.qtd);
+    if(c==="preco"){
+      const cc = byId[novoId(x.modelo)], mp = cc ? melhorPreco(cc) : null, h = el.parentElement.querySelector(".hint");
+      if(!soDica) el.value = x.preco > 0 ? String(x.preco) : (mp ? String(mp.v) : "");
+      const dica = cc && !(x.preco > 0) ? (mp ? dicaPrecoSim(cc, mp) : "sem preço sugerido: ponha o que encontrou") : "";
+      if(h){ h.textContent = dica; h.hidden = !dica; }
+    }
+    return;
+  }
+  const [grupo, k] = c.split(".");
+  if(!op[grupo] || !(k in op[grupo])) return;
+  const v = op[grupo][k];
+  el.value = k==="parcelas" ? String(v) : (v ? String(v) : "");
+}
 $("sim-ops").addEventListener("click", e=>{
   const b = e.target.closest("[data-sim]"); if(!b) return;
   const L = b.dataset.op, acao = b.dataset.sim;

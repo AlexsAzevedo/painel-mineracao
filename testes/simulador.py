@@ -167,6 +167,10 @@ def opcoes(p):
     checa("aviso da máquina que sumiu", "não existe mais" in str(r), r)
     r = js(pg, "simularOpcao({...%s, placas:[{modelo:'rtx-5070', qtd:3, preco:5159, maq:'m-pc'}]}, fatorSim(), 20).avisos.map(a => a.t).join(' ')" % OP)
     checa("aviso da fonte acima de 80%", "A fonte de 750 W do PC principal fica com 113% de carga" in str(r), r)
+    # uma placa sem preço (nem digitado nem sugerido) não pode entrar de graça na conta, mesmo com outra placa com preço
+    r = js(pg, "simularOpcao({...%s, placas:[{modelo:'gtx-1650-super', qtd:1, preco:null, maq:'novo'}, {modelo:'rtx-5060', qtd:1, preco:2600, maq:'novo'}]}, fatorSim(), 20)" % OP)
+    checa("placa sem preço não conta como de graça", campo(r, "ok") is False and campo(r, "motivo") == "preco"
+          and "Falta o preço da GTX 1650 Super" in str(campo(r, "texto")), [campo(r, "ok"), campo(r, "motivo"), campo(r, "texto"), campo(r, "preco")])
     # gravar gasta mensagem (o PC e o celular sincronizam o min-cfg): mudarSim muda na hora e só grava depois de SIM_GRAVA;
     # gravarSimJa e salvarPendentes gravam já o que estava esperando, uma vez só
     pg.evaluate("window.__gravouCfg = 0; (() => { const s = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'min-cfg') window.__gravouCfg++; return s.call(this, k, v); }; })()")
@@ -295,6 +299,41 @@ def celular(p):
     checa("sem erros (celular)", not erros(pg), erros(pg)[:3])
 
 
+def foco_real(p):
+    """Com cliques e teclas de verdade (os outros testes da tela usam eventos de mentira, que não mexem no foco): depois de
+    digitar num campo de número, o clique ou o Tab seguinte tem de chegar aonde a pessoa clicou."""
+    pg = abrir(p, dados=DADOS_SIM, pc=True, hash="sim")
+    mod, qtd, pre = (f"{A} [data-i='0'][data-campo='{c}']" for c in ("modelo", "qtd", "preco"))
+    ativo = "(() => { const a = document.activeElement; return [a.tagName, a.dataset.campo || a.dataset.sim || '']; })()"
+    pg.select_option(mod, "rtx-5070")
+    pg.click(qtd); pg.keyboard.press("Control+A"); pg.keyboard.type("2")
+    pg.click(pre)
+    r = js(pg, ativo)
+    checa("digitar e clicar no campo seguinte: o foco vai para ele", r == ["INPUT", "preco"], r)
+    pg.keyboard.press("Control+A"); pg.keyboard.type("5000")
+    pg.click(f"{A} input[name='sim-pag-A'][value='cartao'] + span")
+    checa("digitar e tocar em No cartão: muda na hora", js(pg, "simCfg().opcoes[0].pagamento.tipo") == "cartao", js(pg, "simCfg().opcoes[0].pagamento"))
+    pg.click(qtd); pg.keyboard.press("Control+A"); pg.keyboard.type("3"); pg.keyboard.press("Tab")
+    r = js(pg, ativo)
+    checa("digitar e apertar Tab: o foco vai para o campo seguinte", r == ["INPUT", "preco"], r)
+    pg.keyboard.press("Control+A"); pg.keyboard.type("4900")
+    pg.click(f"{A} [data-sim='add-linha']")
+    checa("digitar e clicar em + Placa: a linha nova aparece", js(pg, "simCfg().opcoes[0].placas.length") == 2, js(pg, "simCfg().opcoes[0].placas"))
+    pg.click(qtd); pg.keyboard.press("Control+A"); pg.keyboard.type("4")
+    pg.click("[data-sim='add-op']")
+    checa("digitar e clicar em + Opção: a opção nova aparece", js(pg, "simCfg().opcoes.map(o => o.nome)") == ["A", "B"], js(pg, "simCfg().opcoes.map(o => o.nome)"))
+    r = js(pg, "simCfg().opcoes[0].placas[0]")
+    checa("o que foi digitado ficou guardado", campo(r, "qtd") == 4 and campo(r, "preco") == 4900, r)
+    # o preço apagado volta a ser o sugerido, com a dica de onde ele veio; a quantidade fora da faixa mostra a que vale
+    pg.click(pre); pg.keyboard.press("Control+A"); pg.keyboard.press("Backspace")
+    pg.click(qtd)
+    r = [valor(pg, pre), texto(pg, f"{A} .sim-linha .sim-pre")]
+    checa("preço apagado: volta o sugerido, com a dica", r[0] == "5159" and "sugerido" in r[1], r)
+    pg.keyboard.press("Control+A"); pg.keyboard.type("25"); pg.click(pre)
+    checa("quantidade acima de 20: o campo mostra 20, a que vale", valor(pg, qtd) == "20" and js(pg, ativo) == ["INPUT", "preco"], [valor(pg, qtd), js(pg, ativo)])
+    checa("sem erros (foco de verdade)", not erros(pg), erros(pg)[:3])
+
+
 def grafico(p):
     # A: 2× RTX 5070 no PC principal, no cartão em 12×, com o empréstimo do Alex; B: 3× RTX 5060 num PC novo, à vista, com
     # dinheiro seu; C: sem placa (fica fora do gráfico)
@@ -339,4 +378,5 @@ with sync_playwright() as p:
     guardar(p)
     celular(p)
     grafico(p)
+    foco_real(p)
 fim()
