@@ -5685,7 +5685,9 @@ function retratoKxa(agora = Date.now()){
   /* este PC na tomada (o celular mostra o mesmo número do PC): com o consumo medido das placas, ou o estimado dele */
   const ms = l && l.ok ? l.placas.filter(p=>p.minerando) : [], wp = l && l.ok ? wattsPlacasKxa(l) : null, medido = wp!=null;
   const passo = Math.max(1, Math.ceil(h.linha.length/48)), linha = h.linha.filter((x,i)=>i%passo===0 || i===h.linha.length-1).map(([t,v])=>[t, Math.round(v*100)/100]);
-  return {v:1, quando: kxa.quando || agora, estado: kxa.estado, pausaAte: l && l.ok && l.pausado ? l.pausaAte : null, computador: l && l.computador || "",
+  /* a correção pelo real do simulador de compra: a desta leitura; parada ou pausada, a do retrato anterior */
+  const fatorAntes = kxaSnap ? +kxaSnap.fatorKx : NaN, fatorKx = fatorKxReal(l) ?? (Number.isFinite(fatorAntes) && fatorAntes > 0 ? fatorAntes : null);
+  return {v:1, quando: kxa.quando || agora, fatorKx, estado: kxa.estado, pausaAte: l && l.ok && l.pausado ? l.pausaAte : null, computador: l && l.computador || "",
     placas: placasR, hoje: {ganho:h.ganho, luz:h.luz, lucro:h.lucro, kwh:h.kwh, desde:h.desde}, ritmo: ritmoKxa(l), saldoBtc: l && l.ok ? l.saldoBtc : null, saldoUsd: l && l.ok && l.saldoUsd!=null ? l.saldoUsd : null, precoBtc: pr,
     linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora),
     wattsPc: !ms.length ? 0 : medido ? wattsNaTomada(wp, l) : wattsPcEstimado(l), wattsMedido: medido};
@@ -6819,6 +6821,63 @@ function fluxoSim(e){
   return {meses, sePaga: paga ? paga.m : null, pior: {m: pior.m, conta: pior.conta},
     fim: {resultado: u.resultado, revenda: u.revenda, comRevenda: u.resultado + u.revenda},
     juros: e.emprestimo ? {i, iAno: Math.pow(1+i, 12) - 1, total: n*parcela - (+e.emprestimo.valor)} : null};
+}
+/* "Um PC novo": fonte de 650 W Gold, 30 W para o resto do PC e o processador parado */
+function maqNovaSim(){ return maqBase({id:"novo", nome:"Um PC novo", fonteW:650, selo:"Gold", base:30, cpu:"outro", minerarCpu:false}); }
+/* as linhas de placas de uma opção que entram na conta: modelo do catálogo, quantidade de 1 a 20, preço (o digitado ou o
+   sugerido pelo melhorPreco) e o PC (uma máquina que já existe, ou "novo"; sumiu = a máquina escolhida não existe mais) */
+function linhasSim(op){
+  const reais = maqsReais(), l = [];
+  for(const x of (op && Array.isArray(op.placas) ? op.placas : [])){
+    const c = x && byId[novoId(x.modelo)]; if(!c) continue;
+    const q = Math.min(20, Math.max(1, Math.round(+x.qtd||1)));
+    const preco = +x.preco > 0 ? +x.preco : ((melhorPreco(c)||{}).v || 0);
+    const pedida = String((x.maq ?? "") || "novo"), existe = pedida!=="novo" && reais.some(m=>m.id===pedida);
+    l.push({c, q, preco, maq: existe ? pedida : "novo", sumiu: pedida!=="novo" && !existe});
+  }
+  return l;
+}
+/* o que as placas da opção mudam em cada PC, pelas contas do Montar setup: o ganho bruto por mês (a estimativa da Kryptex,
+   sem a margem de segurança) e a luz por mês (placas, processador, resto do PC e a perda da fonte) */
+function mineracaoSim(op){
+  const grupos = new Map();
+  for(const l of linhasSim(op)){ if(!grupos.has(l.maq)) grupos.set(l.maq, []); grupos.get(l.maq).push(l); }
+  const maqs = [];
+  let bruto = 0, luz = 0;
+  for(const [id, ls] of grupos){
+    const m = id==="novo" ? maqNovaSim() : maqsReais().find(x=>x.id===id);
+    const a = calcMaq(m), b = calcMaq(m, {extra: ls.map(l=>({tipo:"plano", c:l.c, q:l.q, preco:l.preco}))});
+    bruto += b.brutoGpu - a.brutoGpu; luz += b.luz - a.luz;
+    maqs.push({id, nome:m.nome, n:ls.reduce((s,l)=>s+l.q, 0), carga:b.carga, fonteW:b.fonte.w, avisoFonte:b.carga > 0.8, sumiu:ls.some(l=>l.sumiu)});
+  }
+  return {maqs, bruto: bruto/Math.max(0.01, 1 - (+cfg.margem||0)/100), luz, usaNovo: grupos.has("novo")};
+}
+/* quanto as placas da opção valem no mês m: o preço pago menos a desvalorização por ano de cada modelo (sem o PC novo) */
+function revendaSim(op, m){
+  return linhasSim(op).reduce((s,l)=>s + l.preco*l.q*Math.pow(1 - deprecModelo(l.c.id).d, Math.max(0, +m||0)/12), 0);
+}
+/* a correção pelo real: quanto as placas de vídeo minerando rendem (o app da Kryptex) ÷ a estimativa do catálogo para os
+   mesmos modelos, entre 20% e 200%. null sem leitura, sem placa minerando achada no catálogo ou sem o rendimento dela */
+function fatorKxReal(l){
+  if(!l || !l.ok || !Array.isArray(l.placas)) return null;
+  let real = 0, est = 0;
+  for(const p of l.placas){
+    if(!p || p.tipo!=="gpu" || !p.minerando || !(+p.rendimentoUsd > 0)) continue;
+    const c = acharModelo(String(p.nome||""), ""), rec = c ? dados(c).rec : 0;
+    if(!(rec > 0)) continue;
+    real += +p.rendimentoUsd; est += rec/365;
+  }
+  return est > 0 && real > 0 ? Math.min(2, Math.max(0.2, real/est)) : null;
+}
+/* a correção que o simulador usa: no PC, a leitura de agora do app da Kryptex; senão (e no celular) a do retrato. Sem
+   nenhuma, a estimativa da Kryptex com a margem de segurança das Premissas: as duas medem o mesmo e não entram juntas */
+function fatorSim(){
+  let f = null, de = null;
+  try{ if(PODE_KXA() && kxa && kxa.leitura){ f = fatorKxReal(kxa.leitura); de = kxa.leitura; } }catch(e){ f = null; }
+  if(f==null){ const s = kxaSnap ? +kxaSnap.fatorKx : NaN; if(Number.isFinite(s) && s > 0){ f = Math.min(2, Math.max(0.2, s)); de = kxaSnap; } }
+  if(f==null) return {f: Math.max(0.01, 1 - (+cfg.margem||0)/100), fonte:"estimativa", placas:[]};
+  const gs = ((de && de.placas) || []).filter(p=>p && p.tipo==="gpu"), ms = gs.filter(p=>p.minerando);
+  return {f, fonte:"real", placas:[...new Set((ms.length ? ms : gs).map(nomePlaca))]};
 }
 
 /* ---------- carga inicial ---------- */

@@ -189,6 +189,14 @@ def kryptex_app(p):
     checa("retrato: só o preço do bitcoin mexeu (o saldo em dólar muda), não vai antes dos 30 min", r == [0, 30], r)
     r = pg.evaluate("minutosGravados([[0, MIN], [1, MIN], [2, LEIT_KX(0, 0.00001237)], [3, LEIT_KX(0, 0.00001237)], [4, LEIT_KX(0, 0.00001237)], [5, LEIT_KX(0, 0.00001237)]])")
     checa("retrato: saque vai em até 5 min", r == [0, 5], r)
+    # a correção pelo real (o simulador de compra usa no celular): o rendimento da placa minerando ÷ a estimativa do catálogo
+    # (RX 9070 XT: US$ 2,965 por dia ÷ US$ 1.242 por ano / 365); parada, fica a de antes
+    v = pg.evaluate("simularLeituras([MIN]).then(() => kxaSnap.fatorKx)")
+    checa("retrato leva a correção pelo real", isinstance(v, float) and abs(v - 0.871357) < 1e-5, v)
+    v = pg.evaluate("simularLeituras([MIN, PARADO]).then(() => kxaSnap.fatorKx)")
+    checa("parada, a correção de antes continua", isinstance(v, float) and abs(v - 0.871357) < 1e-5, v)
+    v = pg.evaluate("simularLeituras([PARADO]).then(() => 'fatorKx' in kxaSnap ? kxaSnap.fatorKx : 'sem o campo')")
+    checa("sem leitura minerando: sem correção (null)", v is None, v)
     # saldo vai para os dias da Kryptex (Diário)
     checa("saldo para o Diário", pg.evaluate("simularLeituras([MIN]), kxHist.saldos.length > 0 && kx.saldo && kx.saldo.moeda === 'BRL'"))
     # até a 1.6.1, o saldo do app da Kryptex (que vem em dólar) foi guardado como se fosse bitcoin: US$ 0,005 virava uns
