@@ -6,3 +6,4 @@ desktop/app/fonts/
 celular/node_modules/
 celular/www/
 __pycache__/
+web/dist/

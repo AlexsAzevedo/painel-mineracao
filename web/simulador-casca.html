@@ -1,0 +1,145 @@
+<title>Simulador de placas</title>
+<style>
+/* A casca do Simulador de placas na web. web/gerar-simulador.py troca os marcadores pelas peças do painel
+   (mineracao.html): as cores, o CSS e a seção do simulador, e o JS (o catálogo, os preços, a curva da fonte, os formatos
+   e o bloco inteiro do simulador). O resto das regras abaixo é cópia das do painel, na mesma ordem em volta do CSS do
+   simulador, para a tela sair igual à do programa. */
+/*@@CORES@@*/
+
+/* do painel, antes do CSS do simulador */
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+.view{max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.vh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.vh h1{font-size:clamp(1.6rem,2.6vw,2.05rem);font-weight:700;outline:none}
+.vh .sub{max-width:76ch}
+.painel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.painel-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.painel-h h2{font-size:1.08rem}
+.nota-mini{margin:0;font-size:.8rem;color:var(--muted)}
+*{box-sizing:border-box}
+h1,h2{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:600}
+.num,td.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);margin:4px 0 0;max-width:70ch}
+.lbl{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+input,select{font:inherit;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:8px 11px;min-width:0;width:100%;min-height:40px}
+input[type=checkbox],input[type=radio]{min-height:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.barra{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.barra > label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.barra select{width:auto}
+.barra input[type=number]{width:140px}
+@media (max-width:560px){.barra{display:grid;grid-template-columns:1fr 1fr}.barra input[type=number]{width:100%}}
+.seg.radios label{position:relative;display:flex;flex:1}
+.seg.radios input{position:absolute;opacity:0;width:1px;height:1px;margin:0;padding:0;pointer-events:none}
+.seg.radios span{flex:1;text-align:center;padding:5px 12px;font-weight:500;color:var(--muted);border-radius:7px;cursor:pointer;white-space:nowrap}
+.seg.radios input:checked + span{background:var(--surface);color:var(--fg);font-weight:600;box-shadow:0 1px 3px -1px var(--shadow)}
+.seg.radios input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:8px 16px;min-height:40px}
+button:hover{background:var(--sunk)}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+button.pri:hover{background:var(--accent);filter:brightness(1.06)}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:4px 8px}
+button.ghost:hover{color:var(--bad)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--sunk);position:sticky;top:0}
+th.n,td.n{text-align:right}
+tbody tr:last-child td{border-bottom:0}
+@media (hover:hover){tbody tr:hover td{background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.link{border-color:transparent;background:transparent;color:var(--accent);padding:4px 8px;min-height:0}
+button.link:hover{background:transparent}
+button.link:hover{text-decoration:underline}
+@media (max-width:720px){input,select{font-size:16px}}
+.hint{font-size:.78rem;color:var(--muted)}
+details > summary{cursor:pointer;font-weight:600;font-size:.9rem;width:fit-content}
+details > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (max-width:899px){.view{gap:14px}.painel{padding:16px;border-radius:14px;gap:14px}}
+
+/*@@CSS_SIM@@*/
+
+/* do painel, depois do CSS do simulador */
+.avisos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:.85rem}
+.avisos li{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;align-items:start}
+.avisos li::before{content:"i";font-family:var(--mono);font-weight:600;font-size:.7rem;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--muted);margin-top:1px}
+.avisos li.w::before{content:"!";background:var(--warn-soft);color:var(--warn)}
+.avisos li.b::before{content:"×";background:var(--bad-soft);color:var(--bad)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;padding:2px;background:var(--sunk);gap:2px}
+.graf{position:relative;min-height:60px}
+.graf svg{display:block;overflow:visible}
+.graf text{font-family:var(--body);font-size:11px;fill:var(--muted)}
+.graf text.v{fill:var(--fg);font-family:var(--mono);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:.8rem;box-shadow:0 12px 28px -14px var(--shadow);white-space:nowrap;z-index:5;display:flex;flex-direction:column;gap:3px}
+.tip[hidden]{display:none}
+.tip .t{color:var(--muted);font-size:.74rem}
+.tip .r{display:flex;align-items:center;gap:8px}
+.tip .r b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;color:var(--fg)}
+.tip .r span{color:var(--muted)}
+.tip i,.legenda i{display:inline-block;flex:none}
+.graf .cross{stroke:var(--viz-axis);stroke-width:1;opacity:0}
+.graf .cross.on{opacity:1}
+.graf .pt-hit{fill:transparent;cursor:default}
+.graf .pt-hit:focus{outline:none}
+.graf .pt-hit:focus-visible{stroke:var(--accent);stroke-width:2}
+.hist-tab summary{cursor:pointer;font-size:.86rem;color:var(--accent)}
+.hist-tab table{margin-top:8px;max-width:420px;min-width:0}
+.legenda{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.rel-h{flex-wrap:wrap;align-items:center}
+.rel-ano{display:flex;align-items:center;gap:8px;max-width:100%;min-width:0}
+.rel-ano select{width:auto;max-width:100%;min-width:0}
+details.saiba{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:0 16px}
+details.saiba > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;color:var(--fg)}
+details.saiba[open] > summary{border-bottom:1px solid var(--line);margin-bottom:12px}
+details.saiba > :not(summary){margin-bottom:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* só da página */
+body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px))}
+</style>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&family=JetBrains+Mono:wght@400&display=swap">
+
+<main class="web">
+<!--@@TELA@@-->
+</main>
+
+<script>
+/* ---------- do painel: o catálogo, os preços da pesquisa, a curva da fonte e os formatos ---------- */
+/*@@PAINEL@@*/
+
+/* ---------- o que o simulador espera do painel, adaptado aos números e aos PCs desta página ---------- */
+const NUMEROS_PADRAO = {dolar:5.42, luz:0.96, horas:24, real:74, cdi:13.65, pctCdi:120, deprec:25};
+const PCS_PADRAO = [
+  {id:"pc-pessoal", nome:"PC pessoal", fonteW:1000, selo:"Platinum", jaGasta:360},
+  {id:"pc-i5", nome:"PC extra (i5-13400)", fonteW:500, selo:"Bronze", jaGasta:0},
+  {id:"pc-i7", nome:"PC extra (i7-8700)", fonteW:500, selo:"Bronze", jaGasta:0}];
+var numeros = {...NUMEROS_PADRAO}, pcs = PCS_PADRAO.map(p=>({...p}));
+function numerosOk(o){ return {...NUMEROS_PADRAO}; }
+function pcsOk(l){ return PCS_PADRAO.map(p=>({...p})); }
+var cfg = {dolar:5.42, tarifa:0.96, bandeira:0, horas:24, margem:0, cdi:13.65, pctCdi:120, deprec:25, cotacoes:{}, precosAtual:{}, historico:{}, sim:{}};
+var kxaSnap = null;
+function aplicarNumeros(){}
+var anuncios = [];
+const PODE_KXA = () => false;
+var kxa = {leitura:null};
+const nomePlaca = p => p && p.nome || "a placa";
+const acharModelo = () => null;
+const dados = c => c;
+function maqBase(o){ return {...o}; }
+function maqsReais(){ return pcs.map(p=>({...p})); }
+function deprecModelo(id){ return {d:0.25, fonte:"premissa", dias:0}; }
+function calcMaq(m, o){ return {gpus:[], n:0, dc:0, carga:0, ef:1, tomada:0, kwh:0, luz:0, brutoGpu:0, bruto:0, ligada:false, fonte:{w:m.fonteW, selo:m.selo}}; }
+function gravarCfg(){}
+
+/* ---------- o simulador do painel ---------- */
+/*@@SIMULADOR@@*/
+
+/* ---------- abrir ---------- */
+$("v-sim").hidden = false;
+renderSim();
+</script>
