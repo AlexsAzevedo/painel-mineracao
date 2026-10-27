@@ -1828,9 +1828,9 @@ const byId = Object.fromEntries(CATALOGO.map(c=>[c.id,c]));
 function rendimentoParcelado(preco, parcelas){
   const n = Math.max(1, Math.round(+parcelas||1));
   if(n<2 || !(preco>0)) return {bruto:0, liquido:0};
-  const dia = Math.pow(1+(+cfg.cdi||0)/100, 1/252) - 1, mes = Math.pow(1 + dia*(+cfg.pctCdi||0)/100, 21) - 1;
+  const mes = taxaMesCdi();
   let bruto = 0, ir = 0;
-  for(let m=1; m<=n; m++){ const g = (preco/n)*(Math.pow(1+mes, m)-1); bruto += g; ir += g*(m<=6?0.225:m<=12?0.20:m<=24?0.175:0.15); }
+  for(let m=1; m<=n; m++){ const g = (preco/n)*(Math.pow(1+mes, m)-1); bruto += g; ir += g*irRegressivo(m); }
   return {bruto, liquido: bruto-ir};
 }
 /* como a placa foi paga: "avista" ou "cartao". Os cadastros de antes da pergunta só tinham as parcelas: mais de 1 = cartão */
@@ -6757,6 +6757,69 @@ document.addEventListener("click", e=>{
   const b = e.target.closest("[data-ir],[data-view]");
   if(b){ irPara(b.dataset.ir || b.dataset.view, !b.dataset.rolar); const alvo = b.dataset.rolar && $(b.dataset.rolar); if(alvo){ abrirSecao(alvo); alvo.scrollIntoView({block:"start", behavior:suave()}); const h = alvo.querySelector("h2"); if(h){ h.tabIndex = -1; h.focus({preventScroll:true}); } } }
 });
+
+/* ---------- simulador de compra ----------
+   Até 3 opções de compra de placas (cfg.sim), à vista, no cartão ou com empréstimo, em 3 cenários de mercado: quando cada
+   uma se paga, quanto sobra no fim (com e sem a revenda) e se a mineração dá conta das parcelas. As contas puras ficam em
+   fluxoSim (o dinheiro mês a mês) e taxaEmprestimo (os juros); a mineração vem do Montar setup (calcMaq). */
+/* imposto de renda da aplicação pelo tempo (tabela regressiva): até 6 meses, até 12, até 24 e depois */
+function irRegressivo(m){ return m<=6 ? 0.225 : m<=12 ? 0.20 : m<=24 ? 0.175 : 0.15; }
+/* quanto a conta rende ao mês: o seu % do CDI das Premissas, em 21 dias úteis */
+function taxaMesCdi(){
+  const dia = Math.pow(1+(+cfg.cdi||0)/100, 1/252) - 1;
+  return Math.pow(1 + dia*(+cfg.pctCdi||0)/100, 21) - 1;
+}
+/* juros ao mês de um empréstimo pela tabela Price (valor recebido, número de parcelas, valor de cada parcela), por
+   bisseção. 0 quando as parcelas somam o valor (com um centavo de folga por parcela); null quando falta um número, as
+   parcelas somam menos que o valor ou os juros passariam de 100% ao mês */
+function taxaEmprestimo(valor, parcelas, parcela){
+  const v = +valor, p = +parcela, n = Math.round(+parcelas);
+  if(!Number.isFinite(v) || !Number.isFinite(p) || !Number.isFinite(n) || !(v>0) || !(p>0) || n<1 || n>120) return null;
+  const total = p*n;
+  if(Math.abs(total - v) <= 0.01*n) return 0;
+  if(total < v) return null;
+  const vp = i => p*(1 - Math.pow(1+i, -n))/i;   /* quanto as parcelas valem hoje com juros i ao mês */
+  if(vp(1) > v) return null;
+  let lo = 0, hi = 1;
+  for(let k=0; k<100; k++){ const mid = (lo+hi)/2; if(vp(mid) > v) lo = mid; else hi = mid; }
+  return (lo+hi)/2;
+}
+/* o dinheiro de uma opção mês a mês, num cenário. e.preco: placas e PC novo; e.cartao: 0 à vista ou N vezes no cartão;
+   e.emprestimo: null (dinheiro seu, separado para a compra) ou {valor, parcelas, parcela}; e.bruto: ganho bruto do 1º mês,
+   já corrigido; e.luz: luz por mês; e.taxa: % ao mês do cenário; e.rendMes: rendimento da conta; e.revendaEm(m): quanto
+   as placas valem no mês m. A conta começa com o dinheiro da compra; todo mês rende (com o IR), paga as parcelas e recebe
+   o lucro da mineração. Resultado = conta − o que ainda deve (empréstimo e cartão) − o dinheiro seu que foi para a compra */
+function fluxoSim(e){
+  const preco = +e.preco;
+  if(!(preco > 0)) return null;
+  let i = 0, n = 0, parcela = 0, saldo = 0, conta = preco, proprio = preco;
+  if(e.emprestimo){
+    i = taxaEmprestimo(e.emprestimo.valor, e.emprestimo.parcelas, e.emprestimo.parcela);
+    if(i == null) return null;
+    n = Math.round(+e.emprestimo.parcelas); parcela = +e.emprestimo.parcela; saldo = conta = +e.emprestimo.valor; proprio = 0;
+  }
+  const N = Math.max(0, Math.round(+e.cartao||0)), b0 = +e.bruto||0, l0 = +e.luz||0, t = (+e.taxa||0)/100, r0 = Math.max(0, +e.rendMes||0);
+  const prazo = Math.max(0, Math.round(+e.prazo||0)), rv = typeof e.revendaEm==="function" ? e.revendaEm : ()=>0;
+  if(!N) conta -= preco;
+  let falta = N ? preco : 0;
+  const linha = (m, o) => ({m, ...o, conta, saldo, falta, resultado: conta - saldo - falta - proprio, revenda: +rv(m)||0});
+  const meses = [linha(0, {bruto:0, luz:0, lucro:0, parcCartao:0, parcEmp:0, rend:0})];
+  for(let m=1; m<=prazo; m++){
+    const rend = Math.max(0, conta)*r0*(1 - irRegressivo(m));
+    const parcCartao = N && m<=N ? preco/N : 0, parcEmp = n && m<=n ? parcela : 0;
+    if(n && m<=n) saldo = m===n ? 0 : Math.max(0, saldo*(1+i) - parcela);
+    const bruto = b0*Math.pow(1+t, m-1), lucro = bruto - l0;
+    conta += rend - parcCartao - parcEmp + lucro;
+    falta = N ? preco - Math.min(m, N)*preco/N : 0;
+    meses.push(linha(m, {bruto, luz:l0, lucro, parcCartao, parcEmp, rend}));
+  }
+  const paga = meses.find(x=>x.m>=1 && x.resultado >= -0.005);
+  let pior = meses[0]; for(const x of meses) if(x.conta < pior.conta) pior = x;
+  const u = meses[meses.length-1];
+  return {meses, sePaga: paga ? paga.m : null, pior: {m: pior.m, conta: pior.conta},
+    fim: {resultado: u.resultado, revenda: u.revenda, comRevenda: u.resultado + u.revenda},
+    juros: e.emprestimo ? {i, iAno: Math.pow(1+i, 12) - 1, total: n*parcela - (+e.emprestimo.valor)} : null};
+}
 
 /* ---------- carga inicial ---------- */
 let configNoBanco = false;
