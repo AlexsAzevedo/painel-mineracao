@@ -487,6 +487,15 @@ def placas(p):
     escolhe(pg, "#pl-marca", "")
     preenche(pg, "#pl-teto", "3000")
     checa("placas: preço até R$ 3.000", js(pg, IDS_LISTA) == por_retorno([x for x in padrao if x["menor"] <= 3000]), js(pg, IDS_LISTA))
+    # o preço do jeito que se escreve no Brasil: ponto no milhar, vírgula nos centavos, com ou sem "R$"
+    r = {}
+    for v in ("3.000", "3.000,00", "R$ 3.000", "2500,50", "1.500", "abc"):
+        preenche(pg, "#pl-teto", v)
+        r[v] = js(pg, IDS_LISTA)
+    ate = lambda lim: por_retorno([x for x in padrao if x["menor"] <= lim])
+    esperado = {"3.000": ate(3000), "3.000,00": ate(3000), "R$ 3.000": ate(3000), "2500,50": ate(2500.5), "1.500": ate(1500), "abc": por_retorno(padrao)}
+    checa("placas: preço até com ponto no milhar e vírgula nos centavos", r == esperado and len(ate(1500)) > 0,
+          {k: (len(r[k]), len(esperado[k])) for k in r})
     preenche(pg, "#pl-teto", "")
     for ordem, chave in (("lucro", lambda x: -x["lucro"]), ("preco", lambda x: (x["menor"] is None, x["menor"] or 0)), ("consumo", lambda x: x["w"])):
         escolhe(pg, "#pl-ordem", ordem)

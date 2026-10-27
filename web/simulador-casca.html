@@ -339,6 +339,13 @@ const PC_NOVO = {nome:"Outro PC", fonteW:650, selo:"Bronze", jaGasta:0};   /* o 
 var numeros = {...NUMEROS_PADRAO}, pcs = PCS_PADRAO.map(p=>({...p}));
 /* um número digitado ou guardado: aceita vírgula; vazio, letras e o que não é número viram NaN */
 const numWeb = v => { if(typeof v==="number") return v; if(typeof v!=="string") return NaN; const t = v.trim().replace(",", "."); return t==="" ? NaN : Number(t); };
+/* um preço digitado como se escreve no Brasil: "3000", "3.000", "3.000,00", "R$ 3.000", "2500,50" (ponto no milhar, vírgula
+   nos centavos). Só para preço: nos outros números, "5.420" continua sendo 5,42 */
+const precoWeb = v => {
+  const t = (v==null ? "" : String(v)).replace(/\s|R\$/gi, "");
+  if(!t) return NaN;
+  return Number(/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(t) ? t.replace(/\./g, "").replace(",", ".") : t.replace(",", "."));
+};
 /* os números arrumados: dentro dos limites; vazio ou inválido fica com o valor de antes */
 function numerosOk(o){
   const r = {};
@@ -681,7 +688,7 @@ const linkFora = (txt, url) => `<a href="${esc(url)}" target="_blank" rel="noope
 const mesesTxt = m => m!=null ? ` · se paga em ${n1(m)} meses` : "";
 /* as placas da lista: os filtros e a ordem desta visita (sem guardar) */
 function linhasPlacas(){
-  const toks = semAcento($("pl-busca").value).split(/\s+/).filter(Boolean), marca = $("pl-marca").value, teto = numWeb($("pl-teto").value);
+  const toks = semAcento($("pl-busca").value).split(/\s+/).filter(Boolean), marca = $("pl-marca").value, teto = precoWeb($("pl-teto").value);
   const todas = $("pl-todas").checked, fim = v => v==null ? 1 : 0;
   const ordens = {retorno:(a,b)=>fim(a.r.meses.menor)-fim(b.r.meses.menor) || (a.r.meses.menor||0)-(b.r.meses.menor||0),
     lucro:(a,b)=>b.r.lucro-a.r.lucro, preco:(a,b)=>fim(a.r.menor)-fim(b.r.menor) || (a.r.menor||0)-(b.r.menor||0), consumo:(a,b)=>a.c.w-b.c.w};
