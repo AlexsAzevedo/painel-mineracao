@@ -105,6 +105,8 @@ main.web > .view + .view{margin-top:20px}   /* em bloco, não flex: a .view com 
 .web-topo .nota-mini{margin-top:6px}
 .painel > .sub{margin:0}
 #v-sim > .vh{display:none}   /* o título é o da página */
+main.web{transition:opacity .2s}
+main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
 /* Seus números: os rótulos, os campos e as dicas alinhados por linha, mesmo quando um rótulo quebra */
 .web-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 16px}
 .web-nums > label{display:grid;grid-row:span 3;grid-template-rows:subgrid;min-width:0;margin-bottom:10px}
@@ -251,6 +253,11 @@ simularOpcao = function(){
   for(const a of r.avisos) a.t = a.t.replace("em Montar setup", "em Seus PCs");
   return r;
 };
+/* a hora da última mudança (t, guardada junto): entre o banco da página e este navegador, vale o mais novo */
+var tMud = 0, avisoGuardado = "";
+function marcarMudanca(){ tMud = Date.now(); if(avisoGuardado){ avisoGuardado = ""; mostrarGuardado(); } }
+const mudarSimDoPainel = mudarSim;   /* as mudanças no simulador também contam */
+mudarSim = function(){ const r = mudarSimDoPainel.apply(this, arguments); marcarMudanca(); return r; };
 
 const fmtNum = v => String(v).replace(".", ",");
 function mostrarNumeros(){ for(const i of document.querySelectorAll("#web-numeros [data-num]")) i.value = fmtNum(numeros[i.dataset.num]); }
@@ -279,7 +286,7 @@ function renderPcs(){
 $("web-numeros").addEventListener("input", e=>{
   const el = e.target.closest("[data-num]"); if(!el) return;
   numeros = numerosOk({...numeros, [el.dataset.num]: el.value});
-  aplicarNumeros(); renderSimRes(); agendarSalvar();
+  marcarMudanca(); aplicarNumeros(); renderSimRes(); agendarSalvar();
 });
 $("web-numeros").addEventListener("change", e=>{ const el = e.target.closest("[data-num]"); if(el) el.value = fmtNum(numeros[el.dataset.num]); });
 $("web-pcs").addEventListener("input", e=>{
@@ -288,7 +295,7 @@ $("web-pcs").addEventListener("input", e=>{
   pcs = pcsOk(pcs.map(p=>p.id===id ? {...p, [c]: el.value} : p));
   const p = pcs.find(x=>x.id===id), b = el.closest(".web-pc") && el.closest(".web-pc").querySelector("[data-pc-del]");
   if(c==="nome" && p && b) b.setAttribute("aria-label", "Remover " + p.nome);
-  renderSim(); agendarSalvar();
+  marcarMudanca(); renderSim(); agendarSalvar();
 });
 $("web-pcs").addEventListener("change", e=>{
   const el = e.target.closest("[data-campo]"); if(!el) return;
@@ -299,7 +306,7 @@ $("web-pcs").addEventListener("click", e=>{
   if(del){
     const i = pcs.findIndex(p=>p.id===del.dataset.pcDel); if(i<0) return;
     pcs = pcs.filter((p, j)=>j!==i);
-    renderPcs(); renderSim(); agendarSalvar();
+    marcarMudanca(); renderPcs(); renderSim(); agendarSalvar();
     const outro = pcs[Math.min(i, pcs.length-1)];
     (outro && document.querySelector(`[data-pc-del="${CSS.escape(outro.id)}"]`) || $("web-pc-add")).focus();
     return;
@@ -307,25 +314,30 @@ $("web-pcs").addEventListener("click", e=>{
   if(e.target.closest("#web-pc-add")){
     const novo = {...PC_NOVO, id:novoIdPc(), nome:nomeLivre()};
     pcs = pcsOk([...pcs, novo]);
-    renderPcs(); renderSim(); agendarSalvar();
+    marcarMudanca(); renderPcs(); renderSim(); agendarSalvar();
     const i = document.querySelector(`#web-pcs [data-pc="${CSS.escape(novo.id)}"][data-campo="nome"]`);
     if(i){ i.focus(); i.select(); }
   }
 });
 
-/* guardar: {v, numeros, pcs, sim} no banco da página (no claude.ai: o mesmo no PC e no celular) e neste navegador (a
+/* guardar: {v, t, numeros, pcs, sim} no banco da página (no claude.ai: o mesmo no PC e no celular) e neste navegador (a
    reserva, e o que aparece na hora ao abrir). Grava 2 s depois da última mudança e já ao esconder a página */
 var estadoT = null;
-const estadoJson = () => JSON.stringify({v:1, numeros, pcs, sim: cfg.sim && typeof cfg.sim==="object" ? cfg.sim : {}});
+const simAqui = () => cfg.sim && typeof cfg.sim==="object" ? cfg.sim : {};
+const estadoJson = () => JSON.stringify({v:1, t:tMud, numeros, pcs, sim:simAqui()});
+const conteudo = st => JSON.stringify({numeros:st.numeros, pcs:st.pcs, sim:st.sim});
+const conteudoAqui = () => conteudo({numeros, pcs, sim:simAqui()});
 function estadoOk(e){
   e = e && typeof e==="object" ? e : {};
-  return {numeros: numerosOk(e.numeros), pcs: Array.isArray(e.pcs) ? pcsOk(e.pcs) : PCS_PADRAO.map(p=>({...p})),
+  return {t: Number.isFinite(+e.t) && +e.t > 0 ? +e.t : 0, numeros: numerosOk(e.numeros), pcs: Array.isArray(e.pcs) ? pcsOk(e.pcs) : PCS_PADRAO.map(p=>({...p})),
     sim: e.sim && typeof e.sim==="object" && !Array.isArray(e.sim) ? JSON.parse(JSON.stringify(e.sim)) : {}};
 }
 function aplicarEstado(st){
-  numeros = st.numeros; pcs = st.pcs; cfg.sim = st.sim;
+  numeros = st.numeros; pcs = st.pcs; cfg.sim = st.sim; tMud = st.t || 0;
   aplicarNumeros(); mostrarNumeros(); renderPcs(); renderSim(true);
 }
+/* o que estava esperando para gravar fica de fora (quando o que está guardado no banco vale mais) */
+function descartarPendentes(){ clearTimeout(estadoT); estadoT = null; clearTimeout(simT); simT = null; }
 function lerLocal(){ try{ return JSON.parse(localStorage.getItem("sim-web") || "null"); }catch(e){ return null; } }
 function gravarLocal(json){ try{ localStorage.setItem("sim-web", json); return true; }catch(e){ return false; } }
 function podeLocal(){ try{ localStorage.setItem("sim-web-teste", "1"); localStorage.removeItem("sim-web-teste"); return true; }catch(e){ return false; } }
@@ -390,36 +402,62 @@ async function carregarEstado(){
   const l = lerLocal();
   return {...estadoOk(l), origem: l ? "navegador" : "padrao"};
 }
-function aplicarDoBanco(st){
-  if(JSON.stringify({v:1, numeros:st.numeros, pcs:st.pcs, sim:st.sim})!==estadoJson()) aplicarEstado(st);
-  ultimoNoBanco = jsonAberto = estadoJson();
+/* o do banco e o desta página: vale o mais novo pela hora da última mudança. Se o daqui é mais novo (uma gravação não
+   chegou ao banco: a página fechou logo depois, ou o banco recusou), ele vai para o banco; no empate (o que foi guardado
+   antes de a hora ir junto), fica o do banco */
+function reconciliar(st){
+  if(st.t < tMud){ ultimoNoBanco = null; salvarEstado(); return; }   /* o banco tem outra coisa: grava mesmo */
+  if(conteudo(st)!==conteudoAqui()) aplicarEstado(st); else tMud = st.t;
+  ultimoNoBanco = estadoJson();
   gravarLocal(ultimoNoBanco);
 }
+/* ao abrir, enquanto o banco não responde, a página espera (sem deixar mexer): o que se mudasse antes podia ficar por
+   cima de algo mais novo guardado noutro aparelho */
+let abrindo = false, limiteT = null;
+function travar(sim){
+  abrindo = sim;
+  document.querySelector("main.web").inert = sim;
+  mostrarGuardado();
+}
 function mostrarGuardado(){
+  if(abrindo){ $("web-guardado").textContent = "Abrindo o que está guardado…"; return; }
   refEstado().then(ref=>{
-    $("web-guardado").textContent = ref ? "Fica guardado: abre igual no PC e no celular."
-      : podeLocal() ? "Fica guardado só neste navegador." : "Este navegador não deixa guardar: o que você mudar vale até fechar a página.";
+    if(abrindo) return;
+    $("web-guardado").textContent = avisoGuardado || (ref ? "Fica guardado: abre igual no PC e no celular."
+      : podeLocal() ? "Fica guardado só neste navegador." : "Este navegador não deixa guardar: o que você mudar vale até fechar a página.");
   });
 }
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState==="hidden"){ if(estadoT) salvarEstado(); return; }
-  /* voltou para a página: pega o que mudou noutro aparelho (se aqui não há nada esperando para gravar) */
-  if(estadoT || simT || gravandoBanco) return;
+  /* voltou para a página: pega o que mudou noutro aparelho, ou manda o daqui se o banco ficou para trás (se aqui não há
+     nada esperando para gravar e a pessoa não mexe enquanto isso) */
+  if(estadoT || simT || gravandoBanco || abrindo) return;
   const antes = estadoJson();
-  carregarEstado().then(st=>{ if(st.origem==="banco" && !estadoT && !simT && estadoJson()===antes) aplicarDoBanco(st); });
+  carregarEstado().then(st=>{ if(st.origem==="banco" && !estadoT && !simT && estadoJson()===antes) reconciliar(st); });
 });
 window.addEventListener("pagehide", ()=>{ if(estadoT) salvarEstado(); });
 
 /* ---------- abrir ---------- */
 $("v-sim").hidden = false;
-aplicarEstado(estadoOk(lerLocal()));   /* na hora: o deste navegador, ou os valores iniciais */
-var jsonAberto = estadoJson();
-mostrarGuardado();
-/* o banco da página responde depois: o que está lá vale mais (é o mesmo no PC e no celular), a não ser que a pessoa já
-   tenha mexido; aí vale o que ela fez, e vai para o banco */
+const localAberto = lerLocal(), tinhaLocal = !!(localAberto && typeof localAberto==="object");
+aplicarEstado(estadoOk(localAberto));   /* na hora: o deste navegador, ou os valores iniciais */
+const jsonAberto = estadoJson();
+/* no claude.ai, o banco da página responde em seguida; até lá (no máximo 6 s), a página espera */
+if(window.claude && typeof window.claude.use==="function"){ travar(true); limiteT = setTimeout(()=>travar(false), 6000); }
+else mostrarGuardado();
 carregarEstado().then(st=>{
-  if(st.origem!=="banco") return;
-  if(estadoJson()!==jsonAberto) salvarEstado();
-  else aplicarDoBanco(st);
+  clearTimeout(limiteT);
+  if(st.origem==="banco"){
+    if(estadoJson()===jsonAberto) reconciliar(st);
+    else if(!tinhaLocal){
+      /* a pessoa mexeu (o banco demorou mais que a espera) num aparelho sem nada guardado: o que ela mudou foi sobre os
+         valores iniciais, e não pode apagar o que está guardado no banco */
+      descartarPendentes(); aplicarEstado(st);
+      ultimoNoBanco = estadoJson(); gravarLocal(ultimoNoBanco);
+      avisoGuardado = "Abriu o que estava guardado; o que você mudou antes disso ficou de fora.";
+    }
+    else salvarEstado();   /* mexeu sobre o que este aparelho já tinha guardado: vale o que ela fez, que é o mais novo */
+  }
+  travar(false);
 });
 </script>

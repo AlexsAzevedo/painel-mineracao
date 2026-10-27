@@ -30,6 +30,15 @@ def copia_sem(trecho):
     return caminho
 
 
+def copia_com(antes, depois, todas=False):
+    """uma cópia do mineracao.html com o trecho trocado (para ver o gerador parar quando o painel muda)"""
+    t = open(PAGINA, encoding="utf-8").read()
+    assert antes in t, antes
+    caminho = os.path.join(TMP, "painel-mudado.html")
+    open(caminho, "w", encoding="utf-8").write(t.replace(antes, depois) if todas else t.replace(antes, depois, 1))
+    return caminho
+
+
 class _Q(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -140,8 +149,24 @@ def gerar(p):
     for trecho, nome in (("/* ---------- simulador de compra ----------", "bloco do simulador"), ("function eficiencia(", "eficiencia"),
                          ("/* fim do simulador de compra */", "fim do CSS do simulador")):
         outra = os.path.join(TMP, "outra.html")
+        if os.path.exists(outra):
+            os.remove(outra)
         r = rodar_gerador(painel=copia_sem(trecho), saida=outra)
         checa(f"peça faltando ({nome}): para com aviso", r.returncode == 1 and "não achei" in (r.stdout + r.stderr) and not os.path.exists(outra),
+              (r.stdout + r.stderr)[-200:])
+    # o painel mudado de jeitos que deixariam a página quebrada: o gerador também para
+    for (antes, depois, todas), nome in (
+            (('const SELOS = {"Sem selo"', 'const SELOS = {\n  "Sem selo"', False), "const em várias linhas"),
+            (('<section class="view" id="v-sim" aria-labelledby="t-sim" hidden>',
+              '<section class="view" id="v-sim" aria-labelledby="t-sim" hidden>\n<section class="extra"></section>', False), "seção dentro da seção"),
+            (("calcMaq(", "calcularMaq(", True), "calcMaq com outro nome"),
+            (("[0] || null;\n}\n/* fonte à venda mais barata", "[0] || null;\n} // fim\n/* fonte à venda mais barata", False), "função fechada com comentário"),
+            (("0.175 : 0.15; }", "0.175 : 0.15; ", False), "erro de sintaxe no bloco")):
+        outra = os.path.join(TMP, "outra.html")
+        if os.path.exists(outra):
+            os.remove(outra)
+        r = rodar_gerador(painel=copia_com(antes, depois, todas), saida=outra)
+        checa(f"painel mudado ({nome}): para com aviso", r.returncode == 1 and "não achei" in (r.stdout + r.stderr) and not os.path.exists(outra),
               (r.stdout + r.stderr)[-200:])
 
 
@@ -327,7 +352,8 @@ def guardar(p):
     checa("mexer não grava na hora", js(pg, "localStorage.getItem('sim-web')") is None)
     pg.wait_for_timeout(2500)
     salvo = js(pg, "JSON.parse(localStorage.getItem('sim-web'))")
-    checa("grava 2 s depois da última mudança", campo(salvo, "v") == 1 and campo(salvo, "numeros", "real") == 60 and campo(salvo, "pcs", 2, "jaGasta") == 200
+    checa("grava 2 s depois da última mudança, com a hora dela", campo(salvo, "v") == 1 and campo(salvo, "t") == AGORA_MS
+          and campo(salvo, "numeros", "real") == 60 and campo(salvo, "pcs", 2, "jaGasta") == 200
           and campo(salvo, "sim", "opcoes", 0, "placas", 0, "modelo") == "rtx-5070", salvo)
     pg2 = abrir_web(p, estado=salvo)
     r = [valor(pg2, NUM % "real"), valor(pg2, PC % ("pc-i7", "jaGasta")), valor(pg2, A + '[data-campo="modelo"]'), valor(pg2, A + '[data-campo="qtd"]')]
@@ -366,23 +392,30 @@ def sem_armazenamento(p):
     checa("sem onde guardar: sem erros", not erros(pg), erros(pg)[:3])
 
 
-# o banco da página de mentira (a mesma interface de window.claude.use("db") e use("user")), que responde depois de 300 ms
-BANCO = """(() => { const B = window.__banco = {docs: %s, sets: 0, nulo: %s};
-  const copia = o => JSON.parse(JSON.stringify(o)), espera = () => new Promise(r => setTimeout(r, 300));
+# o banco da página de mentira (a mesma interface de window.claude.use("db") e use("user")); cada resposta demora ms
+BANCO = """(() => { const B = window.__banco = {docs: %s, sets: 0, nulo: %s, ms: %d};
+  const copia = o => JSON.parse(JSON.stringify(o)), espera = () => new Promise(r => setTimeout(r, B.ms));
   const db = {doc: path => ({path, id: path.split('/').pop(),
     get: async () => { await espera(); const d = B.docs[path]; return {id: path.split('/').pop(), exists: !!d, data: () => d ? copia(d) : undefined, metadata: {fromCache: false, hasPendingWrites: false}}; },
     set: async o => { await espera(); B.sets++; B.docs[path] = copia(o); }})};
   window.claude = {use: async n => { await espera(); return B.nulo ? null : n === 'db' ? db : n === 'user' ? {id: async () => 'u1'} : null; }};
 })();"""
 DOC = "data/users/u1/simulador"
+HORA = 3600 * 1000
+
+
+def banco_falso(docs, nulo=False, ms=300):
+    return BANCO % (json.dumps(docs), "true" if nulo else "false", ms)
 
 
 def banco(p):
-    no_banco = {"v": 1, "numeros": {"dolar": 5.42, "luz": 0.96, "horas": 24, "real": 61, "cdi": 13.65, "pctCdi": 120, "deprec": 25},
+    no_banco = {"v": 1, "t": AGORA_MS - HORA, "numeros": {"dolar": 5.42, "luz": 0.96, "horas": 24, "real": 61, "cdi": 13.65, "pctCdi": 120, "deprec": 25},
                 "pcs": [{"id": "pc-b", "nome": "Do banco", "fonteW": 750, "selo": "Gold", "jaGasta": 300}],
                 "sim": {"opcoes": [{"nome": "A", "placas": [{"modelo": "rtx-5060", "qtd": 3, "preco": 2500, "maq": "pc-b"}]}]}}
-    no_navegador = {**no_banco, "numeros": {**no_banco["numeros"], "real": 70}, "pcs": [{"id": "pc-n", "nome": "Do navegador", "fonteW": 500, "selo": "Bronze", "jaGasta": 0}]}
-    pg = abrir_web(p, estado=no_navegador, extra=BANCO % (json.dumps({DOC: no_banco}), "false"))
+    no_navegador = {**no_banco, "t": AGORA_MS - 2 * HORA, "numeros": {**no_banco["numeros"], "real": 70},
+                    "pcs": [{"id": "pc-n", "nome": "Do navegador", "fonteW": 500, "selo": "Bronze", "jaGasta": 0}]}
+    # o banco tem o mais novo: abre o do banco (PC e celular iguais)
+    pg = abrir_web(p, estado=no_navegador, extra=banco_falso({DOC: no_banco}))
     pg.wait_for_timeout(1200)
     if not existe(pg, NUM % "real"):
         return checa("banco da página: os campos de Seus números existem", False)
@@ -390,28 +423,54 @@ def banco(p):
     checa("banco da página: abre o que está guardado lá (PC e celular iguais)", r == ["61", ["Do banco"], "3"], r)
     checa("banco da página: diz que abre igual no PC e no celular", "abre igual no PC e no celular" in texto(pg, "#web-guardado"), texto(pg, "#web-guardado"))
     checa("banco da página: só abrir não grava", js(pg, "__banco.sets") == 0)
+    checa("banco da página: o navegador fica com o do banco", campo(js(pg, "JSON.parse(localStorage.getItem('sim-web'))"), "numeros", "real") == 61)
     pg.click(NUM % "real"); pg.keyboard.press("Control+A"); pg.keyboard.type("65")
     pg.wait_for_timeout(2800)
-    r = [js(pg, f"__banco.docs['{DOC}'].numeros.real"), js(pg, "__banco.sets")]
-    checa("banco da página: grava uma vez depois de digitar", r == [65, 1], r)
-    # mudou noutro aparelho: ao voltar para a página, ela pega o que está no banco
-    js(pg, f"__banco.docs['{DOC}'].numeros.real = 66; document.dispatchEvent(new Event('visibilitychange')); 1")
+    r = [js(pg, f"__banco.docs['{DOC}'].numeros.real"), js(pg, f"__banco.docs['{DOC}'].t"), js(pg, "__banco.sets")]
+    checa("banco da página: grava uma vez depois de digitar, com a hora", r == [65, AGORA_MS, 1], r)
+    # mudou noutro aparelho (mais novo): ao voltar para a página, ela pega o que está no banco, sem gravar de novo
+    js(pg, f"Object.assign(__banco.docs['{DOC}'], {{t: {AGORA_MS + 60000}}}); __banco.docs['{DOC}'].numeros.real = 66; document.dispatchEvent(new Event('visibilitychange')); 1")
     pg.wait_for_timeout(1000)
     checa("banco da página: ao voltar para a página, pega o que mudou noutro aparelho", valor(pg, NUM % "real") == "66" and js(pg, "numeros.real") == 66,
           [valor(pg, NUM % "real"), js(pg, "numeros.real")])
     checa("banco da página: pegar do banco não grava de novo", js(pg, "__banco.sets") == 1, js(pg, "__banco.sets"))
-    # mexeu antes de o banco responder: vale o que a pessoa fez, e vai para o banco
-    pg2 = abrir_web(p, estado=no_navegador, extra=BANCO % (json.dumps({DOC: no_banco}), "false"))
-    preenche(pg2, NUM % "real", "90")
-    pg2.wait_for_timeout(3000)
-    r = [valor(pg2, NUM % "real"), js(pg2, f"__banco.docs['{DOC}'].numeros.real")]
-    checa("banco da página: mexer antes de ele responder vale e vai para o banco", r == ["90", 90], r)
-    # sem o banco (fora do claude.ai): fica o do navegador
-    pg3 = abrir_web(p, estado=no_navegador, extra=BANCO % ("{}", "true"))
-    pg3.wait_for_timeout(800)
-    r = [valor(pg3, NUM % "real"), js(pg3, NOMES_PCS)]
-    checa("sem o banco: abre o deste navegador", r == ["70", ["Do navegador"]], r)
-    checa("banco da página: sem erros", not erros(pg) and not erros(pg2) and not erros(pg3), (erros(pg) + erros(pg2) + erros(pg3))[:3])
+    # o banco ficou para trás (uma gravação não chegou lá): ao voltar, a página manda o daqui, sem voltar atrás
+    js(pg, f"Object.assign(__banco.docs['{DOC}'], {{t: {AGORA_MS - HORA}}}); __banco.docs['{DOC}'].numeros.real = 50; document.dispatchEvent(new Event('visibilitychange')); 1")
+    pg.wait_for_timeout(1500)
+    r = [valor(pg, NUM % "real"), js(pg, f"__banco.docs['{DOC}'].numeros.real")]
+    checa("banco da página: banco mais velho ao voltar: fica o daqui e vai para o banco", r == ["66", 66], r)
+    # este navegador tem o mais novo ao abrir (a última gravação não chegou ao banco): fica o daqui e vai para o banco
+    pg2 = abrir_web(p, estado={**no_navegador, "t": AGORA_MS - 1000, "numeros": {**no_navegador["numeros"], "real": 99}}, extra=banco_falso({DOC: no_banco}))
+    pg2.wait_for_timeout(2000)
+    r = [valor(pg2, NUM % "real"), js(pg2, NOMES_PCS), js(pg2, f"__banco.docs['{DOC}'].numeros.real")]
+    checa("banco da página: o navegador mais novo que o banco: fica o daqui e vai para o banco", r == ["99", ["Do navegador"], 99], r)
+    # com uma cópia neste navegador, mexer antes de o banco responder vale e vai para o banco
+    pg3 = abrir_web(p, estado=no_navegador, extra=banco_falso({DOC: no_banco}, ms=500))
+    preenche(pg3, NUM % "real", "90")
+    pg3.wait_for_timeout(3000)
+    r = [valor(pg3, NUM % "real"), js(pg3, f"__banco.docs['{DOC}'].numeros.real")]
+    checa("banco da página: com cópia neste navegador, mexer antes de ele responder vale", r == ["90", 90], r)
+    # aparelho novo (nada neste navegador): mexer antes de o banco responder não apaga o que está guardado
+    pg4 = abrir_web(p, extra=banco_falso({DOC: no_banco}, ms=500))
+    preenche(pg4, NUM % "dolar", "6")
+    pg4.wait_for_timeout(2500)
+    r = [valor(pg4, NUM % "real"), js(pg4, NOMES_PCS), valor(pg4, A + '[data-campo="qtd"]'), js(pg4, f"__banco.docs['{DOC}'].pcs[0].nome"),
+         js(pg4, f"__banco.docs['{DOC}'].sim.opcoes[0].placas[0].qtd")]
+    checa("banco da página: aparelho novo, mexer antes de o banco responder não apaga o guardado", r == ["61", ["Do banco"], "3", "Do banco", 3], r)
+    checa("banco da página: e avisa que o que mudou antes ficou de fora", "ficou de fora" in texto(pg4, "#web-guardado"), texto(pg4, "#web-guardado"))
+    # enquanto o banco não responde, a página não deixa mexer (e diz por quê)
+    pg5 = abrir_web(p, estado=no_navegador, extra=banco_falso({DOC: no_banco}, ms=700))
+    r = [js(pg5, "document.querySelector('main.web').inert"), texto(pg5, "#web-guardado")]
+    checa("banco da página: abrindo, a página espera o banco", r[0] is True and "Abrindo" in r[1], r)
+    pg5.wait_for_timeout(2500)
+    checa("banco da página: com a resposta, dá para mexer", js(pg5, "document.querySelector('main.web').inert") is False and valor(pg5, NUM % "real") == "61")
+    # sem o banco (fora do claude.ai): fica o do navegador, sem esperar
+    pg6 = abrir_web(p, estado=no_navegador, extra=banco_falso({}, nulo=True))
+    pg6.wait_for_timeout(800)
+    r = [valor(pg6, NUM % "real"), js(pg6, NOMES_PCS), js(pg6, "document.querySelector('main.web').inert")]
+    checa("sem o banco: abre o deste navegador", r == ["70", ["Do navegador"], False], r)
+    pgs = [pg, pg2, pg3, pg4, pg5, pg6]
+    checa("banco da página: sem erros", not any(erros(x) for x in pgs), [e for x in pgs for e in erros(x)][:3])
 
 
 with sync_playwright() as p:
