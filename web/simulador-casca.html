@@ -112,18 +112,53 @@ body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(
 /* ---------- do painel: o catálogo, os preços da pesquisa, a curva da fonte e os formatos ---------- */
 /*@@PAINEL@@*/
 
-/* ---------- o que o simulador espera do painel, adaptado aos números e aos PCs desta página ---------- */
+/* ---------- o que o simulador espera do painel, adaptado aos números e aos PCs desta página ----------
+   No programa, os números vêm das Premissas, os PCs do Montar setup e a correção pelo real do app da Kryptex. Aqui a
+   pessoa digita tudo em "Seus números" e "Seus PCs"; o resto (as contas e a tela do simulador) é o do programa. */
 const NUMEROS_PADRAO = {dolar:5.42, luz:0.96, horas:24, real:74, cdi:13.65, pctCdi:120, deprec:25};
+const NUMEROS_LIMITES = {dolar:[0.5, 50], luz:[0, 10], horas:[0, 24], real:[20, 200], cdi:[0, 100], pctCdi:[0, 300], deprec:[0, 90]};
 const PCS_PADRAO = [
   {id:"pc-pessoal", nome:"PC pessoal", fonteW:1000, selo:"Platinum", jaGasta:360},
   {id:"pc-i5", nome:"PC extra (i5-13400)", fonteW:500, selo:"Bronze", jaGasta:0},
   {id:"pc-i7", nome:"PC extra (i7-8700)", fonteW:500, selo:"Bronze", jaGasta:0}];
+const PC_NOVO = {nome:"Outro PC", fonteW:650, selo:"Bronze", jaGasta:0};   /* o que vale num PC novo sem valor de antes */
 var numeros = {...NUMEROS_PADRAO}, pcs = PCS_PADRAO.map(p=>({...p}));
-function numerosOk(o){ return {...NUMEROS_PADRAO}; }
-function pcsOk(l){ return PCS_PADRAO.map(p=>({...p})); }
-var cfg = {dolar:5.42, tarifa:0.96, bandeira:0, horas:24, margem:0, cdi:13.65, pctCdi:120, deprec:25, cotacoes:{}, precosAtual:{}, historico:{}, sim:{}};
+/* um número digitado ou guardado: aceita vírgula; vazio, letras e o que não é número viram NaN */
+const numWeb = v => { if(typeof v==="number") return v; if(typeof v!=="string") return NaN; const t = v.trim().replace(",", "."); return t==="" ? NaN : Number(t); };
+/* os números arrumados: dentro dos limites; vazio ou inválido fica com o valor de antes */
+function numerosOk(o){
+  const r = {};
+  for(const [k, [a, b]] of Object.entries(NUMEROS_LIMITES)){
+    const v = numWeb(o && typeof o==="object" ? o[k] : undefined), antes = Number.isFinite(numeros[k]) ? numeros[k] : NUMEROS_PADRAO[k];
+    r[k] = Number.isFinite(v) ? Math.min(b, Math.max(a, v)) : antes;
+  }
+  return r;
+}
+/* os PCs arrumados: nome de até 40 letras, fonte de 100 a 5000 W, o selo da lista, o que já gasta de 0 a 5000 W (0 =
+   desligado); inválido fica com o valor de antes. Sem lista, a de antes; ids repetidos ou "novo" (o Um PC novo) saem */
+function pcsOk(l){
+  if(!Array.isArray(l)) return pcs.map(p=>({...p}));
+  const vistos = new Set(), r = [];
+  for(const x of l){
+    if(!x || typeof x!=="object" || typeof x.id!=="string" || !x.id || x.id==="novo" || vistos.has(x.id)) continue;
+    vistos.add(x.id);
+    const antes = pcs.find(p=>p.id===x.id) || PC_NOVO, nome = typeof x.nome==="string" ? x.nome.trim().slice(0, 40) : "";
+    const fw = numWeb(x.fonteW), ja = numWeb(x.jaGasta);
+    r.push({id:x.id, nome: nome || antes.nome, fonteW: Number.isFinite(fw) ? Math.min(5000, Math.max(100, Math.round(fw))) : antes.fonteW,
+      selo: Object.prototype.hasOwnProperty.call(SELOS, x.selo) ? x.selo : antes.selo,
+      jaGasta: Number.isFinite(ja) ? Math.min(5000, Math.max(0, Math.round(ja))) : antes.jaGasta});
+  }
+  return r;
+}
+/* o que o simulador lê das Premissas. A luz digitada já tem a bandeira; a margem de segurança não entra, porque a correção
+   pelo real fica no lugar dela (como no programa com a leitura do app da Kryptex) */
+var cfg = {dolar:0, tarifa:0, bandeira:0, horas:24, margem:0, cdi:0, pctCdi:0, deprec:0, cotacoes:{}, precosAtual:{}, historico:{}, sim:{}};
 var kxaSnap = null;
-function aplicarNumeros(){}
+function aplicarNumeros(){
+  Object.assign(cfg, {dolar:numeros.dolar, tarifa:numeros.luz, bandeira:0, horas:numeros.horas, margem:0, cdi:numeros.cdi, pctCdi:numeros.pctCdi, deprec:numeros.deprec});
+  kxaSnap = {v:1, fatorKx:numeros.real/100, placas:[]};   /* a correção pelo real: o rendimento real digitado */
+}
+aplicarNumeros();
 var anuncios = [];
 const PODE_KXA = () => false;
 var kxa = {leitura:null};
@@ -131,9 +166,25 @@ const nomePlaca = p => p && p.nome || "a placa";
 const acharModelo = () => null;
 const dados = c => c;
 function maqBase(o){ return {...o}; }
-function maqsReais(){ return pcs.map(p=>({...p})); }
-function deprecModelo(id){ return {d:0.25, fonte:"premissa", dias:0}; }
-function calcMaq(m, o){ return {gpus:[], n:0, dc:0, carga:0, ef:1, tomada:0, kwh:0, luz:0, brutoGpu:0, bruto:0, ligada:false, fonte:{w:m.fonteW, selo:m.selo}}; }
+function maqsReais(){ return pcs.map(p=>({id:p.id, nome:p.nome, fonteW:p.fonteW, selo:p.selo, jaGasta:p.jaGasta})); }
+function deprecModelo(id){ return {d: Math.min(0.9, Math.max(0, (+cfg.deprec||0)/100)), fonte:"premissa", dias:0}; }
+/* um PC com as placas a mais (o.extra), pelas contas do Montar setup do programa: ligado (gasta mais de 0 W hoje) soma as
+   placas ao que já gasta; desligado passa a gastar as placas, o resto do PC (30 W) e o processador parado. A luz passa
+   pela eficiência da fonte (selo e carga, tomada de 220 V). O ganho bruto é só o das placas a mais: o simulador usa a
+   diferença com e sem elas, e as que o PC já tem saem na conta */
+function calcMaq(m, o={}){
+  const horas = o.horas ?? cfg.horas, tar = cfg.tarifa + (+cfg.bandeira||0), gp = (o.extra||[]).slice();
+  let n = 0, wGpu = 0, recGpu = 0;
+  for(const g of gp){ const d = dados(g.c); n += g.q; wGpu += d.w*g.q; recGpu += d.rec*g.q; }
+  const ja = Math.max(0, +m.jaGasta||0), ligada = ja > 0 || n > 0, f = {w:+m.fonteW||0, selo:m.selo};
+  const dc = ligada ? (ja > 0 ? ja : Math.max(0, +(m.base ?? 30)) + CPU_PARADO) + wGpu : 0;
+  const carga = f.w>0 ? dc/f.w : (dc>0 ? 9 : 0);
+  const ef = ligada ? eficiencia(f.selo, carga, 220) : 1;
+  const tomada = dc/ef, kwh = tomada*horas*30/1000, luz = kwh*tar;
+  const fator = 30/365*(1-cfg.margem/100)*cfg.dolar*(horas/24);
+  const brutoGpu = ligada ? recGpu*fator : 0;
+  return {gpus:gp, n, wGpu, dc, carga, ef, tomada, kwh, luz, brutoGpu, bruto:brutoGpu, ligada, fonte:f};
+}
 function gravarCfg(){}
 
 /* ---------- o simulador do painel ---------- */
