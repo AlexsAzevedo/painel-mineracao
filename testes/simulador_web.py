@@ -235,8 +235,193 @@ def paridade(p):
     checa("sem erros na comparação", not erros(pg), erros(pg)[:3])
 
 
+NUM = '#web-numeros [data-num="%s"]'
+PC = '#web-pcs [data-pc="%s"][data-campo="%s"]'
+A = '.sim-op[data-op="A"] '
+NOMES_PCS = "[...document.querySelectorAll('#web-pcs [data-campo=nome]')].map(i => i.value)"
+
+
+def lista_pcs(pg, L="A"):
+    """os nomes da lista "Em qual PC" da primeira placa da opção L"""
+    return js(pg, "[...document.querySelectorAll('.sim-op[data-op=\"%s\"] [data-campo=\"maq\"] option')].map(o => o.textContent)" % L)
+
+
+def montar_a(pg, modelo="rtx-5070", qtd="2"):
+    escolhe(pg, A + '[data-campo="modelo"]', modelo)
+    preenche(pg, A + '[data-campo="qtd"]', qtd)
+
+
+def tela(p):
+    pg = abrir_web(p)
+    checa("cabeçalho da página, sem o título da tela do programa", texto(pg, ".web-topo h1") == "Simulador de placas" and visivel(pg, ".web-topo h1")
+          and not visivel(pg, "#v-sim > .vh"))
+    vals = [valor(pg, NUM % k) for k in ("dolar", "luz", "horas", "real", "cdi", "pctCdi", "deprec")]
+    checa("Seus números com os valores iniciais", vals == ["5,42", "0,96", "24", "74", "13,65", "120", "25"], vals)
+    nomes = js(pg, NOMES_PCS)
+    checa("Seus PCs com os 3 PCs", nomes == ["PC pessoal", "PC extra (i5-13400)", "PC extra (i7-8700)"], nomes)
+    r = [valor(pg, PC % ("pc-pessoal", c)) for c in ("fonteW", "selo", "jaGasta")]
+    checa("o PC pessoal: 1000 W Platinum, 360 W hoje", r == ["1000", "Platinum", "360"], r)
+    checa("a dica do PC desligado", "0 W = desligado" in texto(pg, "#web-pcs"))
+    checa("Em qual PC: os 3 PCs e Um PC novo", lista_pcs(pg) == nomes + ["Um PC novo"], lista_pcs(pg))
+    montar_a(pg)
+    res0 = texto(pg, A + ".sim-res")
+    checa("a opção A faz a conta", "Lucro da mineração no 1º mês" in res0, res0[:200])
+    b0, l0 = js(pg, "simularTudo().ops[0].bruto1"), js(pg, "simularTudo().ops[0].min.luz")
+    preenche(pg, NUM % "real", "50")
+    checa("rendimento real 50%: o ganho cai para 50/74", perto(js(pg, "simularTudo().ops[0].bruto1"), b0 * 50 / 74, 1e-9) and "50%" in texto(pg, "#sim-fator"),
+          [b0, js(pg, "simularTudo().ops[0].bruto1"), texto(pg, "#sim-fator")])
+    preenche(pg, NUM % "luz", "1,2")
+    checa("luz a R$ 1,20: a luz sobe 1,2/0,96", perto(js(pg, "simularTudo().ops[0].min.luz"), l0 * 1.2 / 0.96, 1e-9))
+    checa("o resultado na tela acompanha os números", texto(pg, A + ".sim-res") != res0)
+    # números e PCs estranhos: ao sair do campo, ele mostra o valor que vale
+    preenche(pg, NUM % "dolar", "abc")
+    preenche(pg, PC % ("pc-i5", "fonteW"), "")
+    preenche(pg, PC % ("pc-i5", "jaGasta"), "-20")
+    r = [valor(pg, NUM % "dolar"), valor(pg, PC % ("pc-i5", "fonteW")), valor(pg, PC % ("pc-i5", "jaGasta"))]
+    checa("campo com letras, vazio ou negativo: mostra o valor que vale", r == ["5,42", "500", "0"], r)
+    preenche(pg, PC % ("pc-pessoal", "nome"), "Gamer")
+    checa("PC renomeado: o nome novo na lista da opção", "Gamer" in lista_pcs(pg) and valor(pg, A + '[data-campo="maq"]') == "pc-pessoal", lista_pcs(pg))
+    clica(pg, '[data-pc-del="pc-pessoal"]')
+    av = texto(pg, A + ".sim-avisos")
+    checa("PC removido: a opção avisa e usa Um PC novo", "não existe mais em Seus PCs" in av and valor(pg, A + '[data-campo="maq"]') == "novo"
+          and js(pg, NOMES_PCS) == ["PC extra (i5-13400)", "PC extra (i7-8700)"], av)
+    clica(pg, "#web-pc-add")
+    nomes = js(pg, NOMES_PCS)
+    checa("+ PC: uma linha nova, na lista da opção, com o cursor no nome", len(nomes) == 3 and nomes[-1] in lista_pcs(pg)
+          and js(pg, "document.activeElement.dataset.campo") == "nome", [nomes, lista_pcs(pg)])
+    t = js(pg, "document.body.innerText")
+    checa("sem NaN, Infinity nem undefined", not any(x in t for x in ("NaN", "Infinity", "undefined")))
+    checa("guardado só neste navegador (sem o banco da página)", "só neste navegador" in texto(pg, "#web-guardado"), texto(pg, "#web-guardado"))
+    checa("sem erros na tela", not erros(pg), erros(pg)[:3])
+
+
+def foco_real(p):
+    """Com cliques e teclas de verdade: depois de digitar num campo, o clique ou o Tab seguinte chega aonde a pessoa quis."""
+    pg = abrir_web(p)
+    if not (existe(pg, NUM % "dolar") and existe(pg, PC % ("pc-i5", "jaGasta"))):
+        return checa("foco de verdade: os campos de Seus números e Seus PCs existem", False)
+    pg.click(NUM % "dolar"); pg.keyboard.press("Control+A"); pg.keyboard.type("5,6")
+    pg.click(NUM % "luz")
+    r = [js(pg, "document.activeElement.dataset.num"), js(pg, "numeros.dolar"), valor(pg, NUM % "dolar")]
+    checa("dólar com vírgula e clique na luz: o foco vai para a luz", r == ["luz", 5.6, "5,6"], r)
+    pg.keyboard.press("Control+A"); pg.keyboard.type("-3"); pg.keyboard.press("Tab")
+    r = [valor(pg, NUM % "luz"), js(pg, "numeros.luz"), js(pg, "document.activeElement.dataset.num")]
+    checa("luz negativa e Tab: o campo mostra 0 e o foco segue", r == ["0", 0, "horas"], r)
+    pg.click(PC % ("pc-i5", "jaGasta")); pg.keyboard.press("Control+A"); pg.keyboard.type("120")
+    pg.click(A + '[data-campo="modelo"]')
+    r = [js(pg, "document.activeElement.matches('.sim-op[data-op=\"A\"] [data-campo=\"modelo\"]')"), js(pg, "pcs[1].jaGasta")]
+    checa("já gasta e clique na placa da opção A: o foco vai para a placa", r == [True, 120], r)
+    pg.keyboard.press("Escape")
+    pg.click(PC % ("pc-i7", "nome")); pg.keyboard.press("Control+A"); pg.keyboard.type("Rig da garagem")
+    pg.click(NUM % "real")
+    r = [js(pg, "document.activeElement.dataset.num"), lista_pcs(pg)[2]]
+    checa("nome do PC e clique noutro campo: o foco vai para ele, com o nome na lista", r == ["real", "Rig da garagem"], r)
+    checa("sem erros (foco de verdade)", not erros(pg), erros(pg)[:3])
+
+
+def guardar(p):
+    pg = abrir_web(p)
+    montar_a(pg)
+    preenche(pg, NUM % "real", "60")
+    preenche(pg, PC % ("pc-i7", "jaGasta"), "200")
+    checa("mexer não grava na hora", js(pg, "localStorage.getItem('sim-web')") is None)
+    pg.wait_for_timeout(2500)
+    salvo = js(pg, "JSON.parse(localStorage.getItem('sim-web'))")
+    checa("grava 2 s depois da última mudança", campo(salvo, "v") == 1 and campo(salvo, "numeros", "real") == 60 and campo(salvo, "pcs", 2, "jaGasta") == 200
+          and campo(salvo, "sim", "opcoes", 0, "placas", 0, "modelo") == "rtx-5070", salvo)
+    pg2 = abrir_web(p, estado=salvo)
+    r = [valor(pg2, NUM % "real"), valor(pg2, PC % ("pc-i7", "jaGasta")), valor(pg2, A + '[data-campo="modelo"]'), valor(pg2, A + '[data-campo="qtd"]')]
+    checa("abre de novo igual", r == ["60", "200", "rtx-5070", "2"], r)
+    checa("e com a mesma conta", perto(js(pg2, "simularTudo().ops[0].bruto1"), js(pg, "simularTudo().ops[0].bruto1"), 1e-9))
+    # esconder a página grava já o que esperava
+    preenche(pg2, PC % ("pc-pessoal", "nome"), "Gamer")
+    preenche(pg2, NUM % "horas", "20")
+    pg2.evaluate("Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true}); document.dispatchEvent(new Event('visibilitychange'))")
+    salvo = js(pg2, "JSON.parse(localStorage.getItem('sim-web'))")
+    checa("esconder a página grava na hora", campo(salvo, "pcs", 0, "nome") == "Gamer" and campo(salvo, "numeros", "horas") == 20, salvo)
+    checa("sem erros (guardar)", not erros(pg) and not erros(pg2), (erros(pg) + erros(pg2))[:3])
+
+
+def celular(p):
+    pg = abrir_web(p, largura=390, altura=844)
+    montar_a(pg)
+    clica(pg, "[data-sim='add-op']")
+    caixas = js(pg, "['#web-numeros', '#web-pcs', '.sim-op[data-op=\"A\"]', '.sim-op[data-op=\"B\"]'].map(s => { const e = document.querySelector(s); if(!e) return null; const r = e.getBoundingClientRect(); return [r.left, r.right, r.top, r.bottom]; })")
+    checa("celular: Seus números, Seus PCs e as opções uma embaixo da outra", isinstance(caixas, list) and all(caixas)
+          and all(c[0] >= 0 and c[1] <= 390 for c in caixas) and all(caixas[i + 1][2] >= caixas[i][3] for i in range(3)), caixas)
+    checa("celular: sem rolagem para o lado", js(pg, "document.documentElement.scrollWidth <= innerWidth"), js(pg, "document.documentElement.scrollWidth"))
+    altos = js(pg, "[...document.querySelectorAll('#web-numeros input, #web-pcs input, #web-pcs select, #web-pcs button')].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height))")
+    checa("celular: campos e botões com 44 px de altura", altos and min(altos) >= 44, altos)
+    checa("sem erros (celular)", not erros(pg), erros(pg)[:3])
+
+
+def sem_armazenamento(p):
+    pg = abrir_web(p, sem_storage=True)
+    checa("sem onde guardar: abre com os valores iniciais", valor(pg, NUM % "dolar") == "5,42" and len(js(pg, NOMES_PCS)) == 3)
+    montar_a(pg)
+    preenche(pg, NUM % "real", "80")
+    pg.wait_for_timeout(2500)
+    checa("sem onde guardar: a conta funciona", "Lucro da mineração no 1º mês" in texto(pg, A + ".sim-res") and "80%" in texto(pg, "#sim-fator"))
+    checa("sem onde guardar: avisa que vale até fechar", "não deixa guardar" in texto(pg, "#web-guardado"), texto(pg, "#web-guardado"))
+    checa("sem onde guardar: sem erros", not erros(pg), erros(pg)[:3])
+
+
+# o banco da página de mentira (a mesma interface de window.claude.use("db") e use("user")), que responde depois de 300 ms
+BANCO = """(() => { const B = window.__banco = {docs: %s, sets: 0, nulo: %s};
+  const copia = o => JSON.parse(JSON.stringify(o)), espera = () => new Promise(r => setTimeout(r, 300));
+  const db = {doc: path => ({path, id: path.split('/').pop(),
+    get: async () => { await espera(); const d = B.docs[path]; return {id: path.split('/').pop(), exists: !!d, data: () => d ? copia(d) : undefined, metadata: {fromCache: false, hasPendingWrites: false}}; },
+    set: async o => { await espera(); B.sets++; B.docs[path] = copia(o); }})};
+  window.claude = {use: async n => { await espera(); return B.nulo ? null : n === 'db' ? db : n === 'user' ? {id: async () => 'u1'} : null; }};
+})();"""
+DOC = "data/users/u1/simulador"
+
+
+def banco(p):
+    no_banco = {"v": 1, "numeros": {"dolar": 5.42, "luz": 0.96, "horas": 24, "real": 61, "cdi": 13.65, "pctCdi": 120, "deprec": 25},
+                "pcs": [{"id": "pc-b", "nome": "Do banco", "fonteW": 750, "selo": "Gold", "jaGasta": 300}],
+                "sim": {"opcoes": [{"nome": "A", "placas": [{"modelo": "rtx-5060", "qtd": 3, "preco": 2500, "maq": "pc-b"}]}]}}
+    no_navegador = {**no_banco, "numeros": {**no_banco["numeros"], "real": 70}, "pcs": [{"id": "pc-n", "nome": "Do navegador", "fonteW": 500, "selo": "Bronze", "jaGasta": 0}]}
+    pg = abrir_web(p, estado=no_navegador, extra=BANCO % (json.dumps({DOC: no_banco}), "false"))
+    pg.wait_for_timeout(1200)
+    if not existe(pg, NUM % "real"):
+        return checa("banco da página: os campos de Seus números existem", False)
+    r = [valor(pg, NUM % "real"), js(pg, NOMES_PCS), valor(pg, A + '[data-campo="qtd"]')]
+    checa("banco da página: abre o que está guardado lá (PC e celular iguais)", r == ["61", ["Do banco"], "3"], r)
+    checa("banco da página: diz que abre igual no PC e no celular", "abre igual no PC e no celular" in texto(pg, "#web-guardado"), texto(pg, "#web-guardado"))
+    checa("banco da página: só abrir não grava", js(pg, "__banco.sets") == 0)
+    pg.click(NUM % "real"); pg.keyboard.press("Control+A"); pg.keyboard.type("65")
+    pg.wait_for_timeout(2800)
+    r = [js(pg, f"__banco.docs['{DOC}'].numeros.real"), js(pg, "__banco.sets")]
+    checa("banco da página: grava uma vez depois de digitar", r == [65, 1], r)
+    # mudou noutro aparelho: ao voltar para a página, ela pega o que está no banco
+    js(pg, f"__banco.docs['{DOC}'].numeros.real = 66; document.dispatchEvent(new Event('visibilitychange')); 1")
+    pg.wait_for_timeout(1000)
+    checa("banco da página: ao voltar para a página, pega o que mudou noutro aparelho", valor(pg, NUM % "real") == "66" and js(pg, "numeros.real") == 66,
+          [valor(pg, NUM % "real"), js(pg, "numeros.real")])
+    checa("banco da página: pegar do banco não grava de novo", js(pg, "__banco.sets") == 1, js(pg, "__banco.sets"))
+    # mexeu antes de o banco responder: vale o que a pessoa fez, e vai para o banco
+    pg2 = abrir_web(p, estado=no_navegador, extra=BANCO % (json.dumps({DOC: no_banco}), "false"))
+    preenche(pg2, NUM % "real", "90")
+    pg2.wait_for_timeout(3000)
+    r = [valor(pg2, NUM % "real"), js(pg2, f"__banco.docs['{DOC}'].numeros.real")]
+    checa("banco da página: mexer antes de ele responder vale e vai para o banco", r == ["90", 90], r)
+    # sem o banco (fora do claude.ai): fica o do navegador
+    pg3 = abrir_web(p, estado=no_navegador, extra=BANCO % ("{}", "true"))
+    pg3.wait_for_timeout(800)
+    r = [valor(pg3, NUM % "real"), js(pg3, NOMES_PCS)]
+    checa("sem o banco: abre o deste navegador", r == ["70", ["Do navegador"]], r)
+    checa("banco da página: sem erros", not erros(pg) and not erros(pg2) and not erros(pg3), (erros(pg) + erros(pg2) + erros(pg3))[:3])
+
+
 with sync_playwright() as p:
     gerar(p)
     contas(p)
     paridade(p)
+    tela(p)
+    foco_real(p)
+    guardar(p)
+    celular(p)
+    sem_armazenamento(p)
+    banco(p)
 fim()

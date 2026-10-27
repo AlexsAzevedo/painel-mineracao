@@ -99,12 +99,63 @@ details.saiba > :not(summary){margin-bottom:14px}
 
 /* só da página */
 body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px))}
+main.web > .view + .view{margin-top:20px}   /* em bloco, não flex: a .view com margem automática ocupa a largura toda */
+.web-topo h1{font-size:clamp(1.6rem,2.6vw,2.05rem);font-weight:700}
+.web-topo .sub{max-width:76ch}
+.web-topo .nota-mini{margin-top:6px}
+.painel > .sub{margin:0}
+#v-sim > .vh{display:none}   /* o título é o da página */
+/* Seus números: os rótulos, os campos e as dicas alinhados por linha, mesmo quando um rótulo quebra */
+.web-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 16px}
+.web-nums > label{display:grid;grid-row:span 3;grid-template-rows:subgrid;min-width:0;margin-bottom:10px}
+.web-nums .lbl{align-self:end}
+/* Seus PCs: uma linha por PC */
+.web-pcs-l{display:flex;flex-direction:column;gap:12px}
+.web-pc{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) 40px;grid-template-areas:"nome fonte selo ja del";gap:8px 12px;align-items:end}
+.web-pc + .web-pc{border-top:1px solid var(--line);padding-top:12px}
+.web-pc label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.web-pc-nome{grid-area:nome}.web-pc-fonte{grid-area:fonte}.web-pc-selo{grid-area:selo}.web-pc-ja{grid-area:ja}
+.web-pc-del{grid-area:del;min-height:40px;padding:4px;font-size:1.2rem;line-height:1}
+@media (max-width:899px){
+  body{padding-top:16px}
+  main.web > .view + .view{margin-top:14px}
+  .web-nums{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
+  .web-dados input,.web-dados select{min-height:44px}
+  .web-pc{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;grid-template-areas:"nome nome del" "fonte selo selo" "ja ja ja"}
+  .web-pc-del{min-height:44px;min-width:44px}
+  #web-pc-add{min-height:44px}
+}
 </style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&family=JetBrains+Mono:wght@400&display=swap">
 
 <main class="web">
+  <div class="view web-dados">
+    <header class="web-topo">
+      <h1>Simulador de placas</h1>
+      <p class="sub">Quanto as placas rendem, quanto custam e quando se pagam, à vista, no cartão ou com empréstimo, com os seus números e os seus PCs. As contas são as do Simulador do Painel de Mineração.</p>
+      <p class="nota-mini" id="web-guardado" role="status" aria-live="polite"></p>
+    </header>
+    <section class="painel" id="web-numeros" aria-labelledby="t-web-num">
+      <div class="painel-h"><h2 id="t-web-num">Seus números</h2></div>
+      <div class="web-nums">
+        <label><span class="lbl">Dólar (R$)</span><input type="text" inputmode="decimal" autocomplete="off" data-num="dolar"><span class="hint">Converte o ganho em dólar</span></label>
+        <label><span class="lbl">Luz (R$ por kWh)</span><input type="text" inputmode="decimal" autocomplete="off" data-num="luz"><span class="hint">Com a bandeira e os impostos</span></label>
+        <label><span class="lbl">Horas por dia</span><input type="text" inputmode="decimal" autocomplete="off" data-num="horas"><span class="hint">24 = ligado direto</span></label>
+        <label><span class="lbl">Rendimento real (%)</span><input type="text" inputmode="decimal" autocomplete="off" data-num="real"><span class="hint">Da estimativa da Kryptex</span></label>
+        <label><span class="lbl">CDI (% ao ano)</span><input type="text" inputmode="decimal" autocomplete="off" data-num="cdi"><span class="hint">Para o dinheiro na conta</span></label>
+        <label><span class="lbl">% do CDI</span><input type="text" inputmode="decimal" autocomplete="off" data-num="pctCdi"><span class="hint">O que a sua conta rende</span></label>
+        <label><span class="lbl">Desvalorização (% ao ano)</span><input type="text" inputmode="decimal" autocomplete="off" data-num="deprec"><span class="hint">Das placas, para a revenda</span></label>
+      </div>
+    </section>
+    <section class="painel" id="web-pcs" aria-labelledby="t-web-pcs">
+      <div class="painel-h"><h2 id="t-web-pcs">Seus PCs</h2></div>
+      <p class="sub">Em "Já gasta hoje", os watts das placas, do processador e do resto do PC (a perda da fonte entra na conta). 0 W = desligado: com placas novas, ele passa a gastar elas e mais 40 W.</p>
+      <div class="web-pcs-l" id="web-pcs-l"></div>
+      <div><button type="button" class="link" id="web-pc-add">+ PC</button></div>
+    </section>
+  </div>
 <!--@@TELA@@-->
 </main>
 
@@ -185,12 +236,190 @@ function calcMaq(m, o={}){
   const brutoGpu = ligada ? recGpu*fator : 0;
   return {gpus:gp, n, wGpu, dc, carga, ef, tomada, kwh, luz, brutoGpu, bruto:brutoGpu, ligada, fonte:f};
 }
-function gravarCfg(){}
+/* o simulador grava a configuração dele por aqui: a página guarda tudo junto (salvarEstado, mais abaixo) */
+function gravarCfg(){ salvarEstado(); }
 
 /* ---------- o simulador do painel ---------- */
 /*@@SIMULADOR@@*/
 
+/* ---------- a página: Seus números, Seus PCs e guardar ---------- */
+SIM_GRAVA = 2e3;   /* aqui não há o limite de mensagens entre o PC e o celular: grava 2 s depois da última mudança */
+/* o aviso de PC que sumiu fala do lugar onde ficam os PCs: no programa é o Montar setup; aqui, Seus PCs */
+const simularOpcaoDoPainel = simularOpcao;
+simularOpcao = function(){
+  const r = simularOpcaoDoPainel.apply(this, arguments);
+  for(const a of r.avisos) a.t = a.t.replace("em Montar setup", "em Seus PCs");
+  return r;
+};
+
+const fmtNum = v => String(v).replace(".", ",");
+function mostrarNumeros(){ for(const i of document.querySelectorAll("#web-numeros [data-num]")) i.value = fmtNum(numeros[i.dataset.num]); }
+const novoIdPc = () => "pc-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function nomeLivre(){ for(let n=1; ; n++){ const nome = n>1 ? `${PC_NOVO.nome} ${n}` : PC_NOVO.nome; if(!pcs.some(p=>p.nome===nome)) return nome; } }
+function htmlPc(p){
+  const id = esc(p.id), at = c => `data-pc="${id}" data-campo="${c}"`;
+  return `<div class="web-pc">
+    <label class="web-pc-nome"><span class="lbl">Nome</span><input type="text" maxlength="40" autocomplete="off" ${at("nome")} value="${esc(p.nome)}"></label>
+    <label class="web-pc-fonte"><span class="lbl">Fonte (W)</span><input type="number" min="100" max="5000" step="50" inputmode="numeric" ${at("fonteW")} value="${p.fonteW}"></label>
+    <label class="web-pc-selo"><span class="lbl">Selo da fonte</span><select ${at("selo")}>${Object.keys(SELOS).map(s=>`<option value="${esc(s)}"${s===p.selo ? " selected" : ""}>${esc(s)}</option>`).join("")}</select></label>
+    <label class="web-pc-ja"><span class="lbl">Já gasta hoje (W)</span><input type="number" min="0" max="5000" step="10" inputmode="numeric" ${at("jaGasta")} value="${p.jaGasta}"></label>
+    <button type="button" class="ghost web-pc-del" data-pc-del="${id}" aria-label="Remover ${esc(p.nome)}" title="Remover este PC">×</button>
+  </div>`;
+}
+/* a lista de PCs (só quando muda o que ela tem: digitar num campo não monta a lista de novo) */
+function renderPcs(){
+  const a = document.activeElement, k = a && $("web-pcs").contains(a) && a.dataset.pc ? [a.dataset.pc, a.dataset.campo] : null;
+  $("web-pcs-l").innerHTML = pcs.length ? pcs.map(htmlPc).join("") : `<p class="nota-mini">Nenhum PC: as placas vão para Um PC novo.</p>`;
+  const e = k && document.querySelector(`#web-pcs [data-pc="${CSS.escape(k[0])}"][data-campo="${CSS.escape(k[1] || "")}"]`);
+  if(e) e.focus({preventScroll:true});
+}
+
+/* digitar muda a conta na hora; sair do campo só arruma o que ele mostra (o valor que vale), sem montar a tela de novo:
+   o clique seguinte chega aonde a pessoa clicou */
+$("web-numeros").addEventListener("input", e=>{
+  const el = e.target.closest("[data-num]"); if(!el) return;
+  numeros = numerosOk({...numeros, [el.dataset.num]: el.value});
+  aplicarNumeros(); renderSimRes(); agendarSalvar();
+});
+$("web-numeros").addEventListener("change", e=>{ const el = e.target.closest("[data-num]"); if(el) el.value = fmtNum(numeros[el.dataset.num]); });
+$("web-pcs").addEventListener("input", e=>{
+  const el = e.target.closest("[data-campo]"); if(!el) return;
+  const id = el.dataset.pc, c = el.dataset.campo;
+  pcs = pcsOk(pcs.map(p=>p.id===id ? {...p, [c]: el.value} : p));
+  const p = pcs.find(x=>x.id===id), b = el.closest(".web-pc") && el.closest(".web-pc").querySelector("[data-pc-del]");
+  if(c==="nome" && p && b) b.setAttribute("aria-label", "Remover " + p.nome);
+  renderSim(); agendarSalvar();
+});
+$("web-pcs").addEventListener("change", e=>{
+  const el = e.target.closest("[data-campo]"); if(!el) return;
+  const p = pcs.find(x=>x.id===el.dataset.pc); if(p) el.value = String(p[el.dataset.campo]);
+});
+$("web-pcs").addEventListener("click", e=>{
+  const del = e.target.closest("[data-pc-del]");
+  if(del){
+    const i = pcs.findIndex(p=>p.id===del.dataset.pcDel); if(i<0) return;
+    pcs = pcs.filter((p, j)=>j!==i);
+    renderPcs(); renderSim(); agendarSalvar();
+    const outro = pcs[Math.min(i, pcs.length-1)];
+    (outro && document.querySelector(`[data-pc-del="${CSS.escape(outro.id)}"]`) || $("web-pc-add")).focus();
+    return;
+  }
+  if(e.target.closest("#web-pc-add")){
+    const novo = {...PC_NOVO, id:novoIdPc(), nome:nomeLivre()};
+    pcs = pcsOk([...pcs, novo]);
+    renderPcs(); renderSim(); agendarSalvar();
+    const i = document.querySelector(`#web-pcs [data-pc="${CSS.escape(novo.id)}"][data-campo="nome"]`);
+    if(i){ i.focus(); i.select(); }
+  }
+});
+
+/* guardar: {v, numeros, pcs, sim} no banco da página (no claude.ai: o mesmo no PC e no celular) e neste navegador (a
+   reserva, e o que aparece na hora ao abrir). Grava 2 s depois da última mudança e já ao esconder a página */
+var estadoT = null;
+const estadoJson = () => JSON.stringify({v:1, numeros, pcs, sim: cfg.sim && typeof cfg.sim==="object" ? cfg.sim : {}});
+function estadoOk(e){
+  e = e && typeof e==="object" ? e : {};
+  return {numeros: numerosOk(e.numeros), pcs: Array.isArray(e.pcs) ? pcsOk(e.pcs) : PCS_PADRAO.map(p=>({...p})),
+    sim: e.sim && typeof e.sim==="object" && !Array.isArray(e.sim) ? JSON.parse(JSON.stringify(e.sim)) : {}};
+}
+function aplicarEstado(st){
+  numeros = st.numeros; pcs = st.pcs; cfg.sim = st.sim;
+  aplicarNumeros(); mostrarNumeros(); renderPcs(); renderSim(true);
+}
+function lerLocal(){ try{ return JSON.parse(localStorage.getItem("sim-web") || "null"); }catch(e){ return null; } }
+function gravarLocal(json){ try{ localStorage.setItem("sim-web", json); return true; }catch(e){ return false; } }
+function podeLocal(){ try{ localStorage.setItem("sim-web-teste", "1"); localStorage.removeItem("sim-web-teste"); return true; }catch(e){ return false; } }
+function agendarSalvar(){ clearTimeout(estadoT); estadoT = setTimeout(salvarEstado, SIM_GRAVA); }
+async function salvarEstado(){
+  clearTimeout(estadoT); estadoT = null;
+  gravarLocal(estadoJson());
+  await gravarNoBanco();
+}
+/* o banco da página: um documento só desta pessoa (data/users/<id>). Fora do claude.ai, ou sem o banco, fica null */
+let refBanco = null;
+function refEstado(){
+  if(!refBanco) refBanco = (async () => {
+    try{
+      const c = window.claude;
+      if(!c || typeof c.use!=="function") return null;
+      const [db, user] = await Promise.all([c.use("db"), c.use("user")]);
+      if(!db || !user) return null;
+      const uid = await user.id();
+      return uid ? db.doc("data/users/" + uid + "/simulador") : null;
+    }catch(e){ return null; }
+  })();
+  return refBanco;
+}
+const BANCO_FORA = ["revoked", "not_granted", "capability_disabled", "capability_removed", "invalid_argument", "transform_error"];
+function bancoFora(){ refBanco = Promise.resolve(null); mostrarGuardado(); }
+const esperaMs = ms => new Promise(r=>setTimeout(r, ms));
+/* uma gravação de cada vez, e só quando o estado mudou desde a última que o banco tem */
+let gravandoBanco = null, deNovoBanco = false, ultimoNoBanco = null;
+function gravarNoBanco(){
+  if(gravandoBanco){ deNovoBanco = true; return gravandoBanco; }
+  gravandoBanco = (async () => {
+    try{
+      do{
+        deNovoBanco = false;
+        const ref = await refEstado(); if(!ref) return;
+        const json = estadoJson(); if(json===ultimoNoBanco) continue;
+        for(let vez = 0; vez < 2; vez++){
+          try{ await ref.set(JSON.parse(json)); ultimoNoBanco = json; break; }
+          catch(e){
+            const c = e && e.code;
+            if(BANCO_FORA.includes(c)){ bancoFora(); return; }
+            if(c==="resource_exhausted" || c==="quota_exceeded" || vez) break;   /* fica para a próxima mudança */
+            await esperaMs(400 + Math.random()*800);   /* unavailable (ou um código desconhecido): mais uma vez */
+          }
+        }
+      } while(deNovoBanco);
+    }finally{ gravandoBanco = null; }
+  })();
+  return gravandoBanco;
+}
+/* o estado guardado: o do banco da página, se ele tem; senão o deste navegador; senão os valores iniciais */
+async function carregarEstado(){
+  const ref = await refEstado();
+  if(ref){
+    try{
+      const s = await ref.get();
+      const d = s && s.exists ? s.data() : null;
+      if(d && typeof d==="object") return {...estadoOk(d), origem:"banco"};
+    }catch(e){ if(BANCO_FORA.includes(e && e.code)) bancoFora(); }
+  }
+  const l = lerLocal();
+  return {...estadoOk(l), origem: l ? "navegador" : "padrao"};
+}
+function aplicarDoBanco(st){
+  if(JSON.stringify({v:1, numeros:st.numeros, pcs:st.pcs, sim:st.sim})!==estadoJson()) aplicarEstado(st);
+  ultimoNoBanco = jsonAberto = estadoJson();
+  gravarLocal(ultimoNoBanco);
+}
+function mostrarGuardado(){
+  refEstado().then(ref=>{
+    $("web-guardado").textContent = ref ? "Fica guardado: abre igual no PC e no celular."
+      : podeLocal() ? "Fica guardado só neste navegador." : "Este navegador não deixa guardar: o que você mudar vale até fechar a página.";
+  });
+}
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="hidden"){ if(estadoT) salvarEstado(); return; }
+  /* voltou para a página: pega o que mudou noutro aparelho (se aqui não há nada esperando para gravar) */
+  if(estadoT || simT || gravandoBanco) return;
+  const antes = estadoJson();
+  carregarEstado().then(st=>{ if(st.origem==="banco" && !estadoT && !simT && estadoJson()===antes) aplicarDoBanco(st); });
+});
+window.addEventListener("pagehide", ()=>{ if(estadoT) salvarEstado(); });
+
 /* ---------- abrir ---------- */
 $("v-sim").hidden = false;
-renderSim();
+aplicarEstado(estadoOk(lerLocal()));   /* na hora: o deste navegador, ou os valores iniciais */
+var jsonAberto = estadoJson();
+mostrarGuardado();
+/* o banco da página responde depois: o que está lá vale mais (é o mesmo no PC e no celular), a não ser que a pessoa já
+   tenha mexido; aí vale o que ela fez, e vai para o banco */
+carregarEstado().then(st=>{
+  if(st.origem!=="banco") return;
+  if(estadoJson()!==jsonAberto) salvarEstado();
+  else aplicarDoBanco(st);
+});
 </script>
