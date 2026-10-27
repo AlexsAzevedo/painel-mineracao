@@ -99,6 +99,35 @@ details.saiba > :not(summary){margin-bottom:14px}
 
 /* só da página */
 body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px))}
+/* o resumo: um quadro por opção, na cor dela, com a resposta em letra grande */
+.web-resumo{display:flex;flex-direction:column;gap:12px}
+.web-cens{display:flex;flex-wrap:wrap;gap:6px}
+.web-cens button{min-height:36px;padding:6px 14px;border-radius:999px;font-size:.85rem;color:var(--muted)}
+.web-cens button span{font-weight:400}
+.web-cens button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.web-quadros{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.web-quadro{--q:var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;padding:14px 16px 16px;text-align:left;font-weight:400;
+  border:1px solid var(--line);border-top:4px solid var(--q);border-radius:14px;background:var(--surface);color:var(--fg)}
+.web-quadro[data-op="A"]{--q:var(--viz-a)}
+.web-quadro[data-op="B"]{--q:var(--viz-b)}
+.web-quadro[data-op="C"]{--q:var(--viz-c)}
+.web-quadro:hover{background:var(--surface);border-color:var(--q)}
+.web-q-t{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:var(--display);font-weight:600}
+.web-etq{font-family:var(--body);font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--good-soft);color:var(--good)}
+.web-q-placas{font-size:.85rem;color:var(--muted)}
+.web-q-res{font-family:var(--display);font-size:1.35rem;font-weight:600;line-height:1.25;text-wrap:balance}
+.web-q-res small{font-family:var(--body);font-size:.8rem;font-weight:400;color:var(--muted)}
+.web-q-l{font-size:.88rem;color:var(--muted)}
+.web-q-l b{color:var(--fg)}
+.web-q-falta{font-size:.9rem;color:var(--muted)}
+.web-quadro-mais{min-height:120px;border:1px dashed var(--line);border-radius:14px;background:transparent;color:var(--muted)}
+.web-quadro-mais:hover{background:var(--sunk);color:var(--fg)}
+/* no Simular: a compra e o lucro do 1º mês em destaque, e cada cenário num bloco */
+.sim-resumo{flex-direction:row;flex-wrap:wrap;gap:8px}
+.sim-resumo > span{flex:1 1 150px;display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--sunk);font-size:.8rem;color:var(--muted)}
+.sim-resumo > span b{font-family:var(--display);font-size:1.15rem;font-weight:600;color:var(--fg)}
+.sim-cen{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);gap:4px}
+.sim-cen p:nth-child(2) b{font-family:var(--display);font-size:1.05rem;font-weight:600}
 /* em bloco, não flex: a .view com margem automática ocupa a largura toda */
 .web-topo-v{gap:16px}
 .web-painel{margin-top:20px}
@@ -132,6 +161,10 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
   .web-abas{margin-top:14px}
   .web-abas-l{display:flex}
   .web-abas [role=tab]{flex:1 1 0;min-height:44px;padding:6px 8px}
+  .web-cens button{min-height:44px}
+  .web-quadro{padding:12px 14px 14px}
+  .web-q-res{font-size:1.15rem}
+  .web-quadro-mais{min-height:64px}
   .web-nums{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
   .web-dados input,.web-dados select{min-height:44px}
   .web-pc{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;grid-template-areas:"nome nome del" "fonte selo selo" "ja ja ja"}
@@ -150,7 +183,14 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
       <p class="sub">Quanto as placas rendem, quanto custam e quando se pagam, à vista, no cartão ou com empréstimo, com os seus números e os seus PCs. As contas são as do Simulador do Painel de Mineração.</p>
       <p class="nota-mini" id="web-guardado" role="status" aria-live="polite"></p>
     </header>
-    <section class="web-resumo" id="web-resumo" aria-label="Resumo das opções"></section>
+    <section class="web-resumo" id="web-resumo" aria-label="Resumo das opções">
+      <div class="web-cens" role="group" aria-label="Cenário do resumo e do gráfico">
+        <button type="button" data-cen-res="estavel" aria-pressed="true">Estável</button>
+        <button type="button" data-cen-res="devagar" aria-pressed="false">Caindo devagar</button>
+        <button type="button" data-cen-res="rapido" aria-pressed="false">Caindo rápido</button>
+      </div>
+      <div class="web-quadros" id="web-quadros"></div>
+    </section>
   </div>
   <!-- a barra das abas é filha direta do <main> para ficar presa no alto a página inteira -->
   <div class="web-abas">
@@ -463,6 +503,61 @@ document.addEventListener("visibilitychange", ()=>{
   carregarEstado().then(st=>{ if(st.origem==="banco" && !estadoT && !simT && estadoJson()===antes) reconciliar(st); });
 });
 window.addEventListener("pagehide", ()=>{ if(estadoT) salvarEstado(); });
+
+/* ---------- o resumo no topo: a resposta de cada opção no cenário escolhido ---------- */
+function renderResumo(T){
+  T = T || simularTudo();
+  const k = T.s.cenarioGrafico, ok = T.ops.filter(r=>r.ok);
+  for(const b of document.querySelectorAll("[data-cen-res]")){
+    const c = b.dataset.cenRes;
+    b.setAttribute("aria-pressed", c===k ? "true" : "false");
+    b.innerHTML = `${SIM_NOMES[c]} <span>(${pctSim(T.s.cenarios[c])} ao mês)</span>`;
+  }
+  /* as etiquetas: só com duas opções ou mais com conta; no empate, todas as empatadas */
+  let cedo = null, mais = null;
+  if(ok.length >= 2){
+    const pagas = ok.map(r=>r.cen[k].sePaga).filter(m=>m!=null);
+    cedo = pagas.length ? Math.min(...pagas) : null;
+    mais = Math.max(...ok.map(r=>r.cen[k].fim.resultado));
+  }
+  const quadros = T.ops.map(r=>{
+    let etq = [], corpo;
+    if(r.ok){
+      const f = r.cen[k], fim = f.fim.resultado;
+      if(ok.length >= 2){ if(cedo!=null && f.sePaga===cedo) etq.push("Se paga primeiro"); if(fim===mais) etq.push("Sobra mais no fim"); }
+      corpo = `<span class="web-q-placas">${esc(placasSimTxt(r))}</span>`
+        + `<span class="web-q-res">${f.sePaga!=null ? `Se paga em ${mesSim(f.sePaga)} <small>(mês ${f.sePaga})</small>` : `Não se paga em ${T.prazo} meses`}</span>`
+        + `<span class="web-q-l">No fim (${T.prazo} meses): ${fim>=0 ? "sobram" : "faltam"} <b>${brl0(Math.abs(fim))}</b></span>`
+        + `<span class="web-q-l">Lucro no 1º mês: <b>${sinal(r.bruto1 - r.min.luz)}</b></span>`;
+    }
+    else corpo = `<span class="web-q-falta">${esc(r.texto)}</span>`;
+    return `<button type="button" class="web-quadro" data-op="${r.nome}"><span class="web-q-t">Opção ${r.nome}${etq.map(e=>`<span class="web-etq">${e}</span>`).join("")}</span>${corpo}</button>`;
+  });
+  if(T.s.opcoes.length < SIM_LETRAS.length) quadros.push(`<button type="button" class="web-quadro-mais">+ Opção</button>`);
+  $("web-quadros").innerHTML = quadros.join("");
+}
+const renderSimResDoPainel = renderSimRes;   /* o resumo acompanha cada conta nova do simulador */
+renderSimRes = function(T){ const r = renderSimResDoPainel.apply(this, arguments); renderResumo(T); return r; };
+/* abre o Simular com o cursor num campo da opção L (o modelo da primeira placa, se não disser outro) */
+function irParaOpcao(L, campo = "modelo", i = "0"){
+  abrirAba("simular");
+  const e = document.querySelector(`.sim-op[data-op="${L}"] [data-campo="${campo}"][data-i="${String(i)}"]`) || document.querySelector(`.sim-op[data-op="${L}"] [data-campo]`);
+  if(!e) return;
+  e.focus({preventScroll:true});
+  e.scrollIntoView({block:"center"});
+}
+$("web-resumo").addEventListener("click", e=>{
+  const c = e.target.closest("[data-cen-res]");
+  if(c){ mudarSim(s=>{ s.cenarioGrafico = c.dataset.cenRes; }); renderSimRes(); return; }
+  const q = e.target.closest(".web-quadro");
+  if(q){ irParaOpcao(q.dataset.op); return; }
+  if(e.target.closest(".web-quadro-mais")){
+    let livre = null;
+    mudarSim(s=>{ livre = SIM_LETRAS.find(x=>!s.opcoes.some(o=>o.nome===x)); if(livre) s.opcoes.push(opcaoVazia(livre)); });
+    if(!livre) return;
+    abrirAba("simular"); renderSim(true); irParaOpcao(livre);
+  }
+});
 
 /* ---------- as abas: Simular, Placas e Meus dados ---------- */
 const ABAS = ["simular", "placas", "dados"];

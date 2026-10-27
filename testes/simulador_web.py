@@ -353,6 +353,68 @@ def abas(p):
     checa("sem erros (abas)", not any(erros(x) for x in (pg, pg2, pg3)), [e for x in (pg, pg2, pg3) for e in erros(x)][:3])
 
 
+# o que o resumo tem de dizer de cada opção, calculado na página pelo simulador: [letra, placas, resposta, fim, lucro]
+ESPERADO_RESUMO = """(() => { const T = simularTudo(), k = T.s.cenarioGrafico; return T.ops.map(r => { if(!r.ok) return [r.nome, r.texto]; const f = r.cen[k];
+  return [r.nome, placasSimTxt(r), f.sePaga != null ? `Se paga em ${mesSim(f.sePaga)} (mês ${f.sePaga})` : `Não se paga em ${T.prazo} meses`,
+    `No fim (${T.prazo} meses): ${f.fim.resultado >= 0 ? 'sobram' : 'faltam'} ${brl0(Math.abs(f.fim.resultado))}`, `Lucro no 1º mês: ${sinal(r.bruto1 - r.min.luz)}`]; }); })()"""
+# as etiquetas que cada opção tem de ter: a que se paga primeiro e a que sobra mais no fim (todas as empatadas)
+ETIQUETAS = """(() => { const T = simularTudo(), k = T.s.cenarioGrafico, ok = T.ops.filter(r => r.ok); if(ok.length < 2) return T.ops.map(r => [r.nome, []]);
+  const pagas = ok.map(r => r.cen[k].sePaga).filter(m => m != null), cedo = pagas.length ? Math.min(...pagas) : null, mais = Math.max(...ok.map(r => r.cen[k].fim.resultado));
+  return T.ops.map(r => [r.nome, !r.ok ? [] : [...(cedo != null && r.cen[k].sePaga === cedo ? ['Se paga primeiro'] : []), ...(r.cen[k].fim.resultado === mais ? ['Sobra mais no fim'] : [])]]); })()"""
+QUADROS = "[...document.querySelectorAll('#web-quadros .web-quadro')].map(e => [e.dataset.op, e.innerText, [...e.querySelectorAll('.web-etq')].map(x => x.textContent.trim())])"
+
+
+def confere_resumo(pg, nome):
+    esperado, etq, quadros = js(pg, ESPERADO_RESUMO), js(pg, ETIQUETAS), js(pg, QUADROS)
+    ok = isinstance(quadros, list) and [q[0] for q in quadros] == [e[0] for e in esperado] \
+        and all(all(x in q[1] for x in e[1:]) for q, e in zip(quadros, esperado)) and [[q[0], q[2]] for q in quadros] == etq
+    checa(nome, ok, [quadros, esperado, etq])
+
+
+def resumo(p):
+    pg = abrir_web(p, estado={"v": 1, "t": 1, "pcs": PCS_PAR, "sim": SIM_PAR})
+    if not existe(pg, "#web-quadros"):
+        return checa("resumo: os quadros existem", False)
+    confere_resumo(pg, "resumo: um quadro por opção, com a resposta do simulador e as etiquetas")
+    checa("resumo: as três opções têm conta (o teste compara de verdade)", all(len(e) == 5 for e in js(pg, ESPERADO_RESUMO)))
+    # cenário: os botões mudam o mesmo cenário do gráfico, e ele fica guardado
+    checa("resumo: os três botões de cenário, Estável marcado", js(pg, "[...document.querySelectorAll('[data-cen-res]')].map(b => [b.dataset.cenRes, b.getAttribute('aria-pressed')])")
+          == [["estavel", "true"], ["devagar", "false"], ["rapido", "false"]])
+    clica(pg, '[data-cen-res="rapido"]')
+    r = [js(pg, "cfg.sim.cenarioGrafico"), js(pg, "document.querySelector('[data-cen-res=rapido]').getAttribute('aria-pressed')"), valor(pg, "#sim-cen")]
+    checa("resumo: Caindo rápido muda o cenário do gráfico", r == ["rapido", "true", "rapido"], r)
+    confere_resumo(pg, "resumo: os quadros no cenário Caindo rápido")
+    pg.wait_for_timeout(2500)
+    checa("resumo: o cenário fica guardado", campo(js(pg, "JSON.parse(localStorage.getItem('sim-web'))"), "sim", "cenarioGrafico") == "rapido")
+    # mudar o rendimento real muda o lucro do quadro
+    antes = js(pg, QUADROS)[0][1]
+    preenche(pg, NUM % "real", "50")
+    confere_resumo(pg, "resumo: acompanha os seus números")
+    checa("resumo: o quadro A mudou com o rendimento real", js(pg, QUADROS)[0][1] != antes)
+    t = texto(pg, "#web-resumo")
+    checa("resumo: sem NaN, Infinity nem undefined", t and not any(x in t for x in ("NaN", "Infinity", "undefined")), t[:200])
+    # tocar num quadro abre o Simular naquela opção
+    clica(pg, "#aba-placas")
+    clica(pg, '#web-quadros .web-quadro[data-op="B"]')
+    r = [visivel(pg, "#v-sim"), js(pg, "document.activeElement.matches('.sim-op[data-op=\"B\"] [data-campo=\"modelo\"][data-i=\"0\"]')")]
+    checa("resumo: tocar no quadro B abre o Simular na primeira placa de B", r == [True, True], r)
+    # empate: A e B iguais levam as duas etiquetas
+    a = SIM_PAR["opcoes"][0]
+    pg2 = abrir_web(p, estado={"v": 1, "t": 1, "pcs": PCS_PAR, "sim": {"opcoes": [a, {**a, "nome": "B"}]}})
+    confere_resumo(pg2, "resumo: no empate, as etiquetas vão para as duas")
+    checa("resumo: no empate, as duas com as duas etiquetas", [q[2] for q in js(pg2, QUADROS)] == [["Se paga primeiro", "Sobra mais no fim"]] * 2, js(pg2, QUADROS))
+    # uma opção só com conta: sem etiquetas; a sem placa diz o que falta; o quadro "+ Opção"
+    pg3 = abrir_web(p, estado={"v": 1, "t": 1, "pcs": PCS_PAR, "sim": {"opcoes": [a, {"nome": "B", "placas": [{"modelo": "", "qtd": 1, "preco": None, "maq": "m-pc"}]}]}})
+    confere_resumo(pg3, "resumo: uma opção só com conta, sem etiquetas")
+    checa("resumo: a opção sem placa diz o que falta", "Escolha uma placa para ver as contas." in js(pg3, QUADROS)[1][1])
+    checa("resumo: com 2 opções, o quadro + Opção", existe(pg3, "#web-quadros .web-quadro-mais") and "+ Opção" in texto(pg3, "#web-quadros .web-quadro-mais"))
+    clica(pg3, "#web-quadros .web-quadro-mais")
+    r = [js(pg3, "simCfg().opcoes.map(o => o.nome)"), visivel(pg3, "#v-sim"), js(pg3, "document.activeElement.matches('.sim-op[data-op=\"C\"] [data-campo=\"modelo\"]')")]
+    checa("resumo: + Opção cria a C e abre o Simular nela", r == [["A", "B", "C"], True, True], r)
+    checa("resumo: com 3 opções, sem o + Opção", not existe(pg3, "#web-quadros .web-quadro-mais"))
+    checa("sem erros (resumo)", not any(erros(x) for x in (pg, pg2, pg3)), [e for x in (pg, pg2, pg3) for e in erros(x)][:3])
+
+
 def foco_real(p):
     """Com cliques e teclas de verdade: depois de digitar num campo, o clique ou o Tab seguinte chega aonde a pessoa quis."""
     pg = abrir_web(p)
@@ -525,6 +587,7 @@ with sync_playwright() as p:
     contas(p)
     paridade(p)
     abas(p)
+    resumo(p)
     tela(p)
     foco_real(p)
     guardar(p)
