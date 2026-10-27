@@ -38,6 +38,18 @@ def const_bloco(t, nome):
     return t[m.start():t.index("\n", fim.start())]
 
 
+def const_ate_pv(t, nome):
+    """uma const que continua nas linhas seguintes, até a primeira que termina em ; (com um comentário depois, ou não).
+    Mais de 6 linhas: a const mudou de jeito, e o gerador para em vez de copiar demais"""
+    m = re.search(r"^const " + re.escape(nome) + r"\s*=", t, re.M)
+    if not m:
+        raise Falta("const " + nome)
+    fim = re.compile(r";[ \t]*(?:/\*.*?\*/[ \t]*)*$", re.M).search(t, m.start())
+    if not fim or t.count("\n", m.start(), fim.end()) > 5:
+        raise Falta("const " + nome + " (até 6 linhas, terminando em ;)")
+    return t[m.start():fim.end()]
+
+
 def funcao(t, nome):
     """uma função de topo: numa linha só, ou até a linha `}`"""
     m = re.search(r"^(?:async )?function " + re.escape(nome) + r"\(.*$", t, re.M)
@@ -107,13 +119,18 @@ def conferir_js(pagina):
 
 
 CONSTS = ["CATALOGO_RAW", "marcaDe", "nomeCompleto", "slug", "CATALOGO", "LEGADO", "novoId", "byId", "brl", "brl0", "n1", "$",
-          "isoLocal", "hojeISO", "sinal", "esc", "SELOS", "CARGAS", "CPU_PARADO"]
-FUNCOES = ["eficiencia", "somaMesesIso", "mesAnoIso", "mercado", "melhorPreco"]
+          "isoLocal", "hojeISO", "sinal", "esc", "SELOS", "CARGAS", "CPU_PARADO",
+          # a aba Placas: os estados, as placas de notebook e só de mineração, e os links de busca
+          "UF_NOMES", "semAcento", "soMineracao", "NOTEBOOK", "deNotebook", "buscaShopping", "urlBuscaOlx"]
+BLOCOS = ["MERCADO", "OFERTAS"]
+ATE_PV = ["urlBuscaFb"]
+FUNCOES = ["eficiencia", "somaMesesIso", "mesAnoIso", "mercado", "melhorPreco", "lojasBusca"]
 
 
 def gerar(painel, casca):
     css = painel[painel.index("<style>"):painel.index("</style>")]
-    pecas = [const_linha(painel, n) for n in CONSTS] + [const_bloco(painel, "MERCADO")] + [funcao(painel, n) for n in FUNCOES]
+    pecas = ([const_linha(painel, n) for n in CONSTS] + [const_bloco(painel, n) for n in BLOCOS] + [const_ate_pv(painel, n) for n in ATE_PV]
+             + [funcao(painel, n) for n in FUNCOES])
     js = entre(painel, "/* ---------- simulador de compra ----------", "/* ---------- carga inicial ---------- */", "bloco do simulador")
     css_sim = entre(css, "/* simulador de compra: as opções lado a lado", "/* fim do simulador de compra */", "CSS do simulador")
     tela = entre(painel, '<section class="view" id="v-sim"', "</section>", "seção #v-sim", com_fim=True)

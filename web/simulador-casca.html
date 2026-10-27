@@ -128,6 +128,43 @@ body{padding:24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(
 .sim-resumo > span b{font-family:var(--display);font-size:1.15rem;font-weight:600;color:var(--fg)}
 .sim-cen{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);gap:4px}
 .sim-cen p:nth-child(2) b{font-family:var(--display);font-size:1.05rem;font-weight:600}
+/* a aba Placas */
+.web-placas{display:flex;flex-direction:column;gap:16px}
+.web-melhores{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.web-melhores li{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.web-melhores li:first-child{border-top:0;padding-top:0}
+.web-melhores .pos{font-family:var(--display);font-weight:600;color:var(--muted)}
+.web-melhores .nm{display:flex;flex-direction:column;font-weight:600;min-width:0}
+.web-melhores .nm small,.web-melhores .val small{font-weight:400;font-size:.78rem;color:var(--muted)}
+.web-melhores .nm small span{white-space:nowrap}
+.web-melhores .val{display:flex;flex-direction:column;text-align:right;font-family:var(--display);font-weight:600;white-space:nowrap}
+.web-filtros .busca{flex:1 1 200px}
+.web-filtros input#pl-teto{width:140px}
+.barra > label.check{flex-direction:row;align-items:center;gap:8px;min-height:40px;font-size:.86rem;cursor:pointer}
+.barra > label.check input{width:auto;margin:0}
+.web-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.web-placa{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.7fr) auto;grid-template-areas:"nome conta precos acoes" "procurar procurar procurar procurar";
+  gap:8px 16px;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.web-pl-nome{grid-area:nome;display:flex;flex-direction:column;gap:2px;min-width:0}
+.web-pl-nome b{font-family:var(--display);font-weight:600}
+.web-pl-nome small{color:var(--muted);font-size:.78rem}
+.web-pl-etq{align-self:flex-start;font-size:.68rem;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--warn-soft);color:var(--warn)}
+.web-pl-conta{grid-area:conta;display:flex;flex-direction:column;gap:2px;font-size:.85rem;color:var(--muted)}
+.web-pl-conta b{color:var(--fg);font-family:var(--display);font-weight:600;font-size:.95rem}
+.web-pl-conta .neg{color:var(--bad);font-weight:600}
+.web-pl-conta small{font-size:.78rem}
+.web-pl-conta b,.web-pl-conta small span,.web-pl-precos b{white-space:nowrap}
+.web-pl-precos{grid-area:precos;display:flex;flex-direction:column;gap:2px;font-size:.85rem;color:var(--muted)}
+.web-pl-precos b{color:var(--fg)}
+.web-pl-acoes{grid-area:acoes}
+.web-procurar{grid-area:procurar}
+.web-procurar summary{cursor:pointer;font-size:.84rem;color:var(--accent);width:fit-content}
+.web-procurar p{margin:6px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.web-procurar a{color:var(--accent)}
+/* fora das áreas: escondida, não abre uma linha vazia no fim do cartão */
+.web-escolha{grid-column:1/-1}
+.web-busca-c{display:grid;grid-template-columns:repeat(2,minmax(0,240px));gap:12px 16px}
+.web-busca-c label{display:flex;flex-direction:column;gap:4px;min-width:0}
 /* em bloco, não flex: a .view com margem automática ocupa a largura toda */
 .web-topo-v{gap:16px}
 .web-painel{margin-top:20px}
@@ -167,6 +204,22 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
   .web-quadro{padding:12px 14px 14px}
   .web-q-res{font-size:1.15rem}
   .web-quadro-mais{min-height:64px}
+  .web-placa{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nome acoes" "conta conta" "precos precos" "procurar procurar";padding:12px 14px}
+  .web-filtros{display:grid;grid-template-columns:1fr 1fr}
+  .web-filtros .busca,.web-filtros .ordem,.web-filtros .check{grid-column:1/-1}
+  .web-filtros select,.web-filtros input#pl-teto{width:100%}
+  .web-melhores li{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"pos nm val" "pos acao acao"}
+  .web-melhores .pos{grid-area:pos;align-self:start}
+  .web-melhores .nm{grid-area:nm}
+  .web-melhores .val{grid-area:val}
+  .web-melhores li > button{grid-area:acao;justify-self:start}
+  .web-busca-c{grid-template-columns:1fr 1fr}
+  /* 44 px para o dedo pelo padding (flex tiraria o ▸); o cartão perde o padding de baixo, que o resumo já dá */
+  .web-placa{padding-bottom:2px}
+  .web-procurar summary{padding:12px 0}
+  .web-procurar[open]{padding-bottom:12px}
+  .web-procurar p{margin-top:0}
+  .web-pl-acoes button,.web-melhores li > button{min-height:44px}
   .web-nums{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px}
   .web-dados input,.web-dados select{min-height:44px}
   .web-pc{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;grid-template-areas:"nome nome del" "fonte selo selo" "ja ja ja"}
@@ -206,7 +259,22 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
 <!--@@TELA@@-->
   </div>
   <div class="web-painel view" role="tabpanel" id="painel-placas" aria-labelledby="aba-placas" hidden>
-    <div id="web-placas"></div>
+    <div class="web-placas" id="web-placas">
+      <article class="painel" aria-labelledby="t-melhores">
+        <div class="painel-h"><h2 id="t-melhores">Melhores compras</h2></div>
+        <ol class="web-melhores" id="web-melhores"></ol>
+        <p class="nota-mini" id="web-placas-nota"></p>
+      </article>
+      <div class="barra web-filtros" role="group" aria-label="Filtros da lista">
+        <label class="busca"><span class="lbl">Buscar</span><input id="pl-busca" type="search" placeholder="Ex.: 5070, rx 9070" autocomplete="off"></label>
+        <label><span class="lbl">Marca</span><select id="pl-marca"><option value="">Todas</option><option>NVIDIA</option><option>AMD</option><option>Intel</option></select></label>
+        <label><span class="lbl">Preço até (R$)</span><input id="pl-teto" type="text" inputmode="numeric" placeholder="Sem limite" autocomplete="off"></label>
+        <label class="ordem"><span class="lbl">Ordenar por</span><select id="pl-ordem"><option value="retorno">Se paga mais rápido</option><option value="lucro">Lucro por mês</option><option value="preco">Menor preço</option><option value="consumo">Menor consumo</option></select></label>
+        <label class="check"><input id="pl-todas" type="checkbox"> Mostrar todas</label>
+      </div>
+      <p class="nota-mini" id="pl-cont" aria-live="polite"></p>
+      <ul class="web-lista" id="web-lista"></ul>
+    </div>
   </div>
   <div class="web-painel view web-dados" role="tabpanel" id="painel-dados" aria-labelledby="aba-dados" hidden>
     <section class="painel" id="web-numeros" aria-labelledby="t-web-num">
@@ -226,6 +294,14 @@ main.web[inert]{opacity:.6}   /* abrindo: espera o banco da página */
       <p class="sub">Em "Já gasta hoje", os watts das placas, do processador e do resto do PC (a perda da fonte entra na conta). 0 W = desligado: com placas novas, ele passa a gastar elas e mais 40 W.</p>
       <div class="web-pcs-l" id="web-pcs-l"></div>
       <div><button type="button" class="link" id="web-pc-add">+ PC</button></div>
+    </section>
+    <section class="painel" id="web-busca" aria-labelledby="t-web-busca">
+      <div class="painel-h"><h2 id="t-web-busca">Busca de usadas</h2></div>
+      <p class="sub">Na aba Placas, os links de usadas procuram na OLX deste estado e no Marketplace em volta da localização da sua conta do Facebook, até este raio.</p>
+      <div class="web-busca-c">
+        <label><span class="lbl">Estado da OLX</span><select data-busca="uf"></select></label>
+        <label><span class="lbl">Raio do Marketplace (km)</span><input type="number" min="10" max="500" step="10" inputmode="numeric" data-busca="raio"></label>
+      </div>
     </section>
   </div>
 </main>
@@ -355,7 +431,7 @@ function renderPcs(){
 $("web-numeros").addEventListener("input", e=>{
   const el = e.target.closest("[data-num]"); if(!el) return;
   numeros = numerosOk({...numeros, [el.dataset.num]: el.value});
-  marcarMudanca(); aplicarNumeros(); renderSimRes(); agendarSalvar();
+  marcarMudanca(); aplicarNumeros(); renderSimRes(); renderPlacas(); agendarSalvar();
 });
 $("web-numeros").addEventListener("change", e=>{ const el = e.target.closest("[data-num]"); if(el) el.value = fmtNum(numeros[el.dataset.num]); });
 $("web-pcs").addEventListener("input", e=>{
@@ -393,17 +469,17 @@ $("web-pcs").addEventListener("click", e=>{
    reserva, e o que aparece na hora ao abrir). Grava 2 s depois da última mudança e já ao esconder a página */
 var estadoT = null;
 const simAqui = () => cfg.sim && typeof cfg.sim==="object" ? cfg.sim : {};
-const estadoJson = () => JSON.stringify({v:1, t:tMud, numeros, pcs, sim:simAqui()});
-const conteudo = st => JSON.stringify({numeros:st.numeros, pcs:st.pcs, sim:st.sim});
-const conteudoAqui = () => conteudo({numeros, pcs, sim:simAqui()});
+const estadoJson = () => JSON.stringify({v:1, t:tMud, numeros, pcs, sim:simAqui(), busca});
+const conteudo = st => JSON.stringify({numeros:st.numeros, pcs:st.pcs, sim:st.sim, busca:st.busca});
+const conteudoAqui = () => conteudo({numeros, pcs, sim:simAqui(), busca});
 function estadoOk(e){
   e = e && typeof e==="object" ? e : {};
   return {t: Number.isFinite(+e.t) && +e.t > 0 ? +e.t : 0, numeros: numerosOk(e.numeros), pcs: Array.isArray(e.pcs) ? pcsOk(e.pcs) : PCS_PADRAO.map(p=>({...p})),
-    sim: e.sim && typeof e.sim==="object" && !Array.isArray(e.sim) ? JSON.parse(JSON.stringify(e.sim)) : {}};
+    sim: e.sim && typeof e.sim==="object" && !Array.isArray(e.sim) ? JSON.parse(JSON.stringify(e.sim)) : {}, busca: buscaOk(e.busca)};
 }
 function aplicarEstado(st){
-  numeros = st.numeros; pcs = st.pcs; cfg.sim = st.sim; tMud = st.t || 0;
-  aplicarNumeros(); mostrarNumeros(); renderPcs(); renderSim(true);
+  numeros = st.numeros; pcs = st.pcs; cfg.sim = st.sim; busca = st.busca || {...BUSCA_PADRAO}; tMud = st.t || 0;
+  aplicarNumeros(); mostrarNumeros(); mostrarBusca(); renderPcs(); renderSim(true); renderPlacas();
 }
 /* o que estava esperando para gravar fica de fora (quando o que está guardado no banco vale mais) */
 function descartarPendentes(){ clearTimeout(estadoT); estadoT = null; clearTimeout(simT); simT = null; }
@@ -560,6 +636,93 @@ $("web-resumo").addEventListener("click", e=>{
     abrirAba("simular"); renderSim(true); irParaOpcao(livre);
   }
 });
+
+/* ---------- a aba Placas: os preços da pesquisa, a conta rápida de cada placa e os links de busca ---------- */
+const BUSCA_PADRAO = {uf:"SC", raio:100};
+var busca = {...BUSCA_PADRAO};
+/* o estado da OLX (uma sigla da lista) e o raio do Marketplace (10 a 500 km); inválido fica com o anterior */
+function buscaOk(o){
+  o = o && typeof o==="object" ? o : {};
+  const uf = typeof o.uf==="string" && Object.prototype.hasOwnProperty.call(UF_NOMES, o.uf) ? o.uf : busca.uf, r = numWeb(o.raio);
+  return {uf, raio: Number.isFinite(r) ? Math.min(500, Math.max(10, Math.round(r))) : busca.raio};
+}
+function mostrarBusca(){ for(const el of document.querySelectorAll("#web-busca [data-busca]")) el.value = String(busca[el.dataset.busca]); }
+/* a conta rápida da placa sozinha (como em Todas as placas do programa, com o rendimento real no lugar da margem) */
+function contaPlaca(c){
+  const ganho = c.rec/365*30*numeros.dolar*numeros.horas/24*numeros.real/100, luz = c.w*numeros.horas*30/1000*numeros.luz, lucro = ganho - luz;
+  const mk = mercado(c.id), usado = mk.usado > 0 ? mk.usado : null, novo = mk.novo > 0 ? mk.novo : null;
+  const ps = [usado, novo].filter(v=>v), menor = ps.length ? Math.min(...ps) : null, meses = v => v && lucro > 0 ? v/lucro : null;
+  return {ganho, luz, lucro, usado, n: usado ? (mk.n || 0) : null, novo, loja: novo ? (mk.loja || "") : null, menor,
+    meses:{usado: meses(usado), novo: meses(novo), menor: meses(menor)}};
+}
+const termoBusca = c => c.curto.replace(/^(AMD|Intel|Huawei)\s+/i, "");
+function linksPlaca(c){
+  const q = termoBusca(c), of = OFERTAS[c.id];
+  return {usadas: [["Marketplace", urlBuscaFb(q, busca.raio)], ["OLX", urlBuscaOlx(q, busca.uf)]],
+    novas: [...lojasBusca(c), ["Google Shopping", buscaShopping(c)]], oferta: of ? [of.onde, of.url] : null};
+}
+const linkFora = (txt, url) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(txt)} ↗</a>`;
+const mesesTxt = m => m!=null ? ` · se paga em ${n1(m)} meses` : "";
+/* as placas da lista: os filtros e a ordem desta visita (sem guardar) */
+function linhasPlacas(){
+  const toks = semAcento($("pl-busca").value).split(/\s+/).filter(Boolean), marca = $("pl-marca").value, teto = numWeb($("pl-teto").value);
+  const todas = $("pl-todas").checked, fim = v => v==null ? 1 : 0;
+  const ordens = {retorno:(a,b)=>fim(a.r.meses.menor)-fim(b.r.meses.menor) || (a.r.meses.menor||0)-(b.r.meses.menor||0),
+    lucro:(a,b)=>b.r.lucro-a.r.lucro, preco:(a,b)=>fim(a.r.menor)-fim(b.r.menor) || (a.r.menor||0)-(b.r.menor||0), consumo:(a,b)=>a.c.w-b.c.w};
+  return CATALOGO.map(c=>({c, r:contaPlaca(c)}))
+    .filter(x=>todas || (x.r.menor && !soMineracao(x.c) && !deNotebook(x.c)))
+    .filter(x=>!marca || x.c.marca===marca)
+    .filter(x=>!toks.length || toks.every(tk=>semAcento(x.c.nome).includes(tk)))
+    .filter(x=>!(teto > 0) || (x.r.menor && x.r.menor <= teto))
+    .sort(ordens[$("pl-ordem").value] || ordens.retorno);
+}
+function htmlPlaca({c, r}){
+  const lk = linksPlaca(c), etq = soMineracao(c) ? "só mineração" : deNotebook(c) ? "notebook" : "";
+  const precos = !r.menor ? `<span>Sem preço no Brasil na pesquisa</span>`
+    : (r.usado ? `<span>Usada <b>${brl0(r.usado)}</b> (${r.n} ${r.n===1 ? "anúncio" : "anúncios"})${mesesTxt(r.meses.usado)}</span>` : "")
+      + (r.novo ? `<span>Nova <b>${brl0(r.novo)}</b>${r.loja ? ` (${esc(r.loja)})` : ""}${mesesTxt(r.meses.novo)}</span>` : "");
+  return `<li class="web-placa" data-id="${esc(c.id)}">
+    <div class="web-pl-nome"><b>${esc(c.curto)}</b><small>${esc(c.marca)} · ${c.w} W</small>${etq ? `<span class="web-pl-etq">${etq}</span>` : ""}</div>
+    <div class="web-pl-conta">${r.lucro > 0 ? `<span>lucro <b>${brl0(r.lucro)}/mês</b></span>` : `<span class="neg">A luz come o lucro</span>`}<small><span>ganha ${brl0(r.ganho)}/mês</span> · <span>luz ${brl0(r.luz)}/mês</span></small></div>
+    <div class="web-pl-precos">${precos}</div>
+    <div class="web-pl-acoes"><button type="button" class="pri" data-simular="${esc(c.id)}">Simular</button></div>
+    <details class="web-procurar"><summary>Procurar agora</summary>
+      <p>Usadas: ${lk.usadas.map(([n, u])=>linkFora(n, u)).join("")}</p>
+      <p>Novas: ${lk.novas.map(([n, u])=>linkFora(n, u)).join("")}</p>
+      ${lk.oferta ? `<p>A oferta que a pesquisa achou: ${linkFora(lk.oferta[0], lk.oferta[1])}</p>` : ""}
+    </details>
+    <div class="web-escolha" hidden></div>
+  </li>`;
+}
+function renderPlacas(){
+  /* Melhores compras: as 5 com preço no Brasil e lucro (sem notebook e só mineração) que se pagam mais rápido */
+  const melhores = CATALOGO.filter(c=>!soMineracao(c) && !deNotebook(c)).map(c=>({c, r:contaPlaca(c)})).filter(x=>x.r.meses.menor!=null)
+    .sort((a,b)=>a.r.meses.menor-b.r.meses.menor).slice(0, 5);
+  $("web-melhores").innerHTML = melhores.length ? melhores.map(({c, r}, i)=>`<li data-id="${esc(c.id)}"><span class="pos">${i+1}</span>`
+    + `<span class="nm">${esc(c.curto)}<small><span>${r.menor===r.novo ? "nova" : "usada"} ${brl0(r.menor)}</span> · <span>lucro ${brl0(r.lucro)}/mês</span></small></span>`
+    + `<span class="val">${n1(r.meses.menor)} meses<small>para se pagar</small></span><button type="button" data-simular="${esc(c.id)}">Simular</button></li>`).join("")
+    : `<li><span class="nm">Nenhuma placa com preço no Brasil se paga com os seus números.</span></li>`;
+  $("web-placas-nota").textContent = `Preços da pesquisa do painel de ${MERCADO.data}: usada é o preço típico dos anúncios do Marketplace e da OLX na região; nova, o menor à vista nas lojas. `
+    + `Para o preço de agora, use "Procurar agora". A conta é a da placa sozinha: no Simular entram a fonte e o resto do PC, e o número muda um pouco.`;
+  const l = linhasPlacas();
+  $("pl-cont").textContent = `${l.length} ${l.length===1 ? "placa" : "placas"}`;
+  $("web-lista").innerHTML = l.length ? l.map(htmlPlaca).join("") : `<li class="nota-mini">Nenhuma placa com esses filtros.</li>`;
+}
+for(const id of ["pl-busca", "pl-teto"]) $(id).addEventListener("input", renderPlacas);
+for(const id of ["pl-marca", "pl-ordem", "pl-todas"]) $(id).addEventListener("change", renderPlacas);
+/* a lista do estado muda no input e no change (conforme o navegador); o raio, a cada tecla. Só conta como mudança o que mudou de verdade */
+function mudarBusca(el){
+  const nova = buscaOk({...busca, [el.dataset.busca]: el.value});
+  if(nova.uf===busca.uf && nova.raio===busca.raio) return;
+  busca = nova; marcarMudanca(); renderPlacas(); agendarSalvar();
+}
+$("web-busca").addEventListener("input", e=>{ const el = e.target.closest("[data-busca]"); if(el) mudarBusca(el); });
+$("web-busca").addEventListener("change", e=>{
+  const el = e.target.closest("[data-busca]"); if(!el) return;
+  mudarBusca(el); el.value = String(busca[el.dataset.busca]);
+});
+document.querySelector('#web-busca [data-busca="uf"]').innerHTML = Object.entries(UF_NOMES).sort((a,b)=>a[1].localeCompare(b[1], "pt-BR"))
+  .map(([uf, nome])=>`<option value="${uf}">${esc(nome)} (${uf})</option>`).join("");
 
 /* ---------- as abas: Simular, Placas e Meus dados ---------- */
 const ABAS = ["simular", "placas", "dados"];

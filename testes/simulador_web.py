@@ -138,7 +138,8 @@ def gerar(p):
     if not os.path.exists(SAIDA):
         return
     html = open(SAIDA, encoding="utf-8").read()
-    faltam = [x for x in ['id="v-sim"', "function fluxoSim", "const CATALOGO_RAW", "--viz-a", ".sim-op{", "function eficiencia", "const MERCADO"] if x not in html]
+    faltam = [x for x in ['id="v-sim"', "function fluxoSim", "const CATALOGO_RAW", "--viz-a", ".sim-op{", "function eficiencia", "const MERCADO",
+                          "const OFERTAS", "function lojasBusca", "const urlBuscaFb", "const UF_NOMES", "const semAcento", "const NOTEBOOK"] if x not in html]
     checa("leva o simulador do painel", not faltam, faltam)
     checa("contrato do artifact: sem doctype, html, head nem body, e o título primeiro",
           not re.search(r"<(?:!doctype|html|head|body)\b", html, re.I) and html.lstrip().startswith("<title>Simulador de placas</title>"))
@@ -147,7 +148,8 @@ def gerar(p):
     checa("abre sem erros, com o simulador à mostra", visivel(pg, "#v-sim") and visivel(pg, "#sim-ops .sim-op") and not erros(pg), erros(pg)[:3])
     # o painel sem uma das peças: o gerador para e diz o que faltou, sem gerar meia página
     for trecho, nome in (("/* ---------- simulador de compra ----------", "bloco do simulador"), ("function eficiencia(", "eficiencia"),
-                         ("/* fim do simulador de compra */", "fim do CSS do simulador")):
+                         ("/* fim do simulador de compra */", "fim do CSS do simulador"), ("function lojasBusca(", "lojasBusca"),
+                         ("const urlBuscaFb =", "urlBuscaFb")):
         outra = os.path.join(TMP, "outra.html")
         if os.path.exists(outra):
             os.remove(outra)
@@ -415,6 +417,102 @@ def resumo(p):
     checa("sem erros (resumo)", not any(erros(x) for x in (pg, pg2, pg3)), [e for x in (pg, pg2, pg3) for e in erros(x)][:3])
 
 
+LINKS_5070 = ["https://www.facebook.com/marketplace/category/search/?query=RTX%205070&exact=false&radius=100", "https://www.olx.com.br/estado-sc?q=RTX%205070",
+              "https://www.kabum.com.br/busca/rtx-5070", "https://www.pichau.com.br/search?q=RTX%205070", "https://www.terabyteshop.com.br/busca?str=RTX+5070",
+              "https://lista.mercadolivre.com.br/rtx-5070", "https://www.google.com/search?tbm=shop&q=placa%20de%20v%C3%ADdeo%20RTX%205070",
+              "https://promotech.app.br/comparar/placa-de-video/rtx-5070-vs-rtx-5090"]
+LINKS = "(id => [...document.querySelectorAll(`#web-lista .web-placa[data-id=\"${id}\"] details.web-procurar a`)].map(a => [a.href, a.target, a.rel]))"
+IDS_LISTA = "[...document.querySelectorAll('#web-lista .web-placa')].map(e => e.dataset.id)"
+MARCA_TODAS = "(e => { e.checked = %s; e.dispatchEvent(new Event('change', {bubbles: true})); return 1; })(document.querySelector('#pl-todas'))"
+
+
+def sem_acento(s):
+    import unicodedata
+    return "".join(ch for ch in unicodedata.normalize("NFD", s) if unicodedata.category(ch) != "Mn").lower()
+
+
+def placas(p):
+    pg = abrir_web(p)
+    if not (existe(pg, "#web-lista") and existe(pg, "#web-melhores")):
+        return checa("placas: a lista e as Melhores compras existem", False)
+    clica(pg, "#aba-placas")
+    g, l = 1564/365*30*5.42*24/24*74/100, 160*24*30/1000*0.96
+    c = js(pg, "contaPlaca(byId['rtx-5070'])")
+    checa("placas: a conta da RTX 5070", perto(campo(c, "ganho"), g, 1e-9) and perto(campo(c, "luz"), l, 1e-9) and perto(campo(c, "lucro"), g - l, 1e-9)
+          and campo(c, "usado") == 5600 and campo(c, "n") == 2 and campo(c, "novo") == 5159 and campo(c, "loja") == "Guerra Digital" and campo(c, "menor") == 5159
+          and perto(campo(c, "meses", "menor"), 5159/(g - l), 1e-9) and perto(campo(c, "meses", "usado"), 5600/(g - l), 1e-9), c)
+    dados = js(pg, "CATALOGO.map(c => [c.id, c.nome, c.marca, c.w, c.rec, (MERCADO.precos[c.id] || {}).usado || 0, (MERCADO.precos[c.id] || {}).novo || 0, soMineracao(c) || deNotebook(c)])")
+
+    def contas(luz=0.96):
+        r = []
+        for i, nome, marca, w, rec, usado, novo, especial in dados:
+            lucro = rec/365*30*5.42*24/24*74/100 - w*24*30/1000*luz
+            ps = [v for v in (usado, novo) if v > 0]
+            menor = min(ps) if ps else None
+            r.append({"id": i, "nome": nome, "marca": marca, "w": w, "lucro": lucro, "menor": menor, "especial": especial,
+                      "meses": menor/lucro if menor and lucro > 0 else None})
+        return r
+    todas = contas()
+    padrao = [x for x in todas if x["menor"] and not x["especial"]]
+    por_retorno = lambda lst: [x["id"] for x in sorted(lst, key=lambda x: (x["meses"] is None, x["meses"] or 0))]
+    melhores = [x["id"] for x in sorted([x for x in padrao if x["meses"] is not None], key=lambda x: x["meses"])[:5]]
+    checa("placas: as Melhores compras", js(pg, "[...document.querySelectorAll('#web-melhores li')].map(e => e.dataset.id)") == melhores,
+          [js(pg, "[...document.querySelectorAll('#web-melhores li')].map(e => e.dataset.id)"), melhores])
+    checa("placas: a lista no padrão (com preço no Brasil), se paga mais rápido primeiro", js(pg, IDS_LISTA) == por_retorno(padrao), [len(js(pg, IDS_LISTA)), len(padrao)])
+    t = texto(pg, '#web-lista .web-placa[data-id="rtx-5070"]')
+    m = js(pg, "n1(contaPlaca(byId['rtx-5070']).meses.novo)")
+    checa("placas: os preços e os meses da RTX 5070", all(x in t for x in ("Usada R$ 5.600 (2 anúncios)", "Nova R$ 5.159 (Guerra Digital)", f"se paga em {m} meses")), t)
+    checa("placas: os links da RTX 5070, numa aba nova", js(pg, LINKS + "('rtx-5070')") == [[u, "_blank", "noopener noreferrer"] for u in LINKS_5070], js(pg, LINKS + "('rtx-5070')"))
+    checa("placas: o termo da busca sem a marca na frente", js(pg, "termoBusca(byId['amd-rx-9070-xt'])") == "RX 9070 XT")
+    # filtros e ordem
+    preenche(pg, "#pl-busca", "5070")
+    checa("placas: busca pelo nome", js(pg, IDS_LISTA) == por_retorno([x for x in padrao if "5070" in sem_acento(x["nome"])]), js(pg, IDS_LISTA))
+    preenche(pg, "#pl-busca", "")
+    escolhe(pg, "#pl-marca", "AMD")
+    checa("placas: só AMD", js(pg, IDS_LISTA) == por_retorno([x for x in padrao if x["marca"] == "AMD"]), js(pg, IDS_LISTA))
+    escolhe(pg, "#pl-marca", "")
+    preenche(pg, "#pl-teto", "3000")
+    checa("placas: preço até R$ 3.000", js(pg, IDS_LISTA) == por_retorno([x for x in padrao if x["menor"] <= 3000]), js(pg, IDS_LISTA))
+    preenche(pg, "#pl-teto", "")
+    for ordem, chave in (("lucro", lambda x: -x["lucro"]), ("preco", lambda x: (x["menor"] is None, x["menor"] or 0)), ("consumo", lambda x: x["w"])):
+        escolhe(pg, "#pl-ordem", ordem)
+        checa(f"placas: ordem {ordem}", js(pg, IDS_LISTA) == [x["id"] for x in sorted(padrao, key=chave)], js(pg, IDS_LISTA)[:6])
+    escolhe(pg, "#pl-ordem", "retorno")
+    js(pg, MARCA_TODAS % "true")
+    checa("placas: Mostrar todas", js(pg, IDS_LISTA) == por_retorno(todas), len(js(pg, IDS_LISTA)))
+    # o catálogo de hoje não tem placa só de mineração (as CMP ficaram só no LEGADO): a etiqueta vai conferida numa inventada
+    cmp = js(pg, "(c => htmlPlaca({c, r: contaPlaca(c)}))({...byId['rtx-5070'], id: 'cmp-teste', nome: 'NVIDIA CMP Teste', curto: 'CMP Teste'})")
+    checa("placas: as etiquetas notebook e só mineração", "notebook" in texto(pg, '#web-lista .web-placa[data-id="rtx-4050"]') and "só mineração" in cmp, cmp[:200])
+    checa("placas: sem preço no Brasil", "Sem preço no Brasil na pesquisa" in texto(pg, '#web-lista .web-placa[data-id="gtx-1650-super"]'))
+    # a luz cara: a lista diz quando a luz come o lucro
+    clica(pg, "#aba-dados"); preenche(pg, NUM % "luz", "5"); clica(pg, "#aba-placas")
+    negativa = next(x["id"] for x in contas(5) if x["lucro"] <= 0)
+    checa("placas: a luz come o lucro", "A luz come o lucro" in texto(pg, f'#web-lista .web-placa[data-id="{negativa}"]'), negativa)
+    js(pg, MARCA_TODAS % "false")
+    nota = texto(pg, "#web-placas")
+    checa("placas: a nota dos preços e da conta", "22/10/2026" in nota and "no Simular entram a fonte e o resto do PC" in nota)
+    t = texto(pg, "#painel-placas")
+    checa("placas: sem NaN, Infinity nem undefined", not any(x in t for x in ("NaN", "Infinity", "undefined")))
+    # a busca de usadas, em Meus dados
+    clica(pg, "#aba-dados")
+    BUSCA = '#web-busca [data-busca="%s"]'
+    checa("busca de usadas: SC e 100 km", [valor(pg, BUSCA % "uf"), valor(pg, BUSCA % "raio")] == ["SC", "100"])
+    escolhe(pg, BUSCA % "uf", "PR"); preenche(pg, BUSCA % "raio", "50")
+    links = [x[0] for x in js(pg, LINKS + "('rtx-5070')")]
+    checa("busca de usadas: os links acompanham", links[:2] == ["https://www.facebook.com/marketplace/category/search/?query=RTX%205070&exact=false&radius=50",
+                                                             "https://www.olx.com.br/estado-pr?q=RTX%205070"], links[:2])
+    pg.wait_for_timeout(2500)
+    checa("busca de usadas: fica guardada", campo(js(pg, "JSON.parse(localStorage.getItem('sim-web'))"), "busca") == {"uf": "PR", "raio": 50})
+    r = []
+    for v in ("abc", "5", "9999"):
+        preenche(pg, BUSCA % "raio", v); r.append(valor(pg, BUSCA % "raio"))
+    checa("busca de usadas: raio estranho fica no anterior ou no limite", r == ["50", "10", "500"], r)
+    checa("busca de usadas: estado que não existe fica no anterior", js(pg, "buscaOk({uf: 'XX'}).uf") == "PR")
+    pg2 = abrir_web(p, estado={"v": 1, "t": 1})
+    checa("busca de usadas: estado guardado sem ela abre com SC e 100", js(pg2, "busca") == {"uf": "SC", "raio": 100})
+    checa("sem erros (placas)", not erros(pg) and not erros(pg2), (erros(pg) + erros(pg2))[:3])
+
+
 def foco_real(p):
     """Com cliques e teclas de verdade: depois de digitar num campo, o clique ou o Tab seguinte chega aonde a pessoa quis."""
     pg = abrir_web(p)
@@ -588,6 +686,7 @@ with sync_playwright() as p:
     paridade(p)
     abas(p)
     resumo(p)
+    placas(p)
     tela(p)
     foco_real(p)
     guardar(p)
