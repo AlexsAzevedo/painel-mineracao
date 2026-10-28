@@ -116,6 +116,28 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .kxa-lims{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;max-width:450px;align-items:end}
 .nw{white-space:nowrap}
 .kxa-lims label{display:flex;flex-direction:column;gap:5px}
+/* Premissas › Placa de vídeo deste PC: um cartão por placa, com os campos lado a lado e a faixa embaixo de cada um */
+.placa-lista{display:flex;flex-direction:column;gap:12px}
+.placa-c{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:14px;min-width:0}
+.placa-cab{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 14px}
+.placa-cab b{font-weight:600}
+.placa-agora{color:var(--muted);font-size:.84rem;font-variant-numeric:tabular-nums}
+.placa-sit{margin:0;font-size:.88rem;color:var(--muted)}
+.placa-sit.g{color:var(--good)}
+.placa-sit.w{color:var(--warn)}
+.placa-sit.b{color:var(--bad)}
+.placa-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;align-items:start}
+/* o nome, o campo e a faixa em linhas comuns a todos os campos: um nome em duas linhas não desalinha os campos ao lado */
+.placa-campos > label:not(.check){display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:5px;min-width:0}
+.placa-campos > label > .lbl{align-self:end}
+.placa-campos > .check{grid-row:span 3;align-self:center;min-height:40px}
+.placa-c input[aria-invalid="true"]{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad)}
+.placa-c input:disabled,.placa-c select:disabled{opacity:.6;cursor:not-allowed}
+.placa-c .faixa{font-size:.74rem;color:var(--muted);line-height:1.35}
+.placa-dica{margin:0}
+.lbl .un{text-transform:none;letter-spacing:0}
+.placa-aviso{margin:0;padding:10px 14px;border-radius:12px;background:var(--warn-soft);font-size:.86rem;line-height:1.45}
+@media (max-width:899px){#placa-p button:not(.sec-bt),#placa-p input:not([type=checkbox]),#placa-p select{min-height:44px}}
 @media (max-width:899px){.ag-meio,.ag-meio.com-saldo{grid-template-columns:1fr}.ag-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .of-minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .of-mini{all:unset;box-sizing:border-box;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface);cursor:pointer;min-width:0}
@@ -1449,6 +1471,15 @@ details.saiba > :not(summary){margin-bottom:14px}
           <p class="status" id="kxa-status" role="status" aria-live="polite"></p>
         </article>
       </div>
+      <article class="painel" id="placa-p" aria-labelledby="t-placa" hidden>
+        <div class="painel-h"><h2 id="t-placa">Placa de vídeo deste PC</h2><small class="hint" id="placa-quando"></small></div>
+        <p class="sub" style="margin:0">O painel ajusta a placa de vídeo AMD pelo driver, no lugar do MSI Afterburner: limite de potência, tensão, clock máximo, memória e ventoinha. Um ajuste novo fica em teste por 15 minutos com a placa minerando; se ele travar a placa, o painel volta para o ajuste anterior. Enquanto o painel cuida da placa, fechar a janela deixa o painel no ícone perto do relógio.</p>
+        <label class="check"><input type="checkbox" id="placa-cuidar"> O painel cuida dos ajustes da placa</label>
+        <p class="placa-aviso" id="placa-ab" hidden>O MSI Afterburner também está aberto. Para os dois não brigarem, desligue nele o 'Aplicar overclock ao iniciar o sistema' (ou desinstale).</p>
+        <p class="placa-aviso" id="placa-inicio" hidden>O painel só aplica o ajuste quando está aberto. Para aplicar assim que o Windows ligar: Este computador › Abrir o painel junto com o Windows.</p>
+        <div class="placa-lista" id="placa-lista"></div>
+        <p class="status" id="placa-status" role="status" aria-live="polite"></p>
+      </article>
       <article class="painel" id="perfil-p" aria-labelledby="t-perfil">
         <div class="painel-h"><h2 id="t-perfil">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
         <div class="pf-g">
@@ -5173,8 +5204,10 @@ function sincronizarSegundoPlano(){
   const ofertasBg = !!(alerta.horas && alerta.bandeja), cel = celAtivo(), ac = !!(acCfg && acCfg.ligado), apl = !!(apCfg && apCfg.ligado), kxl = PODE_KX() && kxCfg().ligado;
   /* o app da Kryptex neste PC (avisos e proteção de temperatura): só depois de ele responder a primeira vez */
   const kxv = typeof PODE_KXA==="function" && PODE_KXA() && typeof kxa==="object" && !!kxa && kxa.jaRespondeu && kxaCfg().ligado;
-  /* com o acesso pelo celular ligado, o app do celular vinculado ou a leitura da Kryptex, o painel precisa estar rodando: fica no ícone e abre com o Windows */
-  const bandeja = ofertasBg || cel || ac || apl || kxl || kxv, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl || kxl || kxv);
+  /* os ajustes da placa: com o painel cuidando, a vigia de cada minuto aplica de novo o ajuste guardado */
+  const plc = typeof PODE_PLACA==="function" && PODE_PLACA() && !!(placaEst && placaEst.cuidar);
+  /* com o acesso pelo celular ligado, o app do celular vinculado, a leitura da Kryptex ou os ajustes da placa, o painel precisa estar rodando: fica no ícone e abre com o Windows */
+  const bandeja = ofertasBg || cel || ac || apl || kxl || kxv || plc, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl || kxl || kxv || plc);
   /* kxa: com o painel lendo o app da Kryptex, o aviso de que o PC voltou é dele (com a queda e quanto deixou de ganhar) */
   window.desktop.segundoPlano({bandeja, iniciar, kxa: kxv}).then(()=>carregarInicio()).catch(()=>{});
 }
@@ -5196,6 +5229,7 @@ async function carregarInicio(op){
   if(!DESKTOP || !window.desktop.inicioWindows) return;
   try{ inicioCfg = await window.desktop.inicioWindows(op||null); }catch(e){}
   renderInicio();
+  renderPlaca();   /* o aviso de que o painel não abre junto com o Windows */
 }
 $("al-horas").addEventListener("change", e=>{ alerta.horas = +e.target.value || 0; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
 $("al-bandeja").addEventListener("change", e=>{ alerta.bandeja = e.target.checked; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
@@ -6255,6 +6289,321 @@ if(PODE_KXA()){
   setInterval(()=>{ lerKryptexApp().catch(()=>{}); }, KXA_CADA);
 }
 
+/* ---------- Premissas › Placa de vídeo deste PC: os ajustes da placa AMD, no lugar do MSI Afterburner ----------
+   Quem lê e grava na placa é o programa do PC (placa.js, com o leitor placa-amd.ps1, pela ponte window.desktop.placa); a
+   página mostra a leitura, os campos e a situação de cada placa e pede para cuidar, aplicar e voltar ao de fábrica.
+   O estado chega por carregarPlaca(): ao abrir o painel, a cada aviso do programa (aoMudar; com o painel cuidando, a vigia
+   avisa a cada minuto), ao abrir Premissas e a cada minuto com ela aberta. Os avisos do programa (travou, outro programa,
+   ventoinha, não conseguiu aplicar) vêm no estado, uma vez só, e vão para o Windows e o celular, como os do app da Kryptex.
+   A min-placa leva o ajuste guardado e a situação para o celular, que só mostra. */
+function PODE_PLACA(){ return DESKTOP && !!(window.desktop && window.desktop.placa && typeof window.desktop.placa.estado === "function"); }
+/* var: o sincronizarSegundoPlano e o carregarInicio, que vêm antes, já perguntam por eles */
+var placaEst = null, placaCarregando = null, placaDeNovo = false, placaCuidarSinc = null;
+var placaArma = null, placaArmaTimer = 0, placaOcupada = false;
+var PLACA_ARMA = 6000, PLACA_VELHA = 2*60e3, PLACA_CADA = 60e3;
+var PLACA_CAMPOS = [{k:"potencia", nome:"Limite de potência", un:"%"}, {k:"tensao", nome:"Tensão", un:" mV"}, {k:"clock", nome:"Clock máximo", un:" MHz"}, {k:"memoria", nome:"Memória", un:" MHz"}];
+function placaMenos(n){ return (n<0 ? "−" : "") + Math.abs(n); }      /* −20, com o sinal de menos de verdade */
+function placaSinal(n){ return (n>0 ? "+" : "") + placaMenos(n); }     /* as faixas: +10, −30, 0 */
+function placaSinalAj(n){ return (n<0 ? "−" : "+") + Math.abs(n); }    /* o texto do ajuste: +0, −75 */
+/* o ajuste que a placa tem agora (o mesmo do ajusteDaLeitura de placa-regras.js) */
+function ajusteDaPlaca(p){
+  const a = {}, tem = x => !!(x && x.suporta === true);
+  if(!p) return a;
+  for(const k of ["potencia","tensao","clock","memoria","temporizacao"]) if(tem(p[k])) a[k] = p[k].atual;
+  const v = p.ventoinha;
+  if(tem(v)){
+    const z = v.zeroRpm && v.zeroRpm.suporta === true ? v.zeroRpm : null, vel = (v.curva||[]).map(x=>x[1]);
+    if(JSON.stringify(v.curva) === JSON.stringify(v.curvaPadrao) && (!z || z.atual === z.padrao)) a.ventoinha = {modo:"auto"};
+    else if(vel.length === 5 && vel.every(x=>x === vel[0]) && (!z || z.atual === 0)) a.ventoinha = {modo:"fixa", pct:vel[0]};
+    else a.ventoinha = {modo:"curva", curva:(v.curva||[]).map(x=>[x[0], x[1]]), zeroRpm: z ? z.atual : 0};
+  }
+  return a;
+}
+/* nas placas novas, a tensão e o clock são ajustes (somados ao de fábrica); nas antigas, o valor de verdade */
+function placaAbsolutos(p){ const abs = x => !!(x && x.suporta === true && x.offset === false); return {tensao: abs(p && p.tensao), clock: abs(p && p.clock)}; }
+/* "Potência −20% · Tensão −75 mV · Clock máximo +0 MHz · Memória 2518 MHz · Ventoinha fixa em 74%" (abs: placaAbsolutos) */
+function textoAjuste(a, abs){
+  if(!a || typeof a !== "object") return "";
+  const b = abs || {}, ok = Number.isFinite, p = [];
+  if(ok(a.potencia)) p.push(`Potência ${placaSinalAj(a.potencia)}%`);
+  if(ok(a.tensao)) p.push(`Tensão ${b.tensao ? placaMenos(a.tensao) : placaSinalAj(a.tensao)} mV`);
+  if(ok(a.clock)) p.push(`Clock máximo ${b.clock ? placaMenos(a.clock) : placaSinalAj(a.clock)} MHz`);
+  if(ok(a.memoria)) p.push(`Memória ${placaMenos(a.memoria)} MHz`);
+  if(a.temporizacao === 1) p.push("Temporização rápida");
+  const v = a.ventoinha;
+  if(v && v.modo === "fixa" && ok(v.pct)) p.push(`Ventoinha fixa em ${v.pct}%`);
+  else if(v && v.modo === "auto") p.push("Ventoinha automática");
+  else if(v && v.modo === "curva") p.push("Ventoinha personalizada");
+  return p.join(" · ");
+}
+/* a situação de uma placa, no formato das placas da min-placa ({situacao, desde, faltam, travou}): o PC e o celular */
+function textoSituacao(p){
+  if(!p) return "";
+  if(p.situacao === "teste"){ const n = Math.max(1, Math.round(+p.faltam || 0)); return `Em teste: ${n === 1 ? "falta 1 minuto" : `faltam ${n} minutos`} com a placa minerando. Se ela travar, o painel volta para o ajuste anterior.`; }
+  if(p.situacao === "bom") return p.desde ? `Ajuste bom desde ${quando(p.desde)}.` : "";
+  if(p.situacao === "travou" && p.travou) return `O ajuste de ${quando(p.travou.quando)} travou a placa (${p.travou.motivo}). O painel voltou para o anterior.`;
+  if(p.situacao === "sem") return "O painel não está cuidando dos ajustes desta placa.";
+  return "";
+}
+/* uma placa do estado do programa no formato da min-placa */
+function placaEntrada(e){
+  const t = Array.isArray(e.travou) ? e.travou[0] : null;
+  return {nome: String(e.nome || ""), ajuste: e.salvo || null, situacao: e.situacao || "sem", desde: e.teste ? (+e.teste.desde || 0) : (+e.bomDesde || 0),
+    faltam: e.teste && Number.isFinite(e.faltam) ? e.faltam : null, travou: e.situacao === "travou" && t ? {quando: t.quando, motivo: t.motivo} : null};
+}
+/* a min-placa (o celular mostra): só quando muda, sem contar a hora; quem nunca usou não grava nada */
+function gravarMinPlaca(){
+  if(!PODE_PLACA() || !placaEst) return;
+  const novo = {v:1, quando: Date.now(), cuidar: !!placaEst.cuidar, placas: Object.values(placaEst.placas || {}).map(placaEntrada)};
+  const antes = lsGet("min-placa");
+  if(!antes && !novo.cuidar && !novo.placas.length) return;
+  if(antes && canon({...antes, quando:0}) === canon({...novo, quando:0})) return;
+  lsSet("min-placa", novo);
+}
+/* um aviso do programa (travou, outro programa, ventoinha, parou): no Windows e no celular, como os do app da Kryptex */
+function avisoPlaca(ev){
+  if(!ev || !ev.titulo || !PODE_PLACA()) return;
+  const titulo = String(ev.titulo), corpo = String(ev.corpo || "");
+  if(window.desktop.notificar) window.desktop.notificar({titulo, corpo, tela:"premissas"}).catch(()=>{});
+  if(celAtivo("maquinas")) window.desktop.celular.enviar({tipo:"maquina", titulo, corpo}).catch(()=>{});
+}
+/* um pedido de cada vez: quem chama durante outro pega o mesmo, que roda mais uma vez no fim */
+function carregarPlaca(){
+  if(!PODE_PLACA()) return Promise.resolve();
+  if(placaCarregando){ placaDeNovo = true; return placaCarregando; }
+  placaCarregando = (async ()=>{
+    try{ do{ placaDeNovo = false; await carregarPlacaJa(); }while(placaDeNovo); }
+    catch(e){ console.error("placa:", e); }
+    finally{ placaCarregando = null; }
+  })();
+  return placaCarregando;
+}
+async function carregarPlacaJa(){
+  const P = window.desktop.placa, s0 = placaEst;
+  /* sem o painel cuidar, a vigia não lê a placa: a página pede a leitura (e também quando a última é de mais de 2 minutos) */
+  if(!s0 || !s0.cuidar || !s0.leitura || Date.now() - (+s0.leitura.quando || 0) > PLACA_VELHA){ try{ await P.ler(); }catch(e){} }
+  let s = null; try{ s = await P.estado(); }catch(e){}
+  if(!s || typeof s !== "object") return;
+  for(const ev of Array.isArray(s.eventos) ? s.eventos : []) avisoPlaca(ev);
+  placaEst = s;
+  renderPlaca(); gravarMinPlaca();
+  if(!!s.cuidar !== placaCuidarSinc){ placaCuidarSinc = !!s.cuidar; sincronizarSegundoPlano(); }
+}
+function textoAgoraPlaca(a){
+  if(!a) return "";
+  const ok = Number.isFinite, n = v => Math.round(v).toLocaleString("pt-BR"), p = [];
+  if(ok(a.clockMHz)) p.push(`${n(a.clockMHz)} MHz`);
+  if(ok(a.watts)) p.push(`${n(a.watts)} W`);
+  if(ok(a.tempC)) p.push(`${n(a.tempC)} °C`);
+  if(ok(a.usoPct)) p.push(`uso ${n(a.usoPct)}%`);
+  return p.length ? `Agora: ${p.join(" · ")}` : "";
+}
+/* a caixa "Temporização rápida": só quando a placa oferece o normal (0) e o rápido (1) */
+function placaTempo(p){ const t = p && p.temporizacao; return !!(t && t.suporta === true && Array.isArray(t.opcoes) && t.opcoes.includes(0) && t.opcoes.includes(1)); }
+function htmlCartaoPlaca(p, nome, curva){
+  const campos = PLACA_CAMPOS.filter(f=>p[f.k] && p[f.k].suporta === true).map(f=>{
+    const x = p[f.k], ajuste = (f.k === "tensao" || f.k === "clock") && x.offset !== false, sinal = f.k === "potencia" || ajuste;
+    const n = v => (sinal ? placaSinal(v) : placaMenos(v)) + f.un;
+    return `<label><span class="lbl">${f.nome} <span class="un">(${ajuste ? "ajuste em " : ""}${f.un.trim()})</span></span>`
+      + `<input type="number" data-campo="${f.k}" min="${+x.min}" max="${+x.max}" step="1">`
+      + `<small class="faixa">de ${n(+x.min)} a ${n(+x.max)} · padrão ${n(+x.padrao)}</small></label>`;
+  });
+  if(placaTempo(p)) campos.push(`<label class="check"><input type="checkbox" data-campo="temporizacao"> Temporização rápida</label>`);
+  const v = p.ventoinha;
+  if(v && v.suporta === true){
+    campos.push(`<label><span class="lbl">Ventoinha</span><select data-campo="ventoinha"><option value="auto">Automática (a da AMD)</option><option value="fixa">Fixa em</option>${curva ? `<option value="curva">Personalizada (feita em outro programa)</option>` : ""}</select></label>`);
+    campos.push(`<label class="placa-pct"><span class="lbl">Velocidade <span class="un">(%)</span></span><input type="number" data-campo="pct" min="${+v.velMin}" max="${+v.velMax}" step="1"><small class="faixa">de ${+v.velMin}% a ${+v.velMax}%</small></label>`);
+  }
+  return `<div class="placa-cab"><b>${esc(nome)}</b><span class="placa-agora"></span></div><p class="placa-sit"></p>`
+    + `<div class="placa-campos">${campos.join("")}</div>`
+    + `<p class="hint placa-dica">Marque "O painel cuida dos ajustes da placa" para mudar.</p>`
+    + `<div class="acoes"><button type="button" class="pri" data-acao="aplicar">Aplicar</button><button type="button" data-acao="desfazer">Desfazer</button><button type="button" data-acao="fabrica">Voltar ao de fábrica</button><button type="button" class="link" data-acao="copiar">Copiar o que o painel leu da placa</button></div>`;
+}
+/* os campos com um ajuste (o guardado ou, sem o painel cuidar, o que a placa tem) */
+function preencherPlaca(c, a, p){
+  for(const f of PLACA_CAMPOS){ const i = c.querySelector(`[data-campo="${f.k}"]`); if(!i) continue; i.value = Number.isFinite(a[f.k]) ? String(a[f.k]) : ""; i.removeAttribute("aria-invalid"); }
+  const t = c.querySelector('[data-campo="temporizacao"]'); if(t) t.checked = a.temporizacao === 1;
+  const sel = c.querySelector('[data-campo="ventoinha"]'), pct = c.querySelector('[data-campo="pct"]');
+  if(!sel || !pct) return;
+  const f = a.ventoinha || {modo:"auto"}, v = p.ventoinha;
+  sel.value = f.modo === "fixa" || (f.modo === "curva" && sel.querySelector('option[value="curva"]')) ? f.modo : "auto";
+  pct.removeAttribute("aria-invalid");
+  /* fora do "Fixa em", a velocidade começa com a de agora (dentro da faixa), para quem trocar para fixa */
+  const agora = p.agora && Number.isFinite(p.agora.ventoinhaPct) ? Math.min(+v.velMax, Math.max(+v.velMin, Math.round(p.agora.ventoinhaPct))) : null;
+  pct.value = f.modo === "fixa" && Number.isFinite(f.pct) ? String(f.pct) : agora !== null ? String(agora) : "";
+}
+function mostrarPctPlaca(c){ const sel = c.querySelector('[data-campo="ventoinha"]'), l = c.querySelector(".placa-pct"); if(l) l.hidden = !sel || sel.value !== "fixa"; }
+function renderCartaoPlaca(c, p, s, repetido){
+  const cuida = !!s.cuidar, e = (s.placas && s.placas[p.chave]) || null;
+  const salvo = cuida && e && e.salvo ? e.salvo : ajusteDaPlaca(p);
+  const curva = !!(salvo.ventoinha && salvo.ventoinha.modo === "curva");
+  /* duas placas com o mesmo nome: o barramento PCI separa uma da outra */
+  const nome = repetido ? `${p.nome} (PCI ${p.bus})` : String(p.nome || "Placa de vídeo");
+  const v = p.ventoinha && p.ventoinha.suporta === true ? p.ventoinha : null;
+  const assin = JSON.stringify([nome, curva, placaTempo(p), v ? [v.velMin, v.velMax] : 0,
+    PLACA_CAMPOS.map(f=>{ const x = p[f.k]; return x && x.suporta === true ? [x.min, x.max, x.padrao, x.offset] : 0; })]);
+  if(c.dataset.assin !== assin){ c.innerHTML = htmlCartaoPlaca(p, nome, curva); c.dataset.assin = assin; delete c.dataset.editado; }
+  c.querySelector(".placa-agora").textContent = textoAgoraPlaca(p.agora);
+  const ent = !cuida ? {situacao:"sem"} : e ? placaEntrada(e) : null, sit = c.querySelector(".placa-sit");
+  sit.textContent = textoSituacao(ent);
+  sit.className = "placa-sit" + ({bom:" g", teste:" w", travou:" b"}[ent && ent.situacao] || "");
+  /* o que a pessoa digitou fica até ela aplicar ou desfazer */
+  if(!c.dataset.editado) preencherPlaca(c, salvo, p);
+  c.querySelectorAll("[data-campo]").forEach(x=>{ x.disabled = !cuida; });
+  const arma = placaArma && placaArma.chave === p.chave ? placaArma.acao : "", bt = a => c.querySelector(`[data-acao="${a}"]`);
+  bt("aplicar").textContent = arma === "aplicar" ? "Confirmar: aplicar mesmo assim" : "Aplicar";
+  bt("fabrica").textContent = arma === "fabrica" ? "Confirmar: voltar ao de fábrica" : "Voltar ao de fábrica";
+  for(const a of ["aplicar","desfazer","fabrica"]) bt(a).disabled = !cuida || placaOcupada;
+  c.querySelector(".placa-dica").hidden = cuida;
+  mostrarPctPlaca(c);
+}
+function renderPlaca(){
+  const box = $("placa-p"); if(!box) return;
+  const s = placaEst, lidas = s && s.leitura && Array.isArray(s.leitura.placas) ? s.leitura.placas.filter(p=>p && p.chave) : [];
+  /* aparece com uma placa lida; com o painel cuidando, também sem leitura (para mostrar o erro e dar para desmarcar) */
+  box.hidden = !PODE_PLACA() || !s || (!lidas.length && !s.cuidar);
+  if(box.hidden) return;
+  const cuida = !!s.cuidar, cx = $("placa-cuidar");
+  if(!cx.dataset.ocupado) cx.checked = cuida;
+  $("placa-quando").textContent = s.leitura && s.leitura.quando ? `lido ${quando(s.leitura.quando)}` : "";
+  $("placa-ab").hidden = !(s.leitura && s.leitura.afterburner);
+  $("placa-inicio").hidden = !(cuida && inicioCfg && !inicioCfg.comWindows);
+  const lista = $("placa-lista");
+  if(!lidas.length){ lista.innerHTML = s.erro ? `<p class="status erro">Não deu para ler a placa: ${esc(s.erro.msg || s.erro.erro || "o leitor não respondeu")}.</p>` : ""; return; }
+  const nomes = {}, ficam = new Set();
+  for(const p of lidas) nomes[p.nome] = (nomes[p.nome] || 0) + 1;
+  for(const p of lidas){
+    let c = [...lista.children].find(x=>x.classList.contains("placa-c") && x.dataset.chave === p.chave);
+    if(!c){ c = document.createElement("div"); c.className = "placa-c"; c.dataset.chave = p.chave; lista.append(c); }
+    ficam.add(c);
+    renderCartaoPlaca(c, p, s, nomes[p.nome] > 1);
+  }
+  for(const c of [...lista.children]) if(!ficam.has(c)) c.remove();
+}
+/* o ajuste dos campos de um cartão, com todos os ajustes que a placa tem; ruins: os campos fora da faixa */
+function ajusteDoCartao(c, p, s){
+  const a = {}, ruins = [], e = s.placas && s.placas[p.chave], base = s.cuidar && e && e.salvo ? e.salvo : ajusteDaPlaca(p);
+  const inteiro = (i, min, max) => { const t = String(i.value).trim(), v = Number(t); if(t === "" || !Number.isInteger(v) || v < min || v > max){ ruins.push(i); return null; } return v; };
+  for(const f of PLACA_CAMPOS){
+    const x = p[f.k], i = c.querySelector(`[data-campo="${f.k}"]`);
+    if(!x || x.suporta !== true || !i) continue;
+    const v = inteiro(i, +x.min, +x.max); if(v !== null) a[f.k] = v;
+  }
+  if(p.temporizacao && p.temporizacao.suporta === true){
+    const t = c.querySelector('[data-campo="temporizacao"]');
+    a.temporizacao = t ? (t.checked ? 1 : 0) : Number.isInteger(base.temporizacao) ? base.temporizacao : p.temporizacao.atual;
+  }
+  const v = p.ventoinha, sel = c.querySelector('[data-campo="ventoinha"]');
+  if(v && v.suporta === true && sel){
+    if(sel.value === "fixa"){ const n = inteiro(c.querySelector('[data-campo="pct"]'), +v.velMin, +v.velMax); if(n !== null) a.ventoinha = {modo:"fixa", pct:n}; }
+    else if(sel.value === "curva"){ const f = base.ventoinha && base.ventoinha.modo === "curva" ? base.ventoinha : ajusteDaPlaca(p).ventoinha; a.ventoinha = f && f.modo === "curva" ? {modo:"curva", curva:f.curva, zeroRpm:f.zeroRpm} : {modo:"auto"}; }
+    else a.ventoinha = {modo:"auto"};
+  }
+  return {ajuste:a, ruins};
+}
+function armarPlaca(chave, acao, ajuste){
+  placaArma = {chave, acao, ajuste: ajuste || ""};
+  clearTimeout(placaArmaTimer);
+  placaArmaTimer = setTimeout(()=>{ placaArma = null; renderPlaca(); }, PLACA_ARMA);
+}
+function desarmarPlaca(){ placaArma = null; clearTimeout(placaArmaTimer); }
+const msgPlaca = r => (r && (r.msg || r.erro)) || "o painel não respondeu";
+async function cuidarPlaca(cx){
+  const sim = cx.checked;
+  cx.disabled = true; cx.dataset.ocupado = "1"; desarmarPlaca();
+  status2("placa-status", sim ? "Lendo a placa…" : "");
+  let r = null;
+  try{ r = await window.desktop.placa.cuidar(sim); }catch(err){ r = {falha:{msg: (err && err.message) || String(err)}}; }
+  cx.disabled = false; delete cx.dataset.ocupado;
+  if(sim) for(const c of $("placa-lista").children) delete c.dataset.editado;   /* os campos passam a mostrar o que o painel guardou */
+  await carregarPlaca();
+  if(r && r.falha) status2("placa-status", `Não deu para ler a placa: ${msgPlaca(r.falha)}. Nada mudou.`, "erro");
+  else if(r && r.assumiu) status2("placa-status", "O painel guardou o ajuste que a placa já tem e não mudou nada. A partir de agora ele confere a cada minuto e aplica de novo se a placa sair desse ajuste.", "ok");
+  else status2("placa-status", sim ? "" : "O painel não mexe mais nos ajustes da placa: ela fica com o ajuste que tem agora.");
+}
+async function aplicarPlaca(c){
+  const s = placaEst, chave = c.dataset.chave;
+  if(!s || !s.cuidar || placaOcupada) return;
+  const p = ((s.leitura && s.leitura.placas) || []).find(x=>x && x.chave === chave); if(!p) return;
+  c.querySelectorAll("[aria-invalid]").forEach(x=>x.removeAttribute("aria-invalid"));
+  const {ajuste, ruins} = ajusteDoCartao(c, p, s);
+  if(ruins.length){ desarmarPlaca(); renderPlaca(); ruins.forEach(x=>x.setAttribute("aria-invalid", "true")); status2("placa-status", "Corrija os campos marcados.", "erro"); ruins[0].focus(); return; }
+  const json = JSON.stringify(ajuste), mesmo = !!(placaArma && placaArma.chave === chave && placaArma.acao === "aplicar" && placaArma.ajuste === json);
+  desarmarPlaca();
+  placaOcupada = true; renderPlaca(); status2("placa-status", "Aplicando o ajuste na placa…");
+  let r = null;
+  try{ r = await window.desktop.placa.aplicar(chave, ajuste, {mesmoQueTravou: mesmo}); }catch(err){ r = {ok:false, msg: (err && err.message) || String(err)}; }
+  placaOcupada = false;
+  if(r && r.precisaConfirmar){
+    const t = r.travou || {};
+    armarPlaca(chave, "aplicar", json); renderPlaca();
+    status2("placa-status", `Esse ajuste travou a placa em ${quando(t.quando)} (${t.motivo || "o motivo não ficou guardado"}). Clique de novo em até 6 segundos para aplicar mesmo assim.`, "erro");
+    return;
+  }
+  if(r && r.ok){
+    delete c.dataset.editado;
+    await carregarPlaca();
+    status2("placa-status", `Aplicado. A placa leu: ${textoAjuste(ajusteDaPlaca(r.leitura), placaAbsolutos(r.leitura))}.`, "ok");
+  }else{ renderPlaca(); status2("placa-status", `Não deu certo: ${msgPlaca(r)}.`, "erro"); }
+}
+async function fabricaPlaca(c){
+  const chave = c.dataset.chave;
+  if(!placaEst || !placaEst.cuidar || placaOcupada) return;
+  if(!(placaArma && placaArma.chave === chave && placaArma.acao === "fabrica")){
+    armarPlaca(chave, "fabrica"); renderPlaca();
+    status2("placa-status", "Clique de novo em até 6 segundos para voltar a placa ao ajuste de fábrica.");
+    return;
+  }
+  desarmarPlaca(); placaOcupada = true; renderPlaca(); status2("placa-status", "Voltando a placa ao de fábrica…");
+  let r = null;
+  try{ r = await window.desktop.placa.fabrica(chave); }catch(err){ r = {ok:false, msg: (err && err.message) || String(err)}; }
+  placaOcupada = false;
+  if(r && r.ok){
+    delete c.dataset.editado;
+    await carregarPlaca();
+    status2("placa-status", `A placa voltou ao de fábrica. A placa leu: ${textoAjuste(ajusteDaPlaca(r.leitura), placaAbsolutos(r.leitura))}.`, "ok");
+  }else{ renderPlaca(); status2("placa-status", `Não deu certo: ${msgPlaca(r)}.`, "erro"); }
+}
+function desfazerPlaca(c){
+  if(placaArma && placaArma.chave === c.dataset.chave) desarmarPlaca();
+  delete c.dataset.editado;
+  renderPlaca(); status2("placa-status", "");
+}
+/* para conferir a leitura comigo: a versão, a leitura e o estado; a chave da placa sem o número de série dela */
+function textoDiagPlaca(){
+  const s = placaEst || {}, l = s.leitura || null, curtas = new Map();
+  const curta = c => { if(!curtas.has(c)) curtas.set(c, String(c || "").split("\\").slice(0, 2).join("\\") + " #" + (curtas.size + 1)); return curtas.get(c); };
+  const placas = l && Array.isArray(l.placas) ? l.placas.map(p=>({...p, chave: curta(p && p.chave)})) : [];
+  const estado = {}; for(const [k, e] of Object.entries(s.placas || {})) estado[curta(k)] = e;
+  return `Painel de Mineração ${window.desktop ? window.desktop.versao : ""} · placa lida ${l && l.quando ? new Date(l.quando).toLocaleString("pt-BR") : "—"}\n`
+    + JSON.stringify({cuidar: !!s.cuidar, erro: s.erro || null, afterburner: !!(l && l.afterburner), placas, estado}, null, 1);
+}
+async function copiarPlaca(){
+  try{ await copiarTexto(textoDiagPlaca()); status2("placa-status", "Copiado. Cole na conversa com o Claude para conferir a leitura.", "ok"); }
+  catch(e){ status2("placa-status", "Não consegui copiar.", "erro"); }
+}
+if(PODE_PLACA()){
+  window.desktop.placa.aoMudar(()=>{ carregarPlaca(); });
+  $("placa-cuidar").addEventListener("change", e=>{ cuidarPlaca(e.target); });
+  $("placa-lista").addEventListener("click", e=>{
+    const b = e.target.closest("[data-acao]"), c = b && b.closest(".placa-c");
+    if(!b || !c || b.disabled) return;
+    const a = b.dataset.acao;
+    if(a === "aplicar") aplicarPlaca(c); else if(a === "fabrica") fabricaPlaca(c); else if(a === "desfazer") desfazerPlaca(c); else if(a === "copiar") copiarPlaca();
+  });
+  /* mexer num campo: ele fica como a pessoa deixou (a vigia de cada minuto não apaga) e cancela o "aplicar mesmo assim" */
+  const editouPlaca = e=>{
+    const c = e.target.closest(".placa-c"); if(!c || !e.target.matches("[data-campo]")) return;
+    c.dataset.editado = "1"; e.target.removeAttribute("aria-invalid");
+    if(e.target.matches('[data-campo="ventoinha"]')) mostrarPctPlaca(c);
+    if(placaArma && placaArma.chave === c.dataset.chave && placaArma.acao === "aplicar"){ desarmarPlaca(); renderPlaca(); }
+  };
+  $("placa-lista").addEventListener("input", editouPlaca);
+  $("placa-lista").addEventListener("change", editouPlaca);
+  carregarPlaca();
+  setInterval(()=>{ if(!$("v-premissas").hidden) carregarPlaca(); }, PLACA_CADA);
+}
+
 /* ---------- PC e celular com os mesmos dados ----------
    O que chega do outro lado é gravado chave por chave e o painel redesenha o que depende dela, sem recarregar a página.
    No PC, quem chama é o aplicativo (quando o celular grava); no celular, quem chama é a escuta de mudanças do PC. */
@@ -7180,6 +7529,7 @@ function irPara(v, foco){
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
   if(v==="sim") renderSim();
   if(v==="diario") renderParadas();   /* uma parada que não acabou cresce com o tempo */
+  if(v==="premissas") carregarPlaca();   /* a leitura da placa de vídeo deste PC (só no PC) */
   document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
   $("aba-mais").setAttribute("aria-current", NA_FOLHA.includes(v) ? "page" : "false");
   $("topo-t").textContent = $("t-"+v).textContent;
