@@ -748,6 +748,25 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .legenda span{display:inline-flex;align-items:center;gap:6px}
 .hist-d table{min-width:760px}
 .hist-d td.obs{white-space:normal;min-width:160px;max-width:300px;color:var(--muted);font-size:.85rem}
+/* paradas (1.10.0): a linha do dia, a frase do período e a lista */
+td.name small.d-parou{white-space:normal;min-width:210px;max-width:290px;margin-top:3px;color:var(--warn)}
+#d-paradas:empty{display:none}
+.pd-h{flex-wrap:wrap;align-items:center}
+.pd-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pd-it{display:flex;justify-content:space-between;align-items:flex-start;gap:4px 16px;padding:10px 0;border-top:1px solid var(--line)}
+.pd-it:first-child{border-top:0;padding-top:0}
+.pd-q{min-width:0}
+.pd-q b{font-family:var(--num);font-variant-numeric:tabular-nums}
+.pd-it small{display:block;color:var(--muted);font-size:.78rem}
+.pd-v{text-align:right;white-space:nowrap;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600}
+.pd-v small{font-family:var(--body);font-weight:400}
+.pd-vazio{margin:0;color:var(--muted)}
+@media (max-width:899px){
+  td.name small.d-parou{min-width:0;max-width:none}
+  .pd-it{flex-direction:column}
+  .pd-v{text-align:left;white-space:normal}
+  #pd-copiar{width:100%;min-height:44px}
+}
 /* relatório do ano para o contador */
 .rel-h{flex-wrap:wrap;align-items:center}
 .rel-ano{display:flex;align-items:center;gap:8px;max-width:100%;min-width:0}
@@ -1646,8 +1665,16 @@ details.saiba > :not(summary){margin-bottom:14px}
       <div class="cab"><div class="seg" role="group" aria-label="Período" id="d-per"><button type="button" data-per="7" aria-pressed="true">7 dias</button><button type="button" data-per="30" aria-pressed="false">30 dias</button><button type="button" data-per="0" aria-pressed="false">Tudo</button></div><span class="cont" id="d-cont"></span></div>
       <div class="kpis" id="d-kpis"></div>
       <p class="nota-mini" id="d-margem"></p>
+      <p class="nota-mini" id="d-paradas"></p>
       <article class="painel"><div class="painel-h" style="flex-wrap:wrap"><h2>Real × estimado por dia</h2><div class="legenda"><span><i class="k-bar"></i>Real (anotado)</span><span><i class="k-lin"></i>Estimado (Kryptex, sem margem)</span></div></div><div class="graf" id="d-graf"></div></article>
       <div class="hist-d" id="d-tab"></div>
+      <article class="painel" id="paradas-p" aria-labelledby="t-paradas" hidden>
+        <div class="painel-h pd-h"><h2 id="t-paradas">Paradas</h2><label class="check"><input type="checkbox" id="pd-energia"> Só falta de energia</label></div>
+        <p class="sub" style="margin:0">Quando a mineração parou neste PC e por quê, a mais nova primeiro. Com “Só falta de energia”, ficam só as quedas, para guardar ou mandar para a companhia de energia.</p>
+        <div id="pd-l"></div>
+        <div class="acoes"><button type="button" id="pd-copiar">Copiar a lista</button></div>
+        <p class="status" id="pd-status" role="status" aria-live="polite"></p>
+      </article>
       <article class="painel" id="rel-p" aria-labelledby="t-rel">
         <div class="painel-h rel-h"><h2 id="t-rel">Relatório do ano para o contador</h2><label class="rel-ano"><span class="lbl">Ano</span><select id="rel-ano" aria-label="Ano do relatório"></select></label></div>
         <p class="sub" style="margin:0">Os ganhos de cada mês (em R$, em US$ e em BTC, quando houver), a luz estimada e as placas que você comprou, para levar ao contador na hora do Imposto de Renda. O relatório só organiza os números do painel: como declarar, quem diz é o contador.</p>
@@ -3229,6 +3256,82 @@ function aplicarParadasNosDias(agora){
   if(mudouKx){ kx.gravado = 0; salvarKx(); }
   return mudouKx || mudouD;
 }
+/* ---------- as paradas no Diário: a linha de cada dia, a frase do período e a lista para copiar ---------- */
+const ROTULO_PARADA = {energia:"Falta de energia?", desligado:"PC desligado", suspensao:"PC em suspensão", fechado:"App da Kryptex fechado",
+  parada:"Placa parada", pausa:"Pausada por você", protecao:"Pausada pela proteção de temperatura",
+  semleitura:"Sem leitura (PC desligado ou sem energia)", semminerar:"Sem minerar (motivo não registrado)"};
+/* a frase da lista copiada e dos avisos */
+function fraseParada(p){
+  const lig = p.ligou ? ` e ligou às ${horaMin(p.ligou)}` : "";
+  return {energia:`o PC apagou de repente (falta de energia?)${lig}`, desligado:`o PC foi desligado${lig}`, suspensao:"o PC ficou em suspensão",
+    fechado:"o app da Kryptex ficou fechado", parada:"a placa ficou parada", pausa:"a mineração ficou pausada por você",
+    protecao:"a mineração ficou pausada pela proteção de temperatura", semleitura:"o PC ficou sem leitura (desligado ou sem energia)",
+    semminerar:"a placa ficou sem minerar"}[p.motivo] || "a placa ficou sem minerar";
+}
+const hhParada = (t, aprox) => (aprox ? "~" : "") + horaMin(t);
+/* "das 02:00 às 08:00"; em dias diferentes, com a data de cada ponta; sem fim, "desde as 02:00" */
+function intervaloTxt(ini, fim, aprox){
+  if(fim==null) return `desde as ${hhParada(ini, aprox)}`;
+  const di = isoLocal(new Date(ini)), df = isoLocal(new Date(fim));
+  return di===df ? `das ${hhParada(ini, aprox)} às ${hhParada(fim, aprox)}` : `das ${hhParada(ini, aprox)} de ${dataBR(di)} às ${hhParada(fim, aprox)} de ${dataBR(df)}`;
+}
+/* as paradas que caem num dia, cortadas nele ({p, ini, fim}; a sem fim vai até agora) */
+function paradasDoDia(dia, agora){
+  const a = inicioDia(dia), b = Math.min(fimDia(dia), agora);
+  return paradas.lista.map(p=>({p, ini: Math.max(p.ini, a), fim: Math.min(p.fim ?? agora, b)})).filter(x=>x.fim > x.ini);
+}
+/* "Fora do ar 6 h: 02:00–08:00 (Falta de energia?) · deixou de ganhar uns R$ 6,18" ("" sem paradas). O começo cortado
+   pela meia-noite é 00:00 e o fim, 24:00 */
+function linhaParadasDia(dia, agora){
+  const l = paradasDoDia(dia, agora); if(!l.length) return "";
+  const ini = x => x.ini > x.p.ini ? "00:00" : hhParada(x.p.ini, x.p.aprox);
+  const fim = x => x.fim < (x.p.fim ?? agora) ? "24:00" : x.p.fim==null ? "agora" : hhParada(x.p.fim, x.p.aprox);
+  const tot = l.reduce((s,x)=>s + x.fim - x.ini, 0), perda = l.reduce((s,x)=>s + perdaParada(x.p, dia, agora), 0);
+  return `Fora do ar ${duracao(tot)}: ${l.map(x=>`${ini(x)}–${fim(x)} (${ROTULO_PARADA[x.p.motivo]})`).join(", ")} · deixou de ganhar uns ${brl(perda)}`;
+}
+/* " · parou 6 h (Falta de energia?)": o total do dia e o motivo da parada mais longa ("" sem paradas) */
+function parouNoDia(dia, agora){
+  const l = paradasDoDia(dia, agora); if(!l.length) return "";
+  const maior = l.reduce((m,x)=>x.fim - x.ini > m.fim - m.ini ? x : m, l[0]);
+  return ` · parou ${duracao(l.reduce((s,x)=>s + x.fim - x.ini, 0))} (${ROTULO_PARADA[maior.p.motivo]})`;
+}
+/* as paradas do período do Diário (7 ou 30 dias até hoje; 0 = tudo), cortadas no começo dele */
+function paradasDoPeriodo(per, agora){
+  const a = per ? inicioDia(isoLocal(new Date(agora - (per-1)*864e5))) : -Infinity;
+  return paradas.lista.filter(p=>(p.fim ?? agora) > a && p.ini < agora).map(p=>({p, ini: Math.max(p.ini, a), fim: Math.min(p.fim ?? agora, agora)}));
+}
+function resumoParadasPeriodo(per, agora){
+  const l = paradasDoPeriodo(per, agora);
+  return {n: l.length, total: l.reduce((s,x)=>s + x.fim - x.ini, 0), perda: l.reduce((s,x)=>s + (x.fim - x.ini)/3600e3*ritmoParada(x.p), 0)};
+}
+/* a lista copiada: uma linha por parada */
+function textoParadas(lista, agora){
+  return lista.map(p=>`${dataBR(isoLocal(new Date(p.ini)))}, ${p.fim==null ? `desde as ${hhParada(p.ini, p.aprox)} (${duracao(agora - p.ini)} até agora)` : `${intervaloTxt(p.ini, p.fim, p.aprox)} (${duracao(p.fim - p.ini)})`}: ${fraseParada(p)}`).join("\n");
+}
+let pdSoEnergia = false;   /* "Só falta de energia" (só nesta visita): a falta de energia e as sem leitura, que é como aparece a de antes do 1.10.0 */
+const listaParadasTela = agora => paradasDoPeriodo(dPer, agora).map(x=>x.p).filter(p=>!pdSoEnergia || p.motivo==="energia" || p.motivo==="semleitura").sort((a,b)=>b.ini-a.ini);
+/* o texto em HTML, sem quebrar a linha no meio de um valor ("R$ 6,18") nem de um horário ("02:00–08:00") */
+const htmlNw = s => esc(s).replace(/R\$ [\d.,]+|~?\d{2}:\d{2}–(?:~?\d{2}:\d{2}|agora)/g, m=>`<span class="nw">${m}</span>`);
+/* na tela, a parada de dois dias diz só o dia do fim (o do começo já vem antes) */
+const intervaloTela = p => p.fim!=null && isoLocal(new Date(p.fim))!==isoLocal(new Date(p.ini))
+  ? `das ${hhParada(p.ini, p.aprox)} às ${hhParada(p.fim, p.aprox)} do dia ${dataBR(isoLocal(new Date(p.fim))).slice(0,5)}` : intervaloTxt(p.ini, p.fim, p.aprox);
+/* a frase do período (embaixo dos números) e a lista; o painel online (sem o PC) não tem paradas */
+function renderParadas(){
+  const box = $("paradas-p"); if(!box) return;
+  const agora = Date.now(), r = resumoParadasPeriodo(dPer, agora);
+  $("d-paradas").innerHTML = r.n ? htmlNw(`No período, a placa ficou ${duracao(r.total)} parada (${r.n} ${plural(r.n, "parada")}) e deixou de ganhar uns ${brl(r.perda)}`) : "";
+  box.hidden = !paradas.lista.length && !(PODE_KXA() || REMOTO);
+  const l = listaParadasTela(agora);
+  $("pd-l").innerHTML = l.length ? `<ul class="pd-lista">${l.map(p=>`<li class="pd-it"><div class="pd-q"><b>${dataBR(isoLocal(new Date(p.ini)))}</b> ${esc(intervaloTela(p))}<small>${esc(ROTULO_PARADA[p.motivo])}${p.ligou && (p.motivo==="energia" || p.motivo==="desligado") ? ` · ligou às ${horaMin(p.ligou)}` : ""}</small></div>
+      <div class="pd-v">${duracao((p.fim ?? agora) - p.ini)}${p.fim==null ? " até agora" : ""}<small>${htmlNw(`deixou de ganhar uns ${brl(perdaParada(p, undefined, agora))}`)}</small></div></li>`).join("")}</ul>`
+    : `<p class="pd-vazio">Nenhuma parada neste período</p>`;
+  $("pd-copiar").disabled = !l.length;
+}
+$("pd-energia").addEventListener("change", e=>{ pdSoEnergia = e.target.checked; renderParadas(); });
+$("pd-copiar").addEventListener("click", async ()=>{
+  try{ await copiarTexto(textoParadas(listaParadasTela(Date.now()), Date.now())); status2("pd-status", "Lista copiada.", "ok"); }
+  catch(err){ status2("pd-status", "Não deu para copiar: " + ((err && err.message) || err) + ".", "erro"); }
+});
 const dolarDe = e => +e.dolar>0 ? +e.dolar : cfg.dolar;
 const realUsd = e => e.moeda==="BRL" ? e.valor/dolarDe(e) : e.valor;
 const realBrl = e => e.moeda==="BRL" ? e.valor : e.valor*dolarDe(e);
@@ -3267,9 +3370,11 @@ function renderDiario(){
   renderGraf(linhas);
   if(MESES) renderRelatorio();
   renderSugestoesKx();
+  renderParadas();
+  const agora = Date.now();
   $("d-tab").innerHTML = linhas.length ? `<div class="tw"><table><thead><tr><th>Dia</th><th class="n">Real</th><th class="n">Estimado</th><th class="n">Diferença</th><th class="n">Lucro real</th><th>Observação</th><th></th></tr></thead><tbody>${linhas.map(l=>{
-      const dif = l.pct!=null ? l.pct-1 : null;
-      return `<tr><td class="name">${dataBR(l.e.data)}<small>${new Date(l.e.data+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"})}${+l.e.horas<24?` · ${n1(+l.e.horas)} h`:""}</small></td>
+      const dif = l.pct!=null ? l.pct-1 : null, parou = linhaParadasDia(l.e.data, agora);
+      return `<tr><td class="name">${dataBR(l.e.data)}<small>${new Date(l.e.data+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"})}${+l.e.horas<24?` · ${n1(+l.e.horas)} h`:""}</small>${parou ? `<small class="d-parou">${htmlNw(parou)}</small>` : ""}</td>
         <td class="n">${brl(l.rBrl)}<small class="sub">${l.e.moeda==="BRL"?"anotado em R$":usd2(l.e.valor)}</small></td>
         <td class="n" data-l="Estimado">${l.eUsd>0?brl(l.eBrl):"—"}<small class="sub">${l.eUsd>0?usd2(l.eUsd):"nada minerando"}</small></td>
         <td class="n ${dif!=null&&dif<0?"neg":dif>0?"dif-pos":""}" data-l="Diferença">${dif==null?"—":(dif>0?"+":dif<0?"−":"")+Math.abs(Math.round(dif*1000)/10).toLocaleString("pt-BR")+"%"}</td>
@@ -3296,7 +3401,8 @@ function renderGraf(linhas, box = $("d-graf"), op = {}){
     for(let d = new Date(ini); d<=fim; d = new Date(d.getTime()+864e5)) dias.push(isoLocal(d));
     if(dias.length>60) dias = dias.slice(-60);
   }
-  const pontos = dias.map(d=>{ const l = porData.get(d); const est = l ? l.eBrl : estDia(d).usd*cfg.dolar; return {d, real: l ? l.rBrl : null, est}; });
+  const agora = Date.now();
+  const pontos = dias.map(d=>{ const l = porData.get(d); const est = l ? l.eBrl : estDia(d).usd*cfg.dolar; return {d, real: l ? l.rBrl : null, est, parou: horasParadasDia(d, agora)*3600e3}; });
   const W = Math.max(280, Math.round(box.clientWidth || 640)), H = 230, mL = 46, mR = 10, mT = 18, mB = 26;
   box.dataset.larg = String(W);
   const pw = W-mL-mR, ph = H-mT-mB, band = pw/pontos.length;
@@ -3316,7 +3422,7 @@ function renderGraf(linhas, box = $("d-graf"), op = {}){
   let xs = ""; pontos.forEach((p,i)=>{ if(i%passoX && i!==pontos.length-1) return; if(i!==pontos.length-1 && pontos.length-1-i<passoX && i%passoX===0 && i>0) return; xs += `<text x="${(x0(i)+band/2).toFixed(1)}" y="${H-8}" text-anchor="middle">${diaMes(p.d)}</text>`; });
   const ult = [...pontos].reverse().find(p=>p.real>0), iu = pontos.indexOf(ult);
   const rotulo = ult ? `<text class="v" x="${(x0(iu)+band/2).toFixed(1)}" y="${(y(ult.real)-6).toFixed(1)}" text-anchor="middle">${brl0(ult.real).replace("R$ ","")}</text>` : "";
-  const hits = pontos.map((p,i)=>`<rect class="wash" x="${x0(i).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}"/><rect class="bar-hit" tabindex="0" data-i="${i}" x="${x0(i).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}" aria-label="${dataBR(p.d)}: real ${p.real!=null?brl(p.real):"não anotado"}, estimado ${brl(p.est||0)}"/>`).join("");
+  const hits = pontos.map((p,i)=>`<rect class="wash" x="${x0(i).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}"/><rect class="bar-hit" tabindex="0" data-i="${i}" x="${x0(i).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}" aria-label="${dataBR(p.d)}: real ${p.real!=null?brl(p.real):"não anotado"}, estimado ${brl(p.est||0)}${p.parou>0 ? `, parou ${duracao(p.parou)}` : ""}"/>`).join("");
   box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ganho real por dia comparado com a estimativa da Kryptex, em reais">${g}${barras}<path d="${lin}" fill="none" stroke="var(--viz-est)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${rotulo}${xs}${hits}</svg><div class="tip" hidden></div>`;
   const tip = box.querySelector(".tip"), washes = box.querySelectorAll(".wash");
   const mostrar = el => {
@@ -3327,6 +3433,7 @@ function renderGraf(linhas, box = $("d-graf"), op = {}){
     linha("k-bar", p.real!=null ? brl(p.real) : "—", p.real!=null ? "real" : "não anotado");
     linha("k-lin", brl(p.est||0), "estimado");
     if(p.real!=null && p.est>0){ const d = document.createElement("span"); d.className = "t"; const v = (p.real/p.est-1)*100; d.textContent = `${v>=0?"+":"−"}${Math.abs(v).toFixed(1).replace(".",",")}% em relação ao estimado`; tip.append(d); }
+    if(p.parou>0){ const d = document.createElement("span"); d.className = "t"; d.textContent = `parou ${duracao(p.parou)}`; tip.append(d); }
     tip.hidden = false;
     const cx = x0(i)+band/2, tw = tip.offsetWidth;
     tip.style.left = Math.min(W-tw, Math.max(0, cx - tw/2)) + "px"; tip.style.top = Math.max(0, y(Math.max(p.real||0, p.est||0)) - tip.offsetHeight - 10) + "px";
@@ -5545,7 +5652,7 @@ function renderSugestoesKx(){
   if(!lista.length){ box.innerHTML = ""; return; }
   const dia = d => new Date(d+"T12:00").toLocaleDateString("pt-BR",{weekday:"long"});
   box.innerHTML = `<div class="painel kx-sug"><div class="painel-h"><h2>Ganhos lidos da sua conta da Kryptex</h2></div>
-    <ul class="kx-sug-l">${lista.map(([d,v])=>`<li><span class="t">${dia(d)}, ${dataBR(d).slice(0,5)}: <b>${valorKx(v)}</b><small>${btc8(v.btc)} BTC${v.horas!=null ? ` · ${n1(v.horas)} h minerando` : ""}${v.parcial ? ` · só desde ${v.parcial}, quando o painel começou a ler a conta` : v.aproximado ? " · aproximado (houve saque, ou o PC ficou horas sem ler a conta)" : ""}</small></span>
+    <ul class="kx-sug-l">${lista.map(([d,v])=>`<li><span class="t">${dia(d)}, ${dataBR(d).slice(0,5)}: <b>${valorKx(v)}</b><small>${btc8(v.btc)} BTC${v.horas!=null ? ` · ${n1(v.horas)} h minerando` : ""}${parouNoDia(d, Date.now())}${v.parcial ? ` · só desde ${v.parcial}, quando o painel começou a ler a conta` : v.aproximado ? " · aproximado (houve saque, ou o PC ficou horas sem ler a conta)" : ""}</small></span>
       <span class="acoes">${v.valor>0 && (v.moeda==="USD" || v.moeda==="BRL") ? `<button type="button" class="pri" data-kx-anotar="${d}">Anotar no Diário</button>` : ""}<button type="button" class="link" data-kx-recusar="${d}">Não anotar</button></span></li>`).join("")}</ul>
     <label class="check"><input type="checkbox" class="kx-auto"${c.auto ? " checked" : ""}> Anotar sozinho os próximos dias (os aproximados continuam esperando você)</label></div>`;
 }
@@ -5884,7 +5991,7 @@ function atualizarParadas(agora){
   const mudou = JSON.stringify(lista)!==JSON.stringify(antes);
   paradas.lista = lista;
   if(retro) paradas.retro = true;
-  if(mudou || retro){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); }
+  if(mudou || retro){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); try{ renderDiario(); }catch(e){} }
   return {acabaram, ligouSemMinerar};
 }
 function processarLeituraKxa(l, agora){
@@ -7012,6 +7119,7 @@ function irPara(v, foco){
   fecharFolha();
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
   if(v==="sim") renderSim();
+  if(v==="diario") renderParadas();   /* uma parada que não acabou cresce com o tempo */
   document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
   $("aba-mais").setAttribute("aria-current", NA_FOLHA.includes(v) ? "page" : "false");
   $("topo-t").textContent = $("t-"+v).textContent;

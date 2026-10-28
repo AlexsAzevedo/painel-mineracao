@@ -189,6 +189,80 @@ def contas(p):
     pg.context.close()
 
 
+P3 = {"ini": ms(21, 3), "fim": ms(21, 5), "ligou": None, "motivo": "semleitura", "aprox": True, "ritmo": 1.03}
+P5 = {"ini": ms(20, 10), "fim": ms(20, 10, 30), "ligou": None, "motivo": "pausa", "aprox": False, "ritmo": 1.03}
+DADOS_UI = {**DADOS_CONTAS, "min-paradas": {"v": 1, "retro": True, "lista": [P1, P2, P3, P4, P5, {**P6, "fim": ms(25, 13, 50), "ritmo": 1.03}]},
+            "min-diario": [DIA("2026-10-24", 18.54, 18, "kryptex", 1), DIA("2026-10-23", 24.72, 24, "", 2),
+                           DIA("2026-10-22", 22.66, 22, "kryptex", 3), DIA("2026-10-21", 22.66, 22, "kryptex", 4)]}
+LINHA_24 = "Fora do ar 6 h: 02:00–08:00 (Falta de energia?) · deixou de ganhar uns R$ 6,18"
+COPIA = """25/10/2026, das 13:40 às 13:50 (10 min): a placa ficou parada
+25/10/2026, das 05:00 às 07:10 (2 h 10 min): o PC apagou de repente (falta de energia?) e ligou às 07:00
+24/10/2026, das 02:00 às 08:00 (6 h): o PC apagou de repente (falta de energia?) e ligou às 07:50
+22/10/2026, das 22:00 de 22/10/2026 às 01:00 de 23/10/2026 (3 h): a placa ficou parada
+21/10/2026, das ~03:00 às ~05:00 (2 h): o PC ficou sem leitura (desligado ou sem energia)
+20/10/2026, das 10:00 às 10:30 (30 min): a mineração ficou pausada por você"""
+# o texto da célula do dia na tabela (ou no cartão, no celular) do Diário
+JS_DIA = "(d) => { const tr = [...document.querySelectorAll('#d-tab tbody tr')].find(tr => tr.cells[0] && tr.cells[0].textContent.startsWith(d)); return tr ? tr.cells[0].textContent : ''; }"
+
+
+def diario_ui(p):
+    pg = abrir(p, dados=DADOS_UI, pc=True, hash="diario")
+    pg.wait_for_timeout(1500)
+    dia = lambda d: pg.evaluate(JS_DIA, d)
+    checa("diário: a linha das paradas do dia 24", LINHA_24 in dia("24/10/2026"), dia("24/10/2026"))
+    checa("diário: a parada que atravessa a meia-noite, no dia 22 (até 24:00)",
+          "Fora do ar 2 h: 22:00–24:00 (Placa parada) · deixou de ganhar uns R$ 2,06" in dia("22/10/2026"), dia("22/10/2026"))
+    checa("diário: a parada com o horário aproximado, no dia 21",
+          "Fora do ar 2 h: ~03:00–~05:00 (Sem leitura (PC desligado ou sem energia)) · deixou de ganhar uns R$ 2,06" in dia("21/10/2026"), dia("21/10/2026"))
+    per = pg.evaluate("(document.getElementById('d-paradas') || {}).textContent || ''").strip()
+    checa("diário: as paradas do período", per == "No período, a placa ficou 13 h 50 min parada (6 paradas) e deixou de ganhar uns R$ 14,25", per)
+    itens = lambda: pg.evaluate("[...document.querySelectorAll('#paradas-p .pd-it')].map(e => e.textContent)")
+    it = itens()
+    checa("lista de paradas: as 6 do período, a mais nova primeiro", len(it) == 6 and "13:40" in it[0] and "10:00" in it[5], it)
+    if not pg.evaluate("!!document.getElementById('pd-energia') && !!document.getElementById('pd-copiar')"):
+        pg.context.close()
+        return checa("lista de paradas: o filtro e o botão de copiar existem", False)
+    pg.check("#pd-energia")
+    it = itens()
+    checa("lista de paradas: só falta de energia (e as sem leitura)", len(it) == 3 and "05:00" in it[0] and "02:00" in it[1] and "~03:00" in it[2], it)
+    pg.uncheck("#pd-energia")
+    pg.evaluate("window.__copiado = null; window.desktop.copiar = async t => { window.__copiado = t; return true; }")
+    pg.click("#pd-copiar")
+    pg.wait_for_timeout(200)
+    c = pg.evaluate("window.__copiado")
+    checa("lista de paradas: o texto copiado", c == COPIA, c)
+    # a dica do gráfico no dia 24 (o mouse sai de cima, para a rolagem não abrir a dica de outro dia)
+    pg.mouse.move(0, 0)
+    pg.focus('#d-graf .bar-hit[aria-label^="24/10/2026"]')
+    dica = pg.evaluate("document.querySelector('#d-graf .tip').textContent")
+    checa("gráfico: a dica do dia 24 diz quanto parou", "parou 6 h" in dica, dica)
+    # os ganhos lidos da Kryptex: o 24 esperando para ser anotado
+    pg.evaluate("kx.dias['2026-10-24'].horas = 18; diario = diario.filter(e => e.data !== '2026-10-24'); renderSugestoesKx()")
+    s = pg.evaluate("document.getElementById('kx-sug').textContent")
+    checa("ganhos lidos da Kryptex: as horas minerando e quanto parou", "· 18 h minerando · parou 6 h (Falta de energia?)" in s, s)
+    for tema in ("claro", "escuro"):
+        t = pg.evaluate("(t) => { document.documentElement.dataset.tema = t; renderDiario(); return document.getElementById('v-diario').innerText; }", tema)
+        checa(f"diário ({tema}): sem NaN, Infinity nem undefined", not re.search(r"NaN|Infinity|undefined", t), re.findall(r".{0,30}(?:NaN|Infinity|undefined).{0,30}", t)[:3])
+    checa("sem erros (diário)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+    # Review Focus 4: o painel online (sem o PC) não mostra a lista
+    on = abrir(p, dados=DADOS, hash="diario")
+    checa("painel online: sem a lista de paradas", on.evaluate("document.getElementById('paradas-p')?.hidden === true"))
+    checa("sem erros (painel online)", not erros(on), erros(on)[:3])
+    on.context.close()
+    # no celular: sem paradas, e com as paradas que vêm do PC
+    c1 = abrir(p, 390, 844, dados={**DADOS, "min-paradas": {"v": 1, "retro": True, "lista": []}}, celular=True, hash="diario")
+    t = c1.evaluate("(() => { const e = document.getElementById('paradas-p'); return e && !e.hidden ? e.textContent : ''; })()")
+    checa("celular sem paradas: Nenhuma parada neste período", "Nenhuma parada neste período" in t, t)
+    c1.context.close()
+    c2 = abrir(p, 390, 844, dados=DADOS_UI, celular=True, hash="diario")
+    checa("celular: a mesma linha do dia 24", LINHA_24 in c2.evaluate(JS_DIA, "24/10/2026"), c2.evaluate(JS_DIA, "24/10/2026"))
+    m = c2.evaluate("({larg: document.documentElement.scrollWidth, bt: document.getElementById('pd-copiar') ? document.getElementById('pd-copiar').getBoundingClientRect().height : 0})")
+    checa("celular: sem rolagem para o lado e o botão de copiar com 44 px", m["larg"] <= 390 and m["bt"] >= 44, m)
+    checa("sem erros (celular)", not erros(c2), erros(c2)[:3])
+    c2.context.close()
+
+
 def retro(p):
     """os dias que já passaram, na primeira leitura desta versão: as quedas pelas leituras de 36 h e, antes delas, pelos
     saldos guardados da conta (horários em minutos desde agora)"""
@@ -245,4 +319,5 @@ with sync_playwright() as p:
     deteccao(p)
     contas(p)
     retro(p)
+    diario_ui(p)
 fim()
