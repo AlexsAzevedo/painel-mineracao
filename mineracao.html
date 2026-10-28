@@ -1927,7 +1927,7 @@ function parcelasPadrao(){ try{ const n = Math.round(+setup.parcelas||1); return
 /* ---------- persistência: db do artifact, com fallback local ---------- */
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 /* chaves que o PC e o celular dividem (o resto, como a tela aberta e os filtros, é de cada aparelho) */
-const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos","min-kryptex","min-kx-app"];
+const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos","min-kryptex","min-kx-app","min-paradas"];
 var aplicandoRemoto = false;   /* var: lsSet roda antes da parte do celular, lá embaixo */
 var painelPronto = false;      /* o script inteiro já rodou (as telas que dependem de tudo podem ser desenhadas) */
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
@@ -5618,7 +5618,7 @@ function hojeKxa(amostras, agora, tarifa, precoBrl){
   const d = new Date(agora); d.setHours(0,0,0,0); const ini = d.getTime();
   const lista = (amostras||[]).filter(a=>Array.isArray(a) && a[0]<=agora).sort((a,b)=>a[0]-b[0]);
   const antes = lista.filter(a=>a[0]>=ini-30*60e3 && a[0]<ini && a[1]!=null);
-  const base = antes.length ? antes[antes.length-1] : lista.find(a=>a[0]>=ini);
+  const base = antes.length ? antes[antes.length-1] : lista.find(a=>a[0]>=ini && a[1]!=null);
   const r = {ganho:0, luz:0, lucro:0, kwh:0, desde:null, linha:[]};
   if(!base) return r;
   if(base[0] > ini+30*60e3) r.desde = base[0];
@@ -5715,6 +5715,109 @@ function migrarSaldoKxa(l){
   kxaHist.v = 2;
   lsSet("min-kxa-hist", kxaHist);
 }
+/* ---------- paradas: quando este PC deixou de minerar, e por quê ----------
+   Cada leitura de minuto guarda o estado (a[8]): "m" minerando, "u" pausada por você, "t" pausada pela proteção de
+   temperatura, "p" o app aberto sem minerar, "f" o app sem responder. Um buraco nas leituras (mais de 10 minutos, ou o
+   Windows ligando no meio) tem o motivo pelas marcas de energia do PC (energia.js, window.desktop.energia): ligou de novo
+   sem desligar normalmente = falta de energia; com o desligamento normal = PC desligado; suspendeu = suspensão; nenhuma
+   marca = o painel ficou fechado com o PC ligado (não vira parada, porque não dá para saber se minerou). Antes de o PC
+   começar a anotar (energia.desde), um buraco é "sem leitura". As paradas ficam em min-paradas: só o PC grava, o celular
+   recebe; 365 dias, no máximo 1000. */
+const PARADA_MIN = 10*60e3, PARADA_AVISO = 3*60e3, PARADA_LIGOU = 15*60e3, PARADAS_DIAS = 365, PARADAS_MAX = 1000;
+const MOTIVOS_PARADA = ["energia","desligado","suspensao","fechado","parada","pausa","protecao","semleitura","semminerar"];
+const MOTIVOS_FORTES = new Set(["energia","desligado","suspensao"]);
+const MOTIVO_DO_ESTADO = {u:"pausa", t:"protecao", p:"parada", f:"fechado", "?":"semminerar"};
+/* uma parada arrumada (a ordem das chaves é fixa: a lista é comparada pelo JSON para gravar só quando muda) */
+function paradaOk(p){
+  if(!p || typeof p!=="object" || !MOTIVOS_PARADA.includes(p.motivo)) return null;
+  const n = v => v==null || v==="" ? null : (Number.isFinite(+v) ? +v : NaN);
+  const ini = n(p.ini), fim = n(p.fim), ligou = n(p.ligou), ritmo = n(p.ritmo);
+  if(!(ini > 0) || Number.isNaN(fim) || (fim!=null && fim<=ini)) return null;
+  return {ini, fim, ligou: ligou > 0 ? ligou : null, motivo: p.motivo, aprox: !!p.aprox, ritmo: ritmo >= 0 ? ritmo : null, ...(p.avisoLigou ? {avisoLigou:true} : {})};
+}
+function carregarParadas(){
+  const j = lsGet("min-paradas");
+  const lista = (j && Array.isArray(j.lista) ? j.lista : []).map(paradaOk).filter(Boolean).sort((a,b)=>a.ini-b.ini);
+  return {v:1, retro: !!(j && j.retro), lista};
+}
+var paradas = carregarParadas(), energiaCache = null;
+/* as marcas de energia do PC ({desde, marcas}); null sem a ponte (os buracos ficam "sem leitura") */
+async function lerEnergia(){
+  try{ const e = await window.desktop.energia(); return e && Number.isFinite(+e.desde) && Array.isArray(e.marcas) ? e : null; }catch(err){ return null; }
+}
+const estadoAmostra = a => typeof a[8]==="string" && a[8].length===1 && "mutpf".includes(a[8]) ? a[8] : (a[3] ? "m" : "?");
+const estadoLeituraKxa = (l, agora) => !l || !l.ok ? "f"
+  : l.pausado ? (kxa.protecao && (kxa.protecao.ate===0 || agora <= kxa.protecao.ate + 2*60e3) ? "t" : "u")
+  : (l.placas||[]).some(p=>p.minerando) ? "m" : "p";
+/* todos os intervalos sem minerar das leituras (sem o mínimo de 10 minutos): {ini, fim (null = ainda parada), ligou, motivo} */
+function paradasDasAmostras(amostras, energia, agora){
+  const am = [];
+  for(const a of (amostras||[]).filter(a=>Array.isArray(a) && Number.isFinite(a[0]) && a[0]<=agora).sort((x,y)=>x[0]-y[0])){
+    if(am.length && am[am.length-1][0]===a[0]) am[am.length-1] = a; else am.push(a);   /* o mesmo minuto: vale a última */
+  }
+  const marcas = energia && Array.isArray(energia.marcas) ? energia.marcas.filter(m=>m && Number.isFinite(+m.t)) : [];
+  const desde = energia && Number.isFinite(+energia.desde) ? +energia.desde : Infinity;
+  /* null: não é buraco; motivo null: o painel ficou fechado com o PC ligado */
+  const buraco = (t1, t2) => {
+    const lig = marcas.find(m=>m.tipo==="ligou" && +m.t>t1 && +m.t<=t2);
+    if(!lig && t2 - t1 <= KXA_BURACO) return null;
+    if(!energia || t1 < desde) return {motivo:"semleitura", ligou:null};
+    if(lig) return {motivo: marcas.some(m=>m.tipo==="desligou" && +m.t>=t1 && +m.t<=+lig.t) ? "desligado" : "energia", ligou:+lig.t};
+    if(marcas.some(m=>m.tipo==="suspendeu" && +m.t>=t1 && +m.t<=t2)) return {motivo:"suspensao", ligou:null};
+    return {motivo:null, ligou:null};
+  };
+  const r = []; let atual = null, ant = null;
+  const fechar = t => { if(atual && t > atual.ini) r.push({...atual, fim:t}); atual = null; };
+  const abrir = (ini, motivo, ligou) => { atual = {ini, fim:null, ligou: ligou ?? null, motivo, aprox:false}; };
+  for(const b of am){
+    const eb = estadoAmostra(b);
+    let bu = null;
+    if(ant){
+      bu = buraco(ant[0], b[0]);
+      if(bu && bu.motivo){
+        if(!atual) abrir(ant[0], bu.motivo, bu.ligou);
+        else {
+          if(MOTIVOS_FORTES.has(bu.motivo) && !MOTIVOS_FORTES.has(atual.motivo)) atual.motivo = bu.motivo;
+          if(bu.ligou!=null && atual.ligou==null) atual.ligou = bu.ligou;
+        }
+      }
+      else if(bu) fechar(ant[0]);
+    }
+    if(eb==="m") fechar(b[0]);
+    else if(!atual) abrir(ant && !bu && estadoAmostra(ant)==="m" ? ant[0] : b[0], MOTIVO_DO_ESTADO[eb]);
+    ant = b;
+  }
+  if(atual) r.push({...atual});
+  return r;
+}
+/* junta as paradas das leituras de agora (36 h) com as guardadas e grava só quando a lista muda. Devolve as que acabaram
+   nesta leitura e a parada em que o PC religou há 15 minutos sem a placa voltar a minerar (para os avisos) */
+function atualizarParadas(agora){
+  const am = kxaHist.amostras, janelaIni = am.length ? am.reduce((m,a)=>Math.min(m, a[0]), Infinity) : agora;
+  const novas = paradasDasAmostras(am, energiaCache, agora);
+  const antes = paradas.lista, porIni = new Map(antes.map(p=>[p.ini, p]));
+  const fora = antes.filter(p=>p.ini < janelaIni).map(p=>({...p}));
+  /* a guardada que vinha de antes das leituras de agora: a primeira nova, se começa na primeira leitura, é a mesma parada */
+  const vinda = fora.find(p=>p.fim==null || p.fim >= janelaIni);
+  if(vinda){
+    if(novas.length && novas[0].ini <= janelaIni){
+      const n = novas.shift();
+      if(MOTIVOS_FORTES.has(n.motivo) && !MOTIVOS_FORTES.has(vinda.motivo)) vinda.motivo = n.motivo;
+      vinda.fim = n.fim; if(n.ligou!=null) vinda.ligou = n.ligou;
+    }
+    else if(vinda.fim==null) vinda.fim = janelaIni;
+  }
+  for(const n of novas){ const g = porIni.get(n.ini); n.ritmo = g ? g.ritmo : null; if(g && g.avisoLigou) n.avisoLigou = true; }
+  const vale = p => p.motivo==="energia" || (p.fim ?? agora) - p.ini >= PARADA_MIN;
+  const lim = agora - PARADAS_DIAS*864e5;
+  const lista = [...fora, ...novas].map(paradaOk).filter(p=>p && vale(p) && (p.fim ?? agora) >= lim).sort((a,b)=>a.ini-b.ini).slice(-PARADAS_MAX);
+  const acabaram = lista.filter(p=>{ const g = porIni.get(p.ini); return p.fim!=null && agora - p.fim <= PARADA_AVISO && (!g || g.fim==null); });
+  const ligouSemMinerar = lista.find(p=>p.fim==null && p.ligou!=null && agora - p.ligou >= PARADA_LIGOU && !p.avisoLigou) || null;
+  const mudou = JSON.stringify(lista)!==JSON.stringify(antes);
+  paradas.lista = lista;
+  if(mudou) lsSet("min-paradas", paradas);
+  return {acabaram, ligouSemMinerar};
+}
 function processarLeituraKxa(l, agora){
   let avisou = false;
   const aviso = (...a) => { avisoKx(...a); avisou = true; };
@@ -5730,6 +5833,10 @@ function processarLeituraKxa(l, agora){
         aviso("fechado", "O app da Kryptex não está respondendo", `Faz ${Math.round((agora - kxa.primeiraFalha)/60e3)} minutos. Se ele foi fechado, a mineração parou: abra o app da Kryptex de novo.`);
       }
     }
+    kxaHist.amostras.push([agora, null, 0, 0, 0, null, null, null, "f"]);
+    kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
+    lsSet("min-kxa-hist", kxaHist);
+    atualizarParadas(agora);
     return avisou;
   }
   const buraco = !!(kxa.ultimaOk && agora - kxa.ultimaOk > KXA_BURACO);
@@ -5752,9 +5859,10 @@ function processarLeituraKxa(l, agora){
      outras máquinas ligadas do setup pelo estimado; sem medida, fica vazio e a luz usa o estimado do setup inteiro */
   const wp = wattsPlacasKxa(l), watts = ms.length ? (wp!=null ? wattsNaTomada(wp, l) + wattsOutrasMaqs(l) : null) : 0;
   const maxT = k => { const v = gpus.map(p=>p[k]).filter(x=>x!=null); return v.length ? Math.max(...v) : null; };
-  kxaHist.amostras.push([agora, l.saldoBtc, watts, ms.length ? 1 : 0, pr && pr.minerando ? pr.hash : 0, maxT("temp"), maxT("tempMem"), maxT("tempHot")]);
+  kxaHist.amostras.push([agora, l.saldoBtc, watts, ms.length ? 1 : 0, pr && pr.minerando ? pr.hash : 0, maxT("temp"), maxT("tempMem"), maxT("tempHot"), estadoLeituraKxa(l, agora)]);
   kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
   lsSet("min-kxa-hist", kxaHist);
+  atualizarParadas(agora);
   /* o saldo entra nos dias da Kryptex (as sugestões do Diário), no máximo a cada 15 minutos */
   const preco = precoBtcBrl(l);
   if(l.saldoBtc!=null && preco && agora - (kxa.ultimoSaldo||0) >= KXA_SALDO){
@@ -5806,7 +5914,7 @@ async function lerKryptexApp(motivo){
   if(!kxaCfg().ligado && motivo!=="manual" && motivo!=="celular") return;
   kxa.lendo = true;
   let l = null;
-  try{ l = await window.desktop.kryptexApp.ler(); }catch(e){ l = {ok:false, erro:"fechado", msg:String((e && e.message) || e)}; }
+  try{ l = await window.desktop.kryptexApp.ler(); energiaCache = await lerEnergia(); }catch(e){ l = {ok:false, erro:"fechado", msg:String((e && e.message) || e)}; }
   finally{ kxa.lendo = false; }
   const agora = Date.now(), antesKx = impressaoKx(), estadoAntes = kxa.estado;
   let avisou = processarLeituraKxa(l, agora);
@@ -5950,6 +6058,7 @@ function recarregarDados(ks){
   if(tem("min-ofertas-marcas")) ofMarcas = {salvos:{}, descartados:{}, ...(lsGet("min-ofertas-marcas")||{})};
   if(tem("min-ofertas-modelos")) ofSel = lsGet("min-ofertas-modelos");
   if(tem("min-kryptex")) carregarKx();
+  if(tem("min-paradas")) paradas = carregarParadas();
   if(tem("min-kx-app")){ const antes = kxaSnap && kxaSnap.estado; kxaSnap = lsGet("min-kx-app"); if(antes && kxaSnap && kxaSnap.estado!==antes) status2("ag-status", ""); }
   if(tem("min-ofertas-alerta")){
     alerta = {horas:0, bandeja:false, iniciar:false, ultima:0, avisados:{}, vistos:{}, bloqueio:0, ...(lsGet("min-ofertas-alerta")||{})};
