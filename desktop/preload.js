@@ -34,7 +34,9 @@ contextBridge.exposeInMainWorld("desktop", {
   },
   /* alerta de ofertas: aviso do Windows, ícone perto do relógio / abrir com o Windows, e o pedido de abrir uma tela (clique num aviso) */
   notificar: (n) => ipcRenderer.invoke("notificar", { titulo: String(n && n.titulo || ""), corpo: String(n && n.corpo || ""), tela: String(n && n.tela || ""), chave: String(n && n.chave || "") }),
-  segundoPlano: (op) => ipcRenderer.invoke("segundo-plano", op ? { bandeja: !!op.bandeja, iniciar: !!op.iniciar } : null),
+  segundoPlano: (op) => ipcRenderer.invoke("segundo-plano", op ? { bandeja: !!op.bandeja, iniciar: !!op.iniciar, kxa: !!op.kxa } : null),
+  /* as marcas de energia deste PC: quando o Windows ligou, desligou normalmente, suspendeu e acordou ({desde, marcas}) */
+  energia: () => ipcRenderer.invoke("energia"),
   /* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha da pessoa) */
   inicioWindows: (op) => {
     if (!op || typeof op !== "object") return ipcRenderer.invoke("inicio-windows", null);

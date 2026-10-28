@@ -4,7 +4,7 @@
    Um navegador escondido (sessão própria e permanente) abre as páginas de fora — anúncio do Facebook,
    Kryptex, Promotech, cotação do dólar — e devolve o texto para o painel, no mesmo formato que o
    navegador do app Claude devolvia. */
-const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray, Notification, nativeImage, net, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, Menu, Tray, Notification, nativeImage, net, clipboard, powerMonitor } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -98,7 +98,7 @@ function criarPrincipal() {
   });
   /* Windows desligando ou saindo da conta: fecha de verdade, sem segurar o desligamento
      (e o aviso "o PC parou de dar sinal" continua agendado no celular) */
-  principal.on("session-end", () => { saindo = true; encerrandoWindows = true; gravarPendentes(); });
+  principal.on("session-end", () => { if (energia) energia.marcar("desligou"); saindo = true; encerrandoWindows = true; gravarPendentes(); });
   principal.on("closed", () => { principal = null; if (leitor && !leitor.isDestroyed()) leitor.destroy(); });
 }
 
@@ -122,7 +122,7 @@ function mostrarPrincipal(tela, chave) {
    comWindows e minimizado: a escolha da pessoa em Premissas › Este computador (comWindows null = ainda não escolheu,
    vale o que as funções pedem). */
 const arquivoSegundoPlano = () => path.join(app.getPath("userData"), "segundo-plano.json");
-let segundoPlano = { bandeja: false, iniciar: false, avisouBandeja: false, comWindows: null, minimizado: true };
+let segundoPlano = { bandeja: false, iniciar: false, avisouBandeja: false, comWindows: null, minimizado: true, kxa: false };
 let bandeja = null;
 const testeSegundoPlano = { escondeu: 0, inicioComWindows: null, notificacoes: [] };
 function lerSegundoPlano() { try { segundoPlano = { ...segundoPlano, ...JSON.parse(fs.readFileSync(arquivoSegundoPlano(), "utf8")) }; } catch (e) {} }
@@ -175,7 +175,7 @@ function notificar({ titulo, corpo, tela, chave }) {
 ipcMain.handle("segundo-plano", (e, op) => {
   if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida");
   if (op && typeof op === "object") {
-    segundoPlano.bandeja = !!op.bandeja; segundoPlano.iniciar = !!op.iniciar;
+    segundoPlano.bandeja = !!op.bandeja; segundoPlano.iniciar = !!op.iniciar; segundoPlano.kxa = !!op.kxa;
     gravarSegundoPlano(); aplicarSegundoPlano();
   }
   return { bandeja: segundoPlano.bandeja, iniciar: segundoPlano.iniciar, temBandeja: !!bandeja };
@@ -192,6 +192,10 @@ ipcMain.handle("inicio-windows", (e, op) => {
   }
   return inicioPublico();
 });
+/* as marcas de energia deste PC (energia.js), para o painel saber por que a mineração parou */
+const Energia = require("./energia.js");
+let energia = null;
+ipcMain.handle("energia", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return energia ? energia.estado() : null; });
 ipcMain.handle("notificar", (e, n) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return notificar(n || {}); });
 ipcMain.handle("janela-visivel", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return !!(principal && principal.isVisible() && !principal.isMinimized()); });
 /* a área de transferência do Electron 44 é assíncrona */
@@ -271,8 +275,11 @@ async function cancelarSinal(topico) {
   topico = topico || celular.topico; if (!topico) return;
   try { await net.fetch(`${ntfy()}/${topico}/pc-sinal`, { method: "DELETE" }); if (TESTE) testeCelular.cancelados.push(topico); } catch (e) {}
 }
-/* ao abrir: se ficou mais de 45 minutos sem sinal (sem ter saído pelo Sair), o celular recebeu o aviso; conta que voltou */
+/* ao abrir: se ficou mais de 45 minutos sem sinal (sem ter saído pelo Sair), o celular recebeu o aviso; conta que voltou.
+   Com o painel lendo o app da Kryptex (segundoPlano.kxa), quem avisa é ele, quando a placa volta a minerar: com a hora em
+   que parou, o motivo e quanto deixou de ganhar */
 async function verificarVolta() {
+  if (segundoPlano.kxa) return false;
   if (!celular.ligado || !celular.sinal || !celular.topico || !celular.ultimoSinal || celular.saiuAMao) return false;
   if (Date.now() - celular.ultimoSinal < (SINAL_ESPERA_MIN + 1) * 60e3) return false;
   await publicarNtfy({ title: "O PC voltou", tags: ["white_check_mark"], priority: 3,
@@ -1443,6 +1450,11 @@ function montarMenu() {
 
 app.on("before-quit", () => { saindo = true; });
 if (UNICO) app.whenReady().then(() => {
+  /* as marcas de energia (energia.js): a ligação do Windows desta vez, a suspensão e a volta dela */
+  energia = Energia.criar({ arquivo: path.join(app.getPath("userData"), "energia.json") });
+  energia.registrarLigou();
+  powerMonitor.on("suspend", () => energia.marcar("suspendeu"));
+  powerMonitor.on("resume", () => energia.marcar("acordou"));
   montarMenu();
   lerSegundoPlano();
   criarPrincipal();
@@ -1451,7 +1463,8 @@ if (UNICO) app.whenReady().then(() => {
   iniciarAcesso();
   iniciarAppCelular();
   /* no teste, quem liga a atualização é o próprio teste, depois de subir o servidor de versões de mentira */
-  if (TESTE) require("./scripts/teste.js")(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir, testeArquivos, testeKryptex,
+  /* no teste, o roteiro é o teste.js; PAINEL_TESTE_ROTEIRO escolhe outro (só um nome de arquivo de scripts/) */
+  if (TESTE) require("./scripts/" + (/^[\w-]+\.js$/.test(process.env.PAINEL_TESTE_ROTEIRO || "") ? process.env.PAINEL_TESTE_ROTEIRO : "teste.js"))(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir, testeArquivos, testeKryptex,
     celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular },
     acesso: { estado: acessoPublico, config: () => ({ ...acesso }), versao: () => versaoDados },
     appCelular: { estado: () => JSON.parse(JSON.stringify(appCel)), publico: appPublico, registro: testeApp, conectado: () => appConectado,
