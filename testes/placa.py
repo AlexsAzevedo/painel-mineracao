@@ -65,8 +65,9 @@ _PONTE = """(() => {
     else if (f && f.modo === "auto") { v.curva = CURVA_PADRAO; v.zeroRpm = 1; }
     delete v.deFabrica;
   };
-  window.__placa = []; window.__copiado = null; window.__resposta = null;
+  window.__placa = []; window.__copiado = null; window.__resposta = null; window.__mudancas = [];
   window.desktop.copiar = async (t) => { window.__copiado = String(t); return true; };
+  window.desktop.dadosMudaram = (k) => { window.__mudancas.push(k); };
   window.desktop.placa = {
     estado: async () => { window.__placa.push(["estado"]); const ev = st.pend; st.pend = []; return publico(ev); },
     ler: async () => { window.__placa.push(["ler"]); st.leitura = ler(); return copia(st.leitura); },
@@ -134,6 +135,11 @@ def campo(c, k):
 def junto(c, k, sel):
     """um elemento no mesmo rótulo do campo k (o nome ou a faixa)"""
     return c.locator(f'label:has([data-campo="{k}"]) {sel}')
+
+
+def mudancas(pg, k="min-placa"):
+    """quantas vezes a página avisou o programa que a chave k mudou (o que vai para o celular)"""
+    return len([x for x in pg.evaluate("window.__mudancas") if x == k])
 
 
 def prep_segundo_plano(pg):
@@ -235,6 +241,7 @@ def pc(p):
     checa("cuidar: o aviso do Windows (o painel não abre com ele)", pg.locator("#placa-inicio").is_visible() and pg.locator("#placa-inicio").text_content() == INICIO,
           pg.locator("#placa-inicio").text_content())
     checa("cuidar: a min-placa gravada uma vez", pg.evaluate("window.__minPlaca") == 1, pg.evaluate("window.__minPlaca"))
+    checa("cuidar: o celular fica sabendo da min-placa uma vez", mudancas(pg) == 1, mudancas(pg))
     # com o painel cuidando e a leitura nova, só o estado; com a leitura de mais de 2 minutos, lê antes
     pg.evaluate("window.__placa = []")
     pg.evaluate("carregarPlaca()")
@@ -267,8 +274,11 @@ def pc(p):
     esp_mp = {"v": 1, "cuidar": True, "placas": [{"nome": NOME, "ajuste": esperado, "situacao": "teste", "desde": AGORA_MS, "faltam": 15, "travou": None}]}
     checa("min-placa: o ajuste e a situação", bool(mp) and {k: v for k, v in mp.items() if k != "quando"} == esp_mp and isinstance(mp.get("quando"), int), mp)
     checa("min-placa: gravada uma vez por mudança", pg.evaluate("window.__minPlaca") == 2, pg.evaluate("window.__minPlaca"))
+    checa("min-placa: o celular fica sabendo uma vez por mudança", mudancas(pg) == 2, mudancas(pg))
     pg.evaluate("carregarPlaca()")
     checa("min-placa: o mesmo estado não grava de novo", pg.evaluate("window.__minPlaca") == 2, pg.evaluate("window.__minPlaca"))
+    checa("min-placa: o mesmo estado não vai de novo para o celular", mudancas(pg) == 2, mudancas(pg))
+    checa("o PC nunca mostra a seção do celular", pg.evaluate("(() => { const b = document.getElementById('placa-cel'); return b ? b.hidden : 'sem a seção'; })()") is True)
 
     # ---------- um ajuste que já travou a placa: confirmar ----------
     pg.evaluate("""() => { window.__resposta = (c, a, op) => op && op.mesmoQueTravou ? null
@@ -396,6 +406,76 @@ def duas(p):
     pg.context.close()
 
 
+MIN_PLACA = {"v": 1, "quando": AGORA_MS - 120000, "cuidar": True,
+             "placas": [{"nome": NOME, "ajuste": AJ, "situacao": "teste", "desde": AGORA_MS - 180000, "faltam": 12, "travou": None}]}
+AJ_TXT = "Potência −20% · Tensão −75 mV · Clock máximo +0 MHz · Memória 2518 MHz · Ventoinha fixa em 74%"
+
+
+def secao_cel(pg):
+    return pg.evaluate("""(() => { const b = document.getElementById('placa-cel'); if (!b) return null;
+      return {hidden: b.hidden, texto: b.textContent.replace(/\\s+/g, ' ').trim(), campos: b.querySelectorAll('input, select, textarea, button:not(.sec-bt)').length}; })()""")
+
+
+@parte
+def celular(p):
+    """o celular mostra o ajuste e a situação que o PC guardou na min-placa, sem campos nem botões"""
+    pg = abrir(p, 390, 844, dados={**DADOS, "min-placa": MIN_PLACA}, celular=True, hash="premissas")
+    s = secao_cel(pg)
+    checa("celular: a seção aparece", bool(s) and s["hidden"] is False, s)
+    checa("celular: o título", bool(s) and "Placa de vídeo do PC" in s["texto"], s)
+    checa("celular: o nome e o ajuste", bool(s) and NOME in s["texto"] and AJ_TXT in s["texto"], s)
+    checa("celular: a situação", bool(s) and "Em teste: faltam 12 minutos com a placa minerando." in s["texto"], s)
+    checa("celular: sem campos e sem botões", bool(s) and s["campos"] == 0, s)
+    checa("celular: a seção do PC escondida", pg.evaluate("document.getElementById('placa-p').hidden") is True)
+    # a min-placa nova chega do PC: a seção redesenha
+    um = {**MIN_PLACA, "placas": [{**MIN_PLACA["placas"][0], "faltam": 1}]}
+    pg.evaluate("(m) => { localStorage.setItem('min-placa', JSON.stringify(m)); recarregarDados(['min-placa']); }", um)
+    s = secao_cel(pg)
+    checa("celular: falta 1 minuto", bool(s) and "Em teste: falta 1 minuto com a placa minerando." in s["texto"], s)
+    tr = {**MIN_PLACA, "placas": [{**MIN_PLACA["placas"][0], "situacao": "travou", "faltam": None, "desde": AGORA_MS - 7200000,
+                                    "travou": {"quando": AGORA_MS - 1800000, "motivo": "o driver de vídeo reiniciou durante o teste"}}]}
+    pg.evaluate("(m) => { localStorage.setItem('min-placa', JSON.stringify(m)); recarregarDados(['min-placa']); }", tr)
+    s = secao_cel(pg)
+    checa("celular: travou, com o motivo",
+          bool(s) and "O ajuste de 25/10 13:30 travou a placa (o driver de vídeo reiniciou durante o teste). O painel voltou para o anterior." in s["texto"], s)
+    sem = {**MIN_PLACA, "cuidar": False, "placas": [{**MIN_PLACA["placas"][0], "situacao": "sem", "faltam": None}]}
+    pg.evaluate("(m) => { localStorage.setItem('min-placa', JSON.stringify(m)); recarregarDados(['min-placa']); }", sem)
+    s = secao_cel(pg)
+    checa("celular: sem o painel cuidar", bool(s) and SEM in s["texto"], s)
+    checa("sem erros (celular)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+    pg = abrir(p, 390, 844, dados=DADOS, celular=True, hash="premissas")
+    s = secao_cel(pg)
+    checa("celular sem a min-placa: a seção escondida", bool(s) and s["hidden"] is True, s)
+    checa("sem erros (celular sem a min-placa)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
+@parte
+def listas(p):
+    """as duas listas de chaves que o PC e o celular dividem: iguais, com a min-placa"""
+    lista = lambda arq: re.findall(r'"(min-[\w-]+)"', re.search(r"const SINCRONIZADAS = \[([^\]]*)\]", open(os.path.join(RAIZ, arq), encoding="utf-8").read()).group(1))
+    a, b = lista("mineracao.html"), lista(os.path.join("desktop", "sincronia.js"))
+    checa("min-placa nas duas listas de chaves do PC e do celular (iguais)", a == b and "min-placa" in a, [a, b])
+
+
+@parte
+def tela_celular(p, pasta):
+    for tema in ("claro", "escuro"):
+        pg = abrir(p, 390, 844, dados={**DADOS, "min-placa": MIN_PLACA}, celular=True, hash="premissas")
+        pg.evaluate("(t) => { document.documentElement.dataset.tema = t; }", tema)
+        pg.evaluate("() => { const b = document.querySelector('#placa-cel .sec-bt'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); }")
+        pg.locator("#placa-cel").scroll_into_view_if_needed()
+        pg.wait_for_timeout(200)
+        t = pg.locator("#placa-cel").inner_text()
+        checa(f"celular ({tema}): sem NaN, Infinity nem undefined", not re.search(r"NaN|Infinity|undefined", t), t[:200])
+        larg_doc = pg.evaluate("document.documentElement.scrollWidth")
+        checa(f"celular ({tema}): sem rolagem para o lado", larg_doc <= 390, larg_doc)
+        pg.locator("#placa-cel").screenshot(path=os.path.join(pasta, f"placa_celular_{tema}.png"))
+        checa(f"celular ({tema}): sem erros", not erros(pg), erros(pg)[:3])
+        pg.context.close()
+
+
 @parte
 def tela(p, pasta):
     """claro e escuro, no PC e a 390 px: sem rolagem para o lado, botões de 44 px no estreito, sem NaN; e as fotos"""
@@ -428,6 +508,9 @@ with sync_playwright() as p:
     pc(p)
     abrir_premissas(p)
     duas(p)
+    celular(p)
+    listas(p)
     tela(p, FOTOS)
+    tela_celular(p, FOTOS)
 print("fotos em", FOTOS, file=sys.stderr)
 fim()

@@ -135,6 +135,7 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .placa-c input:disabled,.placa-c select:disabled{opacity:.6;cursor:not-allowed}
 .placa-c .faixa{font-size:.74rem;color:var(--muted);line-height:1.35}
 .placa-dica{margin:0}
+.placa-aj{margin:0;font-size:.9rem}
 .lbl .un{text-transform:none;letter-spacing:0}
 .placa-aviso{margin:0;padding:10px 14px;border-radius:12px;background:var(--warn-soft);font-size:.86rem;line-height:1.45}
 @media (max-width:899px){#placa-p button:not(.sec-bt),#placa-p input:not([type=checkbox]),#placa-p select{min-height:44px}}
@@ -1480,6 +1481,10 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div class="placa-lista" id="placa-lista"></div>
         <p class="status" id="placa-status" role="status" aria-live="polite"></p>
       </article>
+      <article class="painel" id="placa-cel" aria-labelledby="t-placa-cel" hidden>
+        <div class="painel-h"><h2 id="t-placa-cel">Placa de vídeo do PC</h2><small class="hint" id="placa-cel-quando"></small></div>
+        <div class="placa-lista" id="placa-cel-lista"></div>
+      </article>
       <article class="painel" id="perfil-p" aria-labelledby="t-perfil">
         <div class="painel-h"><h2 id="t-perfil">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
         <div class="pf-g">
@@ -1986,7 +1991,7 @@ function parcelasPadrao(){ try{ const n = Math.round(+setup.parcelas||1); return
 /* ---------- persistência: db do artifact, com fallback local ---------- */
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 /* chaves que o PC e o celular dividem (o resto, como a tela aberta e os filtros, é de cada aparelho) */
-const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos","min-kryptex","min-kx-app","min-paradas"];
+const SINCRONIZADAS = ["min-cfg","min-placas","min-anuncios","min-setup","min-diario","min-ofertas","min-ofertas-marcas","min-ofertas-alerta","min-ofertas-modelos","min-kryptex","min-kx-app","min-paradas","min-placa"];
 var aplicandoRemoto = false;   /* var: lsSet roda antes da parte do celular, lá embaixo */
 var painelPronto = false;      /* o script inteiro já rodou (as telas que dependem de tudo podem ser desenhadas) */
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} if(!aplicandoRemoto && SINCRONIZADAS.includes(k)) dadosMudaram(k);}
@@ -6603,6 +6608,22 @@ if(PODE_PLACA()){
   carregarPlaca();
   setInterval(()=>{ if(!$("v-premissas").hidden) carregarPlaca(); }, PLACA_CADA);
 }
+/* no celular: o ajuste e a situação que o PC guardou na min-placa, só para ver (quem muda é o PC) */
+function renderPlacaCel(){
+  const box = $("placa-cel"); if(!box) return;
+  const m = REMOTO ? lsGet("min-placa") : null, placas = m && m.v === 1 && Array.isArray(m.placas) ? m.placas.filter(p=>p && typeof p === "object") : [];
+  box.hidden = !placas.length;
+  if(box.hidden) return;
+  $("placa-cel-quando").textContent = m.quando ? `do PC, ${quando(m.quando)}` : "";
+  /* duas placas com o mesmo nome: o número de cada uma */
+  const nomes = {}; for(const p of placas) nomes[p.nome] = (nomes[p.nome] || 0) + 1;
+  $("placa-cel-lista").innerHTML = placas.map((p, i)=>{
+    const nome = String(p.nome || "Placa de vídeo") + (nomes[p.nome] > 1 ? ` (${i + 1})` : "");
+    const cor = {bom:" g", teste:" w", travou:" b"}[p.situacao] || "";
+    return `<div class="placa-c"><b>${esc(nome)}</b><p class="placa-aj">${esc(textoAjuste(p.ajuste) || "—")}</p><p class="placa-sit${cor}">${esc(textoSituacao(p))}</p></div>`;
+  }).join("");
+}
+renderPlacaCel();
 
 /* ---------- PC e celular com os mesmos dados ----------
    O que chega do outro lado é gravado chave por chave e o painel redesenha o que depende dela, sem recarregar a página.
@@ -6637,6 +6658,7 @@ function recarregarDados(ks){
   if(tem("min-ofertas-modelos")) ofSel = lsGet("min-ofertas-modelos");
   if(tem("min-kryptex")) carregarKx();
   if(tem("min-paradas")) paradas = carregarParadas();
+  if(tem("min-placa")) renderPlacaCel();
   if(tem("min-kx-app")){ const antes = kxaSnap && kxaSnap.estado; kxaSnap = lsGet("min-kx-app"); if(antes && kxaSnap && kxaSnap.estado!==antes) status2("ag-status", ""); }
   if(tem("min-ofertas-alerta")){
     alerta = {horas:0, bandeja:false, iniciar:false, ultima:0, avisados:{}, vistos:{}, bloqueio:0, ...(lsGet("min-ofertas-alerta")||{})};
