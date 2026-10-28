@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld("desktop", {
     pausar: (minutos) => ipcRenderer.invoke("kryptex-app", "pausar", Number(minutos) || 0),
     voltar: () => ipcRenderer.invoke("kryptex-app", "voltar")
   },
+  /* ajustes da placa de vídeo deste PC (AMD, pelo driver): o estado (com os avisos novos), ler, cuidar, aplicar, de
+     fábrica e o aviso de que algo mudou (a página pede o estado de novo) */
+  placa: {
+    estado: () => ipcRenderer.invoke("placa", "estado"),
+    ler: () => ipcRenderer.invoke("placa", "ler"),
+    cuidar: (sim) => ipcRenderer.invoke("placa", "cuidar", !!sim),
+    aplicar: (chave, ajuste, op) => ipcRenderer.invoke("placa", "aplicar", String(chave || ""), ajuste && typeof ajuste === "object" ? ajuste : null, { mesmoQueTravou: !!(op && op.mesmoQueTravou) }),
+    fabrica: (chave) => ipcRenderer.invoke("placa", "fabrica", String(chave || "")),
+    aoMudar: (fn) => { if (typeof fn === "function") ipcRenderer.on("placa", (_e, s) => { try { fn({ tipo: String((s && s.tipo) || "") }); } catch (err) {} }); }
+  },
   mostrarNavegador: () => ipcRenderer.invoke("mostrar-navegador"),
   salvarArquivo: (nome, conteudo) => ipcRenderer.invoke("salvar-arquivo", String(nome), String(conteudo)),
   salvarPdf: (nome, html) => ipcRenderer.invoke("salvar-pdf", String(nome), String(html)),

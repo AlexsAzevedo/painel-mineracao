@@ -35,6 +35,9 @@
       "kryptex-app.js",
       "sensores-amd.js",
       "energia.js",
+      "placa.js",
+      "placa-amd.js",
+      "placa-regras.js",
       "app/**/*",
       "package.json"
     ],
@@ -42,6 +45,10 @@
       {
         "from": "sensores-amd.ps1",
         "to": "sensores-amd.ps1"
+      },
+      {
+        "from": "placa-amd.ps1",
+        "to": "placa-amd.ps1"
       }
     ],
     "directories": {

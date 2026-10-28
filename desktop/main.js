@@ -198,6 +198,12 @@ let Energia = null;
 try { Energia = require("./energia.js"); } catch (e) { console.error("energia.js:", (e && e.message) || e); }
 let energia = null;
 ipcMain.handle("energia", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return energia ? energia.estado() : null; });
+/* os ajustes da placa de vídeo (placa.js, com o leitor placa-amd.js e as regras placa-regras.js). Se um desses arquivos
+   faltar, o programa abre do mesmo jeito, só sem os ajustes da placa */
+let Placa = null, placaAmd = null;
+try { Placa = require("./placa.js"); placaAmd = require("./placa-amd.js"); } catch (e) { Placa = placaAmd = null; console.error("placa:", (e && e.message) || e); }
+let placa = null;
+const placaTeste = { energia: null };   /* no teste, o roteiro põe aqui as marcas de energia de mentira */
 ipcMain.handle("notificar", (e, n) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return notificar(n || {}); });
 ipcMain.handle("janela-visivel", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return !!(principal && principal.isVisible() && !principal.isMinimized()); });
 /* a área de transferência do Electron 44 é assíncrona */
@@ -1245,7 +1251,18 @@ ipcMain.handle("kryptex-app", doPainel((op, minutos) => {
   if (op === "voltar") return kryptexApp.voltar().then(sensoresAmd.juntar);
   throw new Error("pedido desconhecido");
 }));
-app.on("will-quit", () => sensoresAmd.parar());
+/* os ajustes da placa de vídeo deste PC (placa.js): o estado, ler, cuidar, aplicar e de fábrica. O ajuste chega da página
+   e o placa.js confere (limparAjuste). Os avisos vão para a página pelo estado(), uma vez só. */
+ipcMain.handle("placa", doPainel(async (op, a, b, c) => {
+  if (!placa) return op === "estado" ? null : { ok: false, erro: "indisponivel", msg: "os ajustes da placa não estão disponíveis" };
+  if (op === "estado") return placa.estado();
+  if (op === "ler") return placa.ler();
+  if (op === "cuidar") return placa.cuidar(!!a);
+  if (op === "aplicar") return placa.aplicar(String(a || ""), b, { mesmoQueTravou: !!(c && c.mesmoQueTravou) });
+  if (op === "fabrica") return placa.fabrica(String(a || ""));
+  throw new Error("pedido desconhecido");
+}));
+app.on("will-quit", () => { sensoresAmd.parar(); if (placaAmd) placaAmd.parar(); });
 
 function abrirFacebook() {
   return new Promise((ok) => {
@@ -1450,7 +1467,7 @@ function montarMenu() {
   ]));
 }
 
-app.on("before-quit", () => { saindo = true; });
+app.on("before-quit", () => { saindo = true; if (placa) placa.saiu(); });
 if (UNICO) app.whenReady().then(() => {
   /* as marcas de energia (energia.js): a ligação do Windows desta vez, a suspensão e a volta dela */
   if (Energia) {
@@ -1461,6 +1478,16 @@ if (UNICO) app.whenReady().then(() => {
       powerMonitor.on("resume", () => energia.marcar("acordou"));
     } catch (e) { energia = null; console.error("energia:", (e && e.message) || e); }
   }
+  /* os ajustes da placa: o estado e a vigia de cada minuto (a primeira 10 s depois de abrir) */
+  if (Placa) {
+    try {
+      placa = Placa.criar({ arquivo: path.join(app.getPath("userData"), "placa.json"), amd: placaAmd,
+        energia: () => (TESTE && placaTeste.energia) || (energia ? energia.estado() : null),
+        aoMudar: () => { if (principal && !principal.isDestroyed()) principal.webContents.send("placa", { tipo: "mudou" }); } });
+      const cada = (TESTE && Number(process.env.PAINEL_PLACA_VIGIA_MS)) || 60e3;
+      setTimeout(() => { placa.vigiar(); setInterval(() => placa.vigiar(), cada); }, Math.min(cada, 10e3));
+    } catch (e) { placa = null; console.error("placa:", (e && e.message) || e); }
+  }
   montarMenu();
   lerSegundoPlano();
   criarPrincipal();
@@ -1470,7 +1497,7 @@ if (UNICO) app.whenReady().then(() => {
   iniciarAppCelular();
   /* no teste, quem liga a atualização é o próprio teste, depois de subir o servidor de versões de mentira */
   /* no teste, o roteiro é o teste.js; PAINEL_TESTE_ROTEIRO escolhe outro (só um nome de arquivo de scripts/) */
-  if (TESTE) require("./scripts/" + (/^[\w-]+\.js$/.test(process.env.PAINEL_TESTE_ROTEIRO || "") ? process.env.PAINEL_TESTE_ROTEIRO : "teste.js"))(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir, testeArquivos, testeKryptex,
+  if (TESTE) require("./scripts/" + (/^[\w-]+\.js$/.test(process.env.PAINEL_TESTE_ROTEIRO || "") ? process.env.PAINEL_TESTE_ROTEIRO : "teste.js"))(principal, { app, mostrarLeitor, pegarLeitor, iniciarAtualizacao, mostrarPrincipal, testeSegundoPlano, segundoPlano: () => ({ ...segundoPlano, temBandeja: !!bandeja }), comoAbrir, testeArquivos, testeKryptex, placa, placaTeste,
     celular: { estado: () => ({ ...celular }), mudar: (o) => { Object.assign(celular, o); gravarCelular(); }, verificarVolta, cancelarSinal, darSinal, sair: sairCancelandoSinal, registro: testeCelular },
     acesso: { estado: acessoPublico, config: () => ({ ...acesso }), versao: () => versaoDados },
     appCelular: { estado: () => JSON.parse(JSON.stringify(appCel)), publico: appPublico, registro: testeApp, conectado: () => appConectado,
