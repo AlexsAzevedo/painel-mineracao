@@ -63,6 +63,10 @@ def deteccao(p):
     C = ("ini", "fim", "ligou", "motivo")
     r = sim(pg, [[0, "MIN"], [1, "MIN"], [2, "MIN"], [380, "FECHADO"], [381, "FECHADO"], [384, "PARADO"], [386, "MIN"]], [[374, "ligou"]])
     checa("queda de energia: do último minuto minerando até minerar de novo, com a hora em que ligou", so(r, *C) == [{"ini": 2, "fim": 386, "ligou": 374, "motivo": "energia"}], r["paradas"])
+    # a leitura das marcas de energia falhou uma vez: valem as últimas (a queda continua sendo falta de energia)
+    m = pg.evaluate("""(async () => { const orig = Date.now, t0 = orig(); window.__energia = null; window.__leituras = [MIN];
+      Date.now = () => t0 + 387 * 60e3; try { await lerKryptexApp(); } finally { Date.now = orig; } return paradas.lista.map(p => p.motivo); })()""")
+    checa("as marcas de energia não vieram nesta leitura: valem as últimas", m == ["energia"], m)
     r = sim(pg, [[0, "MIN"], [1, "MIN"], [6, "FECHADO"], [7, "MIN"]], [[4, "ligou"]])
     checa("queda curta (religou em 4 min): conta mesmo com menos de 10 min", so(r, *C) == [{"ini": 1, "fim": 7, "ligou": 4, "motivo": "energia"}], r["paradas"])
     r = sim(pg, [[0, "MIN"], [1, "MIN"], [2, "MIN"], [64, "MIN"]], [[3, "desligou"], [60, "ligou"]])
@@ -263,6 +267,75 @@ def diario_ui(p):
     c2.context.close()
 
 
+QUEDA = [[0, "MIN"], [1, "MIN"], [2, "MIN"], [380, "FECHADO"], [381, "FECHADO"], [384, "PARADO"], [386, "MIN"]]
+VOLTOU = "Ficou fora do ar das 14:02 às 20:26 (6 h 24 min): o PC apagou de repente (falta de energia?) e ligou às 20:14. Deixou de ganhar uns R$ 6,59."
+HOJE = "parou 2 h 20 min hoje (05:00–07:10, Falta de energia?; 13:40–13:50, Placa parada)"
+# o retrato do app da Kryptex que o PC manda para o celular
+RETRATO = {"v": 1, "estado": "minerando", "pausaAte": None, "computador": "PC-TESTE", "quando": AGORA_MS - 3 * 60000, "minerandoDesde": AGORA_MS - 10 * 60000,
+           "placas": [{"nome": "RX 9070 XT", "tipo": "gpu", "minerando": True, "moeda": "PRL", "minerador": "srbminer", "hash": 1.13e14, "temp": 63, "tempMem": 78,
+                       "watts": 286, "ventoinha": 54, "rpm": None}],
+           "hoje": {"ganho": 9.62, "luz": 5.09, "lucro": 4.53, "kwh": 5.3, "desde": None}, "ritmo": {"brutoDia": 14.7, "lucroDia": 6.9},
+           "saldoBtc": 0.00012, "precoBtc": 401000, "linha": [], "protecao": None, "hash24": 1.12e14}
+
+
+def resumo_avisos(p):
+    pg = abrir(p, dados=DADOS_CONTAS, pc=True)
+    pg.wait_for_timeout(1500)
+    pg.evaluate(FIX)
+    pg.evaluate("celCfg = {...(celCfg || {}), ligado: true, topico: 't', maquinas: true}")   # os avisos das máquinas vão para o celular
+    t0 = AGORA_MS
+    # queda de energia: um aviso só, quando a mineração volta
+    r = sim(pg, QUEDA, [[374, "ligou"]], {"t0": t0})
+    checa("queda de energia: um aviso, quando a mineração volta, com o horário, o motivo e quanto deixou de ganhar",
+          r["alertas"] == ["voltou"] and r["textos"] == ["RX 9070 XT voltou a minerar. " + VOLTOU], r["textos"])
+    checa("queda de energia: o mesmo aviso no celular", r["celular"] == [{"tipo": "voltou", "titulo": "RX 9070 XT voltou a minerar", "corpo": VOLTOU}], r["celular"])
+    # Review Focus 1: a página recarregou (o painel abriu de novo, com as leituras e as paradas guardadas)
+    pg.evaluate("kxa = novoKxa(); energiaCache = null")
+    r = sim(pg, [[387, "MIN"]], [[374, "ligou"]], {"manter": True, "t0": t0})
+    checa("página recarregada depois da queda: a parada continua e o aviso não se repete",
+          r["alertas"].count("voltou") == 1 and r["celular"] == [] and so(r, "ini", "fim", "ligou", "motivo") == [{"ini": 2, "fim": 386, "ligou": 374, "motivo": "energia"}], r)
+    # o PC voltou (o painel abriu de novo) e a placa não: um aviso, 15 min depois de o Windows ligar
+    sim(pg, [[0, "MIN"], [1, "MIN"], [2, "MIN"]], [], {"t0": t0})
+    pg.evaluate("kxa = novoKxa(); energiaCache = null")
+    r = sim(pg, [[m, "FECHADO"] for m in range(380, 396)], [[374, "ligou"]], {"manter": True, "t0": t0})
+    checa("o PC voltou e a placa não: um aviso só",
+          r["celular"] == [{"tipo": "maquina", "titulo": "O PC voltou, mas a placa ainda não está minerando", "corpo": "Ligou às 20:14; a placa está sem minerar desde 14:02."}], r["celular"])
+    r = sim(pg, [[396, "MIN"]], [[374, "ligou"]], {"manter": True, "t0": t0})
+    checa("o PC voltou e a placa não: quando ela volta, o aviso de fim", [m["tipo"] for m in r["celular"]] == ["voltou"]
+          and r["celular"][0]["corpo"].startswith("Ficou fora do ar das 14:02 às 20:36 (6 h 34 min): o PC apagou de repente"), r["celular"])
+    # a placa parada por 13 min; a parada curta (o aviso de antes); a pausa (nenhum)
+    r = sim(pg, ["MIN"] + ["PARADO"] * 12 + ["MIN"])
+    checa("placa parada 13 min: parou e voltou, com quanto deixou de ganhar",
+          r["alertas"] == ["parou", "voltou"] and r["textos"][1].endswith("a placa ficou parada. Deixou de ganhar uns R$ 0,22."), r["textos"])
+    r = sim(pg, ["MIN", "PARADO", "PARADO", "PARADO", "MIN"])
+    checa("parada curta: o aviso de que voltou, como antes (a moeda e o hashrate)", r["alertas"] == ["parou", "voltou"] and "Pearl (PRL)" in r["textos"][1], r["textos"])
+    r = sim(pg, ["MIN"] + ["PAUSADO"] * 15 + ["MIN"])
+    checa("pausa: nenhum aviso", r["alertas"] == [] and r["celular"] == [], r)
+    # o programa do PC fica sabendo que o painel lê o app da Kryptex (e deixa o "O PC voltou" com ele)
+    a = pg.evaluate("""(async () => { let arg = null; window.desktop.segundoPlano = async (o) => { arg = o; return {}; };
+      apCfg ||= {ligado: false}; celCfg ||= {ligado: false}; acCfg ||= {ligado: false};
+      await simularParadas([MIN]); sincronizarSegundoPlano(); return arg; })()""")
+    checa("o programa do PC sabe que o painel lê o app da Kryptex (kxa)", bool(a) and a.get("kxa") is True, a)
+    checa("sem erros (avisos)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+    # Resumo: as paradas de hoje, no PC e no celular
+    pg = abrir(p, dados=DADOS_UI, pc=True)
+    pg.wait_for_timeout(1500)
+    pg.evaluate(FIX)
+    sim(pg, [[0, "MIN"]], [], {"manter": True, "t0": t0})
+    t = pg.evaluate("document.getElementById('ag-corpo').textContent")
+    checa("Resumo: as paradas de hoje", HOJE in t, t)
+    t = pg.evaluate("(() => { paradas.lista.find(x => x.ini === %d).fim = null; renderAgora(); return document.getElementById('ag-corpo').textContent; })()" % P6["ini"])
+    checa("Resumo: a parada que não acabou", "parada desde 13:40" in t, t)
+    checa("sem erros (Resumo)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+    c = abrir(p, 390, 844, dados={**DADOS_UI, "min-kx-app": RETRATO}, celular=True)
+    t = c.evaluate("document.getElementById('ag-corpo').textContent")
+    checa("Resumo no celular: as paradas de hoje", HOJE in t, t)
+    checa("sem erros (Resumo no celular)", not erros(c), erros(c)[:3])
+    c.context.close()
+
+
 def retro(p):
     """os dias que já passaram, na primeira leitura desta versão: as quedas pelas leituras de 36 h e, antes delas, pelos
     saldos guardados da conta (horários em minutos desde agora)"""
@@ -320,4 +393,5 @@ with sync_playwright() as p:
     contas(p)
     retro(p)
     diario_ui(p)
+    resumo_avisos(p)
 fim()

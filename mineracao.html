@@ -99,6 +99,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .ag-n b{font-family:var(--num);font-weight:600;font-size:1.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-nums.velho b{color:var(--muted)}
 .ag-ritmo{color:var(--muted);font-size:.8rem}
+.ag-parou{color:var(--warn);font-size:.8rem;margin-top:2px}
 .ag-n small{color:var(--muted);font-size:.76rem}
 .ag-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 .ag-prot{color:var(--muted);font-size:.8rem}
@@ -3327,6 +3328,18 @@ function renderParadas(){
     : `<p class="pd-vazio">Nenhuma parada neste período</p>`;
   $("pd-copiar").disabled = !l.length;
 }
+/* no Resumo, "Hoje até agora": "parada desde 13:40 · parou 2 h 10 min hoje (05:00–07:10, Falta de energia?)", com a
+   parada de agora e as que acabaram hoje ("" sem nenhuma) */
+function linhaParadasHoje(agora){
+  const hoje = isoLocal(new Date(agora)), partes = [], aberta = paradas.lista.find(p=>p.fim==null);
+  if(aberta){
+    const desde = (isoLocal(new Date(aberta.ini))===hoje ? "" : new Date(aberta.ini).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"}) + " ") + hhParada(aberta.ini, aberta.aprox);
+    partes.push(`${aberta.motivo==="pausa" || aberta.motivo==="protecao" ? "pausada" : "parada"} desde ${desde}`);
+  }
+  const l = paradasDoDia(hoje, agora).filter(x=>x.p.fim!=null);
+  if(l.length) partes.push(`parou ${duracao(l.reduce((s,x)=>s + x.fim - x.ini, 0))} hoje (${l.map(x=>`${x.ini > x.p.ini ? "00:00" : hhParada(x.p.ini, x.p.aprox)}–${hhParada(x.p.fim, x.p.aprox)}, ${ROTULO_PARADA[x.p.motivo]}`).join("; ")})`);
+  return partes.join(" · ");
+}
 $("pd-energia").addEventListener("change", e=>{ pdSoEnergia = e.target.checked; renderParadas(); });
 $("pd-copiar").addEventListener("click", async ()=>{
   try{ await copiarTexto(textoParadas(listaParadasTela(Date.now()), Date.now())); status2("pd-status", "Lista copiada.", "ok"); }
@@ -5159,7 +5172,8 @@ function sincronizarSegundoPlano(){
   const kxv = typeof PODE_KXA==="function" && PODE_KXA() && typeof kxa==="object" && !!kxa && kxa.jaRespondeu && kxaCfg().ligado;
   /* com o acesso pelo celular ligado, o app do celular vinculado ou a leitura da Kryptex, o painel precisa estar rodando: fica no ícone e abre com o Windows */
   const bandeja = ofertasBg || cel || ac || apl || kxl || kxv, iniciar = bandeja && ((ofertasBg && !!alerta.iniciar) || (cel && celCfg.iniciar !== false) || ac || apl || kxl || kxv);
-  window.desktop.segundoPlano({bandeja, iniciar}).then(()=>carregarInicio()).catch(()=>{});
+  /* kxa: com o painel lendo o app da Kryptex, o aviso de que o PC voltou é dele (com a queda e quanto deixou de ganhar) */
+  window.desktop.segundoPlano({bandeja, iniciar, kxa: kxv}).then(()=>carregarInicio()).catch(()=>{});
 }
 /* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha fica no aplicativo, deste PC).
    Sem escolha, vale o que as funções ligadas pedem (app do celular, avisos, acesso pelo navegador, alerta de ofertas) */
@@ -5994,6 +6008,20 @@ function atualizarParadas(agora){
   if(mudou || retro){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); try{ renderDiario(); }catch(e){} }
   return {acabaram, ligouSemMinerar};
 }
+/* os avisos das paradas: a que acabou nesta leitura (menos a pausa da pessoa), com o horário, o motivo e quanto deixou de
+   ganhar; e o PC que religou há 15 minutos sem a placa voltar a minerar (uma vez por parada) */
+function avisosParadas(par, l, aviso){
+  for(const p of par.acabaram){
+    if(p.motivo==="pausa") continue;
+    aviso("voltou", `${nomePlaca(principalKxa(l))} voltou a minerar`,
+      `Ficou fora do ar ${intervaloTxt(p.ini, p.fim, p.aprox)} (${duracao(p.fim - p.ini)}): ${fraseParada(p)}. Deixou de ganhar uns ${brl(perdaParada(p, undefined, p.fim))}.`);
+  }
+  const s = par.ligouSemMinerar;
+  if(s){
+    aviso("parou", "O PC voltou, mas a placa ainda não está minerando", `Ligou às ${horaMin(s.ligou)}; a placa está sem minerar desde ${horaMin(s.ini)}.`);
+    s.avisoLigou = true; lsSet("min-paradas", paradas);
+  }
+}
 function processarLeituraKxa(l, agora){
   let avisou = false;
   const aviso = (...a) => { avisoKx(...a); avisou = true; };
@@ -6010,17 +6038,19 @@ function processarLeituraKxa(l, agora){
       }
     }
     kxaHist.amostras.push([agora, null, 0, 0, 0, null, null, null, "f"]);
-    atualizarParadas(agora);   /* antes de cortar as 36 h: numa queda mais longa que isso, a leitura de antes dela sai agora */
+    const par = atualizarParadas(agora);   /* antes de cortar as 36 h: numa queda mais longa que isso, a leitura de antes dela sai agora */
     kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
     lsSet("min-kxa-hist", kxaHist);
+    avisosParadas(par, l, aviso);
     return avisou;
   }
   const buraco = !!(kxa.ultimaOk && agora - kxa.ultimaOk > KXA_BURACO);
   guardarLeitura(l, agora); kxa.falha = "";
+  const voltaram = [];   /* o "voltou" de antes (moeda e hashrate): só sem uma parada acabando nesta leitura */
   for(const p of l.placas){
     if(buraco) kxa.semMinerar[p.id] = 0;
     if(p.minerando){
-      if(kxa.avisouParou[p.id]) aviso("voltou", `${nomePlaca(p)} voltou a minerar`, `${moedaTxt(p) || "Minerando"} · ${hashTxt(p.hash)}.`);
+      if(kxa.avisouParou[p.id]) voltaram.push(p);
       kxa.semMinerar[p.id] = 0; kxa.avisouParou[p.id] = false; kxa.minerou[p.id] = true;
     } else if(l.pausado || p.desativada || !kxa.minerou[p.id]) kxa.semMinerar[p.id] = 0;
     else {
@@ -6036,9 +6066,11 @@ function processarLeituraKxa(l, agora){
   const wp = wattsPlacasKxa(l), watts = ms.length ? (wp!=null ? wattsNaTomada(wp, l) + wattsOutrasMaqs(l) : null) : 0;
   const maxT = k => { const v = gpus.map(p=>p[k]).filter(x=>x!=null); return v.length ? Math.max(...v) : null; };
   kxaHist.amostras.push([agora, l.saldoBtc, watts, ms.length ? 1 : 0, pr && pr.minerando ? pr.hash : 0, maxT("temp"), maxT("tempMem"), maxT("tempHot"), estadoLeituraKxa(l, agora)]);
-  atualizarParadas(agora);   /* antes de cortar as 36 h (veja acima) */
+  const par = atualizarParadas(agora);   /* antes de cortar as 36 h (veja acima) */
   kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
   lsSet("min-kxa-hist", kxaHist);
+  if(!par.acabaram.length) for(const p of voltaram) aviso("voltou", `${nomePlaca(p)} voltou a minerar`, `${moedaTxt(p) || "Minerando"} · ${hashTxt(p.hash)}.`);
+  avisosParadas(par, l, aviso);
   /* o saldo entra nos dias da Kryptex (as sugestões do Diário), no máximo a cada 15 minutos */
   const preco = precoBtcBrl(l);
   if(l.saldoBtc!=null && preco && agora - (kxa.ultimoSaldo||0) >= KXA_SALDO){
@@ -6090,7 +6122,8 @@ async function lerKryptexApp(motivo){
   if(!kxaCfg().ligado && motivo!=="manual" && motivo!=="celular") return;
   kxa.lendo = true;
   let l = null;
-  try{ l = await window.desktop.kryptexApp.ler(); energiaCache = await lerEnergia(); }catch(e){ l = {ok:false, erro:"fechado", msg:String((e && e.message) || e)}; }
+  /* as marcas de energia: se a leitura delas falhar, valem as últimas (senão todo buraco viraria "sem leitura" por um minuto) */
+  try{ l = await window.desktop.kryptexApp.ler(); energiaCache = (await lerEnergia()) || energiaCache; }catch(e){ l = {ok:false, erro:"fechado", msg:String((e && e.message) || e)}; }
   finally{ kxa.lendo = false; }
   const agora = Date.now(), antesKx = impressaoKx(), estadoAntes = kxa.estado;
   let avisou = processarLeituraKxa(l, agora);
@@ -6844,11 +6877,12 @@ function htmlAgoraVivo(r, comAcoes, retrato){
   const rt = r.ritmo || {}, ritmo = !antigos && r.estado==="minerando" && rt.brutoDia>0
     ? `<span class="ag-ritmo">Ritmo de agora: ${brl(rt.brutoDia)}/dia pela Kryptex · ${rt.lucroDia<-0.005 ? "prejuízo de " + brl(-rt.lucroDia) : "lucro de " + brl(Math.max(0, rt.lucroDia))}/dia</span>` : "";
   const prot = r.protecao && r.estado==="pausada" ? `<p class="ag-frase w">Pausada pela proteção de temperatura: ${esc(r.protecao.motivo)}.</p>` : "";
+  const parou = linhaParadasHoje(agora);
   const botoes = !comAcoes ? "" : r.estado==="pausada" ? `<button type="button" class="pri" data-voltar>Voltar a minerar</button>`
     : r.estado==="minerando" || r.estado==="parada" ? `<details class="pausar"><summary>Pausar</summary><div class="pausar-op">${PAUSAS_KXA.map(m=>`<button type="button" data-pausa="${m}">${m>=44640 ? "Até eu voltar" : m===60 ? "1 hora" : m/60 + " horas"}</button>`).join("")}</div></details>` : "";
   return `<div class="ag-topo">${selo}${onde ? `<span class="ag-onde">${onde}</span>` : ""}</div>
     <div class="ag-meio${blocoSaldo ? " com-saldo" : ""}"><div class="ag-hoje"><span class="gh-l">${outroDia ? `Até ${horaMin(r.quando)} de ${new Date(r.quando).toLocaleDateString("pt-BR",{day:"2-digit", month:"2-digit"})}` : antigos ? `Hoje até ${horaMin(r.quando)}` : "Hoje até agora"}${h.desde ? " (desde " + horaMin(h.desde) + ")" : ""}</span><span class="gh-v">${brl(h.ganho)}</span>
-      <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}</div>${blocoSaldo}${svgLinhaDia(r.linha, agora)}</div>
+      <span class="ag-lucro ${h.lucro<-0.005 ? "b" : "g"}">${h.lucro<-0.005 ? "prejuízo de " + brl(-h.lucro) : "lucro de " + brl(Math.max(0, h.lucro))} depois da luz</span>${ritmo}${parou ? `<span class="ag-parou">${htmlNw(parou)}</span>` : ""}</div>${blocoSaldo}${svgLinhaDia(r.linha, agora)}</div>
     <div class="ag-nums${antigos ? " velho" : ""}">${nums}</div>${prot}
     <div class="ag-acoes">${botoes}<span class="ag-prot">${c.protecao ? `Pausa sozinha com a placa a <span class="nw">${c.limTemp} °C</span>, a memória a <span class="nw">${c.limMem} °C</span> ou o ponto mais quente a <span class="nw">${c.limHot} °C</span>` : "Proteção de temperatura desligada"}</span></div>
     ${retrato ? `<div class="ag-rodape"><span>lido ${haQuanto(r.quando)}, no PC</span><button type="button" class="link" data-kxa-atualizar>Atualizar</button></div>` : ""}`;
