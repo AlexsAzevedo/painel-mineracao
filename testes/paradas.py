@@ -101,6 +101,11 @@ def deteccao(p):
       return simularParadas([[1, MIN]], [], {manter: true, t0});
     })()""")
     checa("parada mais longa que as 36 horas de leituras: o início guardado fica", so(r, "ini", "fim", "motivo") == [{"ini": -2400, "fim": 1, "motivo": "parada"}], r["paradas"])
+    # uma queda mais longa que as 36 horas de leituras (o PC ficou 40 h desligado): a leitura de antes dela não se perde
+    r = sim(pg, [[0, "MIN"], [1, "MIN"], [2400, "MIN"], [2401, "MIN"]], [[2390, "ligou"]])
+    checa("queda mais longa que as 36 horas de leituras", so(r, *C) == [{"ini": 1, "fim": 2400, "ligou": 2390, "motivo": "energia"}], r["paradas"])
+    r = sim(pg, [[0, "MIN"], [1, "MIN"], [2400, "FECHADO"], [2401, "FECHADO"], [2405, "MIN"]], [[2390, "ligou"]])
+    checa("queda mais longa que as 36 horas, com o app da Kryptex abrindo depois", so(r, *C) == [{"ini": 1, "fim": 2405, "ligou": 2390, "motivo": "energia"}], r["paradas"])
     # o estado em cada leitura de minuto
     pg.evaluate("simularParadas([MIN, PAUSADO, PARADO, FECHADO])")
     checa("o estado nas leituras de minuto", pg.evaluate("kxaHist.amostras.map(a => a[8])") == ["m", "u", "p", "f"], pg.evaluate("kxaHist.amostras.map(a => a[8])"))

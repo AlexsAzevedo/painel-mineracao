@@ -5903,9 +5903,9 @@ function processarLeituraKxa(l, agora){
       }
     }
     kxaHist.amostras.push([agora, null, 0, 0, 0, null, null, null, "f"]);
+    atualizarParadas(agora);   /* antes de cortar as 36 h: numa queda mais longa que isso, a leitura de antes dela sai agora */
     kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
     lsSet("min-kxa-hist", kxaHist);
-    atualizarParadas(agora);
     return avisou;
   }
   const buraco = !!(kxa.ultimaOk && agora - kxa.ultimaOk > KXA_BURACO);
@@ -5929,9 +5929,9 @@ function processarLeituraKxa(l, agora){
   const wp = wattsPlacasKxa(l), watts = ms.length ? (wp!=null ? wattsNaTomada(wp, l) + wattsOutrasMaqs(l) : null) : 0;
   const maxT = k => { const v = gpus.map(p=>p[k]).filter(x=>x!=null); return v.length ? Math.max(...v) : null; };
   kxaHist.amostras.push([agora, l.saldoBtc, watts, ms.length ? 1 : 0, pr && pr.minerando ? pr.hash : 0, maxT("temp"), maxT("tempMem"), maxT("tempHot"), estadoLeituraKxa(l, agora)]);
+  atualizarParadas(agora);   /* antes de cortar as 36 h (veja acima) */
   kxaHist.amostras = kxaHist.amostras.filter(a=>a[0]>=agora-KXA_HIST).slice(-2200);
   lsSet("min-kxa-hist", kxaHist);
-  atualizarParadas(agora);
   /* o saldo entra nos dias da Kryptex (as sugestões do Diário), no máximo a cada 15 minutos */
   const preco = precoBtcBrl(l);
   if(l.saldoBtc!=null && preco && agora - (kxa.ultimoSaldo||0) >= KXA_SALDO){
