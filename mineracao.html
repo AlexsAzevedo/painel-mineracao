@@ -5769,7 +5769,7 @@ function migrarSaldoKxa(l){
    marca = o painel ficou fechado com o PC ligado (não vira parada, porque não dá para saber se minerou). Antes de o PC
    começar a anotar (energia.desde), um buraco é "sem leitura". As paradas ficam em min-paradas: só o PC grava, o celular
    recebe; 365 dias, no máximo 1000. */
-const PARADA_MIN = 10*60e3, PARADA_AVISO = 3*60e3, PARADA_LIGOU = 15*60e3, PARADAS_DIAS = 365, PARADAS_MAX = 1000;
+const PARADA_MIN = 10*60e3, PARADA_AVISO = 3*60e3, PARADA_LIGOU = 15*60e3, PARADA_SALDOS = 45*60e3, PARADAS_DIAS = 365, PARADAS_MAX = 1000;
 const MOTIVOS_PARADA = ["energia","desligado","suspensao","fechado","parada","pausa","protecao","semleitura","semminerar"];
 const MOTIVOS_FORTES = new Set(["energia","desligado","suspensao"]);
 const MOTIVO_DO_ESTADO = {u:"pausa", t:"protecao", p:"parada", f:"fechado", "?":"semminerar"};
@@ -5836,13 +5836,34 @@ function paradasDasAmostras(amostras, energia, agora){
   if(atual) r.push({...atual});
   return r;
 }
+/* os dias que já passaram, antes das leituras de cada minuto: um buraco de mais de 45 minutos entre os saldos guardados da
+   conta ([t, btc, preço]) que acaba até "ate" é "sem leitura", com o horário aproximado, quando o saldo cresceu menos da
+   metade do ritmo da conta (R$/h, ritmoDe(início)) vezes a duração; sem o ritmo ou a cotação, só quando não cresceu nada
+   (assim o painel fechado com a placa minerando não vira parada) */
+function paradasDosSaldos(saldos, ate, ritmoDe){
+  const S = (Array.isArray(saldos) ? saldos : []).filter(s=>Array.isArray(s) && Number.isFinite(+s[0]) && Number.isFinite(+s[1]))
+    .map(s=>[+s[0], +s[1], +s[2] > 0 ? +s[2] : 0]).sort((a,b)=>a[0]-b[0]);
+  const r = [];
+  for(let i=1; i<S.length; i++){
+    const [t1, b1, p1] = S[i-1], [t2, b2, p2] = S[i];
+    if(t2 - t1 <= PARADA_SALDOS || t2 > ate) continue;
+    const preco = p2 || p1, rit = preco > 0 ? ritmoDe(t1) : null;
+    if(rit > 0 ? (b2 - b1)*preco < 0.5*rit*(t2 - t1)/3600e3 : b2 - b1 <= 0) r.push({ini:t1, fim:t2, ligou:null, motivo:"semleitura", aprox:true});
+  }
+  return r;
+}
 /* junta as paradas das leituras de agora (36 h) com as guardadas e grava só quando a lista muda. Devolve as que acabaram
-   nesta leitura e a parada em que o PC religou há 15 minutos sem a placa voltar a minerar (para os avisos) */
+   nesta leitura e a parada em que o PC religou há 15 minutos sem a placa voltar a minerar (para os avisos). Na primeira
+   vez (retro), junta também as dos saldos guardados, de antes das leituras */
 function atualizarParadas(agora){
   const am = kxaHist.amostras, janelaIni = am.length ? am.reduce((m,a)=>Math.min(m, a[0]), Infinity) : agora;
   const novas = paradasDasAmostras(am, energiaCache, agora);
-  const antes = paradas.lista, porIni = new Map(antes.map(p=>[p.ini, p]));
-  const fora = antes.filter(p=>p.ini < janelaIni).map(p=>({...p}));
+  const antes = paradas.lista, retro = !paradas.retro;
+  const doSaldo = retro ? paradasDosSaldos(kxHist && kxHist.saldos, janelaIni, t=>ritmoConta(isoLocal(new Date(t))))
+    .filter(s=>!antes.some(p=>p.ini < s.fim && (p.fim ?? Infinity) > s.ini)) : [];
+  /* as dos saldos contam como guardadas: são de dias que já passaram e não viram aviso */
+  const porIni = new Map([...antes, ...doSaldo].map(p=>[p.ini, p]));
+  const fora = [...antes, ...doSaldo].filter(p=>p.ini < janelaIni).map(p=>({...p}));
   /* a guardada que vinha de antes das leituras de agora: a primeira nova, se começa na primeira leitura, é a mesma parada */
   const vinda = fora.find(p=>p.fim==null || p.fim >= janelaIni);
   if(vinda){
@@ -5862,7 +5883,8 @@ function atualizarParadas(agora){
   const ligouSemMinerar = lista.find(p=>p.fim==null && p.ligou!=null && agora - p.ligou >= PARADA_LIGOU && !p.avisoLigou) || null;
   const mudou = JSON.stringify(lista)!==JSON.stringify(antes);
   paradas.lista = lista;
-  if(mudou){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); }
+  if(retro) paradas.retro = true;
+  if(mudou || retro){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); }
   return {acabaram, ligouSemMinerar};
 }
 function processarLeituraKxa(l, agora){
