@@ -388,10 +388,33 @@ def retro(p):
     pg.context.close()
 
 
+def fotos(p, pasta):
+    """as fotos para conferir a olho: o Diário no PC e no celular (claro e escuro) e o Resumo no PC com a linha de hoje"""
+    os.makedirs(pasta, exist_ok=True)
+    for tema in ("escuro", "claro"):
+        for nome, larg, alt, ponte in (("pc", 1366, 900, {"pc": True}), ("celular", 390, 844, {"celular": True})):
+            pg = abrir(p, larg, alt, dados=DADOS_UI, hash="diario", **ponte)
+            pg.evaluate("(t) => { document.documentElement.dataset.tema = t; renderDiario(); }", tema)
+            pg.wait_for_timeout(500)
+            pg.screenshot(path=os.path.join(pasta, f"diario_{nome}_{tema}.png"), full_page=True)
+            checa(f"fotos: Diário no {nome} ({tema}) sem erros", not erros(pg), erros(pg)[:3])
+            pg.context.close()
+    pg = abrir(p, dados=DADOS_UI, pc=True)
+    pg.wait_for_timeout(1500)
+    pg.evaluate(FIX)
+    sim(pg, [[0, "MIN"]], [], {"manter": True, "t0": AGORA_MS})
+    pg.screenshot(path=os.path.join(pasta, "resumo_pc.png"), full_page=True)
+    checa("fotos: Resumo no PC sem erros", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
+FOTOS = sys.argv[sys.argv.index("--fotos") + 1] if "--fotos" in sys.argv else ""   # pasta para as fotos
 with sync_playwright() as p:
     deteccao(p)
     contas(p)
     retro(p)
     diario_ui(p)
     resumo_avisos(p)
+    if FOTOS:
+        fotos(p, FOTOS)
 fim()

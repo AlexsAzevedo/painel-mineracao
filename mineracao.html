@@ -750,7 +750,7 @@ table.cmp{width:100%;min-width:0;border-collapse:collapse;font-size:.88rem}
 .hist-d table{min-width:760px}
 .hist-d td.obs{white-space:normal;min-width:160px;max-width:300px;color:var(--muted);font-size:.85rem}
 /* paradas (1.10.0): a linha do dia, a frase do período e a lista */
-td.name small.d-parou{white-space:normal;min-width:210px;max-width:290px;margin-top:3px;color:var(--warn)}
+td.name small.d-parou{white-space:normal;min-width:210px;max-width:290px;margin-top:3px;color:var(--warn);text-wrap:pretty}
 #d-paradas:empty{display:none}
 .pd-h{flex-wrap:wrap;align-items:center}
 .pd-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
@@ -6644,6 +6644,10 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.10.0", itens:[
+    "Paradas e quedas de energia: o painel anota quando a mineração para (falta de energia, PC desligado, app da Kryptex fechado, placa parada ou pausada), de que horas a que horas, e quanto deixou de ganhar.",
+    "No Diário, cada dia mostra as paradas, as horas minerando descontam o tempo parado (o estimado e a margem real ficam justos) e a lista de paradas pode ser copiada para mandar à Celesc.",
+    "Quando a mineração volta depois de uma parada, o celular recebe um aviso com o horário e quanto deixou de ganhar."]},
   {v:"1.9.0", itens:[
     "Simulador de compra: monte até 3 opções de placas, com o pagamento à vista, no cartão ou com empréstimo, e veja mês a mês quando elas se pagam em 3 cenários de mercado, com a revenda no fim."]},
   {v:"1.8.2", itens:[
