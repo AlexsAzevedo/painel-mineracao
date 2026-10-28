@@ -9,10 +9,11 @@ Data: 28/10/2026 · Pedidos do Alex: "Existiria alguma forma de em outros comput
 - **Ele abre o painel à mão.** Essa é uma escolha dele. O painel aplica o ajuste quando abre e confere a cada minuto. Para o ajuste valer assim que o Windows liga, existe a opção "Abrir o painel junto com o Windows" (Premissas › Este computador), e ela continua sendo dele.
 - **Convivência com o Afterburner.** Até o Alex desligar, o Afterburner pode continuar aplicando o −20% e −75 mV quando o Windows liga; o painel convive com isso.
 - **Testes no PC dele, passo a passo** ("vamos testando conforme").
+- **Gosta do conjunto mais frio.** No dia dos testes, ele mexeu na ventoinha quando a placa chegou a 55 °C. Vale para os avisos desta parte e, principalmente, para o ajuste automático da segunda.
 
 ## O que os testes no PC do Alex mostraram (28/10/2026)
 
-Rodaram duas sondas: uma só de leitura e uma que gravou de volta os mesmos valores que a placa já tinha.
+Rodaram quatro testes: um só de leitura; um que gravou de volta os mesmos valores que a placa já tinha; um que mudou um pouco a potência, a ventoinha e a tensão, uma de cada vez, e voltou cada uma; e um que observou a ventoinha depois de gravar a potência.
 
 - **A placa e o acesso.** A placa é uma RX 9070 XT (XFX), e o ADLX do driver é a versão 1.5. O painel consegue ler e gravar pela biblioteca da AMD que vem com o driver (`amdadlx64.dll`, o ADLX) como usuário comum, sem administrador, e com o Afterburner aberto.
 - **O que dá para ajustar, e como estava:**
@@ -23,7 +24,12 @@ Rodaram duas sondas: uma só de leitura e uma que gravou de volta os mesmos valo
   - Temporização rápida da memória: estava desligada.
   - Ventoinha: curva de 5 pontos, de 15% a 100%; estava reta em 75%, com o zero rpm desligado.
 - **O que a placa não tem:** o undervolt automático da AMD.
-- **A gravação.** Gravar os mesmos −20% e −75 mV deu certo (`ADLX_OK`). Nenhum outro ajuste mudou, e a mineração não sentiu: uns 271 W e 2.220 MHz, antes e depois.
+- **A gravação.** Gravar os mesmos −20% e −75 mV deu certo (`ADLX_OK`), e a mineração não sentiu: uns 271 W e 2.220 MHz, antes e depois.
+- **Mudar um pouco e voltar** (30 s cada, tudo `ADLX_OK`, tudo voltou):
+  - potência de −20% para −21%: de 272 para 268 W, e o clock de 2.204 para 2.175 MHz, porque a placa trabalha no limite de potência;
+  - ventoinha de 74% para 69%: de 2.551 para 2.430 rpm, com a mesma temperatura;
+  - tensão de −75 para −80 mV: o clock subiu de 2.204 para 2.238 MHz, gastando o mesmo. A tensão ainda tem espaço para baixar, o que importa na segunda parte.
+- **A ventoinha do Afterburner cai quando o painel grava a potência.** Com a ventoinha posta pelo Afterburner, depois de o painel gravar a potência as rotações começaram a cair (de 2.511 para 2.048 rpm em 30 s), embora a curva lida continuasse igual. Às 17:14, isso levou a placa a 55 °C, e o Alex refez a ventoinha à mão. Depois que o painel gravou a curva da ventoinha, gravar a potência não mexeu mais nela: 2.550 rpm durante 1 minuto inteiro.
 
 ## Critérios de pronto
 
@@ -31,12 +37,13 @@ Rodaram duas sondas: uma só de leitura e uma que gravou de volta os mesmos valo
    - os ajustes de agora;
    - as faixas que o driver permite;
    - como a placa está: clock, consumo, temperatura e uso.
-2. **Assumir sem mexer.** Na primeira vez que a pessoa marca "O painel cuida dos ajustes da placa", o painel guarda o que a placa já tem e não muda nada nela. No PC do Alex, isso é o −20%, −75 mV e ventoinha em 75% do Afterburner.
+2. **Assumir sem mexer.** Na primeira vez que a pessoa marca "O painel cuida dos ajustes da placa", o painel guarda o que a placa já tem e não muda nenhum valor. No PC do Alex, isso é o −20%, −75 mV e ventoinha em 74% do Afterburner. O painel só grava de novo a mesma curva da ventoinha, para ela passar a ser do painel: com a curva posta pelo Afterburner, gravar a potência devolve a ventoinha ao automático.
 3. **Mudar.** A pessoa muda um ou mais campos e clica em Aplicar. O painel confere as faixas, grava só o que mudou, lê a placa de volta e diz o resultado de cada item.
 4. **Manter.** Com o painel cuidando da placa, ele confere ao abrir e a cada minuto. Se a placa não estiver com o ajuste guardado, ele aplica de novo. Isso acontece quando:
    - o PC reiniciou;
    - o driver reiniciou;
-   - outro programa mudou o ajuste. Nesse caso o painel avisa, no máximo uma vez por hora, e diz como desligar o "aplicar ao iniciar" do Afterburner.
+   - outro programa mudou o ajuste. Nesse caso o painel avisa, no máximo uma vez por hora, e diz como desligar o "aplicar ao iniciar" do Afterburner;
+   - a ventoinha fixa foi para o automático sem a curva mudar: as rotações caíram mais de 15%. O painel grava a ventoinha de novo e avisa, no máximo uma vez por hora.
 5. **Proteção contra travamento.** Um ajuste novo fica "em teste" até completar 15 minutos com a placa minerando.
    - **O que conta como travamento:** durante o teste, o driver de vídeo reiniciar (a placa volta ao de fábrica) ou o PC desligar sem o desligamento normal.
    - **O que o painel faz:** marca o ajuste como "travou", volta para o último ajuste bom e avisa no Windows e no celular.
@@ -97,7 +104,7 @@ Rodaram duas sondas: uma só de leitura e uma que gravou de volta os mesmos valo
   A resposta também traz `afterburner`, que diz se o `MSIAfterburner.exe` está aberto.
 - **`aplicar`** com `{chave, ajuste}`:
   - grava só os campos que vieram e que estão diferentes do valor atual;
-  - grava na ordem: ventoinha, memória, clock, tensão e potência;
+  - grava na ordem: potência, tensão, clock, memória e, por último, a ventoinha. Quando o pedido traz a ventoinha, ela é gravada de novo no fim mesmo sem mudar, porque gravar os outros ajustes pode devolvê-la ao automático;
   - antes de gravar, confere cada valor na faixa e no passo; fora disso, responde "fora da faixa" e não grava;
   - responde o resultado de cada campo e a leitura da placa depois.
 - **`fabrica`** com `{chave}` chama `ResetToFactory` e responde a leitura depois.
@@ -124,7 +131,7 @@ São funções puras. Recebem uma leitura, o estado guardado e as marcas de ener
 
 ### `placa.json`: o estado, na pasta de dados
 
-- **Formato:** `{v, cuidar, placas: {chave: {nome, salvo, bom, teste: {ajuste, desde, minutos}, travou: [{ajuste, quando, motivo}] (até 10), resetes: [t], avisos: {outro: t}}}}`.
+- **Formato:** `{v, cuidar, placas: {chave: {nome, salvo, bom, teste: {ajuste, desde, minutos}, travou: [{ajuste, quando, motivo}] (até 10), resetes: [t], rpm: {referencia, amostras}, avisos: {outro: t, ventoinha: t}}}}`.
 - **Gravado antes de aplicar.** O arquivo é gravado inteiro, e já no disco, antes de cada aplicação, como o `app-celular.json`. Assim, se o PC travar logo depois, o painel sabe na volta que aquele ajuste estava em teste.
 
 ### A vigia, no `main.js`
@@ -139,10 +146,11 @@ Roda logo que o painel abre e depois a cada minuto, enquanto o painel cuida da p
    - **Nada disso:** se a placa estava minerando (uso de 80% ou mais), o minuto conta. Com 15 minutos contados, o ajuste vira bom.
 
    Quando um ajuste trava, o painel guarda ele na lista dos que travaram, troca o ajuste guardado pelo último bom (ou pelo de fábrica, se não houver um), aplica e avisa.
-3. **Se não há teste, mas a placa está diferente do ajuste guardado:**
+3. **A ventoinha fixa.** Com a ventoinha "Fixa em X%", depois de cada aplicação o painel guarda as rotações dela (a mediana dos 3 primeiros minutos). Se elas caírem mais de 15% sem a curva mudar, a ventoinha foi para o automático: o painel grava a curva de novo e avisa, no máximo uma vez por hora. Com a ventoinha "Automática", as rotações mudam com a temperatura, e essa conferência não vale.
+4. **Se não há teste, mas a placa está diferente do ajuste guardado:**
    - **Está de fábrica:** aplica de novo, que é o normal depois de reiniciar. Se o driver reiniciou com o painel aberto, isso conta: com 2 vezes em 24 horas com o mesmo ajuste, esse ajuste vai para a lista dos que travaram, o painel passa a guardar o de fábrica e avisa.
    - **Está com outro valor** (outro programa mudou): aplica de novo e avisa, no máximo uma vez por hora.
-4. **Gravação com erro:** o painel não tenta de novo mais que uma vez a cada 10 minutos.
+5. **Gravação com erro:** o painel não tenta de novo mais que uma vez a cada 10 minutos.
 
 ### A ponte (`preload.js`): `window.desktop.placa`
 
@@ -191,6 +199,7 @@ Roda logo que o painel abre e depois a cada minuto, enquanto o painel cuida da p
 
 - **Depois de reiniciar o PC.** Ainda não sabemos se o driver da AMD guarda o ajuste sozinho. A vigia funciona dos dois jeitos: se a placa voltar de fábrica, o painel aplica de novo quando abrir.
 - **O AMD Adrenalin.** Ele pode reaplicar um perfil próprio quando o Windows entra. A vigia trata isso como "outro programa".
+- **A ventoinha posta por outro programa.** Com a curva gravada pelo Afterburner, gravar a potência pelo painel devolveu a ventoinha ao automático. Por isso o painel grava a ventoinha por último em toda aplicação, assume a curva ao começar a cuidar da placa e vigia as rotações.
 - **Um ajuste que trava a placa.** A proteção vale tanto para um travamento do driver (a placa volta ao de fábrica) quanto para o PC inteiro travar e ser desligado no botão (o PC liga sem o desligamento normal).
 
 ## 5. Testes
@@ -209,11 +218,7 @@ Roda logo que o painel abre e depois a cada minuto, enquanto o painel cuida da p
   - Claro e escuro, com fotos.
 - **O instalador:** o `teste-pacote.js` passa a conferir também os `extraResources` (o `placa-amd.ps1` e o `sensores-amd.ps1`) dentro do pacote montado.
 - **No PC do Alex, com o OK dele em cada passo:**
-  1. **Antes da versão nova:** o leitor sozinho, pela pasta "mineração":
-     - ler;
-     - potência em −21% e de volta para −20%;
-     - ventoinha em 70% e de volta para 75%;
-     - tensão em −80 mV e de volta para −75 mV.
+  1. **Antes da versão nova (feito em 28/10):** pela pasta "mineração", os quatro testes do começo deste desenho: ler; gravar os mesmos valores; potência em −21%, ventoinha em 69% e tensão em −80 mV, voltando cada uma; e a ventoinha observada depois de gravar a potência. O leitor da versão nova roda de novo esses testes antes de entrar no instalador.
   2. **Com a 1.11.0 instalada:** nada muda na placa até ele marcar a caixa.
      - Assumir o ajuste de agora.
      - Mudar um pouco a potência e ver o teste virar bom depois de 15 minutos.
