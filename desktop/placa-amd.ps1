@@ -5,6 +5,10 @@
   clock máximo, memória, temporização da memória e ventoinha. Fica rodando escondido e conversa com o programa por linhas
   de JSON: cada pedido é uma linha na entrada, e cada resposta, uma linha na saída, com o mesmo "id" do pedido.
   - {"id":1,"op":"ler"} -> {"id":1,"ok":true,"afterburner":false,"placas":[...]}
+  - {"id":2,"op":"aplicar","chave":"...","ajuste":{"potencia":-21,...}} -> {"id":2,"ok":true,"itens":{...},"placa":{...}}
+  - {"id":3,"op":"fabrica","chave":"..."}: o aplicar com o padrão de cada ajuste
+  Toda gravação leva todos os ajustes e a curva da ventoinha numa chamada só: uma gravação sem a curva devolve a
+  ventoinha ao automático (visto na RX 9070 XT do Alex, 28/10/2026).
   Termina quando a entrada fecha ou quando o processo -Pai acaba.
 
   Uso: placa-amd.ps1 [-Pai <pid>]
@@ -43,6 +47,8 @@ public static class PlacaAmd
     [DllImport("atiadlxx.dll")] static extern int ADL2_Overdrive8_Init_SettingX2_Get(IntPtr ctx, int indice, out int caps, ref int n, out IntPtr lista);
     [DllImport("atiadlxx.dll")] static extern int ADL2_Overdrive8_Current_SettingX2_Get(IntPtr ctx, int indice, ref int n, out IntPtr lista);
     [DllImport("atiadlxx.dll")] static extern int ADL2_New_QueryPMLogData_Get(IntPtr ctx, int indice, IntPtr saida);
+    /* a única função que muda a placa */
+    [DllImport("atiadlxx.dll")] static extern int ADL2_Overdrive8_Setting_Set(IntPtr ctx, int indice, IntPtr set, IntPtr atual);
 
     /* AdapterInfo no Windows: 1572 bytes. ADLPMLogDataOutput: int size + 256 x (supported, value). */
     const int TAM_INFO = 1572, AMD = 1002, AMD_HEX = 0x1002, MAX_SENSORES = 256, TAM_SAIDA = 4 + MAX_SENSORES * 8;
@@ -53,6 +59,11 @@ public static class PlacaAmd
     /* as capacidades (bits do overdrive8Capabilities) */
     const int C_CLOCK = 1 << 0, C_CLOCK_PONTOS = 1 << 1, C_MEMORIA = 1 << 2, C_POTENCIA = 1 << 3, C_TEMPORIZACAO = 1 << 8,
               C_ZERO_RPM = 1 << 9, C_CURVA = 1 << 13, C_MODO = 1 << 16, C_TENSAO = 1 << 17;
+
+    /* o que o painel pode gravar: clock, memória, potência, temporização, zero rpm, a curva, o modo (só em 3) e a tensão */
+    static readonly int[] PODE_GRAVAR = { CLK_MAX, MEM_MAX, POTENCIA, TEMPORIZACAO, ZERO_RPM, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, MODO, TENSAO };
+    static readonly int[] CODIGOS = { 0, -1, -3, -8, -10, -20, -23, -27 };
+    static readonly string[] NOMES_CODIGO = { "ok", "erro", "parâmetro inválido", "sem suporte", "placa desligada", "gravação incompleta", "precisa de administrador", "placa em uso" };
 
     static Aloca aloca = new Aloca(AlocaMemoria);   /* guardado: o ADL chama de volta para pedir memória */
     static IntPtr AlocaMemoria(int tamanho) { return Marshal.AllocHGlobal(tamanho); }
@@ -65,6 +76,9 @@ public static class PlacaAmd
     /* uma chamada do ADL que devia funcionar e não funcionou (o driver reiniciou, foi atualizado...) */
     class FalhaAdl : Exception { public FalhaAdl(string funcao, int r) : base("o ADL respondeu " + r.ToString(CultureInfo.InvariantCulture) + " em " + funcao) { } }
     class SemAdl : Exception { public SemAdl(string msg) : base(msg) { } }
+    /* um pedido que não dá para gravar: fora da faixa, ajuste que a placa não tem, pedido estranho */
+    class Recusa : Exception { public string erro; public Recusa(string codigo, string msg) : base(msg) { erro = codigo; } }
+    static string N(int v) { return v.ToString(CultureInfo.InvariantCulture); }
 
     /* ---------------- JSON ---------------- */
     class J
@@ -450,6 +464,180 @@ public static class PlacaAmd
             .Put("agora", Agora(pl));
     }
 
+    /* ---------------- gravar ---------------- */
+    /* grava numa chamada do Setting_Set: só os ajustes da lista, sem reset, e o modo só em 3 */
+    static int Gravar(Placa pl, int n, Dictionary<int, int> valores)
+    {
+        foreach (KeyValuePair<int, int> kv in valores)
+        {
+            if (Array.IndexOf(PODE_GRAVAR, kv.Key) < 0) throw new InvalidOperationException("ajuste fora da lista: " + N(kv.Key));
+            if (kv.Key == MODO && kv.Value != 3) throw new InvalidOperationException("o modo de energia só pode ir para 3");
+            if (kv.Key >= n) throw new InvalidOperationException("ajuste que o driver não tem: " + N(kv.Key));
+        }
+        IntPtr set = Zerada(4 + FOLGA * 12), atual = Zerada(4 + FOLGA * 4);
+        try
+        {
+            Marshal.WriteInt32(set, 0, n);
+            Marshal.WriteInt32(atual, 0, n);
+            foreach (KeyValuePair<int, int> kv in valores)
+            {
+                Marshal.WriteInt32(set, 4 + kv.Key * 12, kv.Value);
+                Marshal.WriteInt32(set, 4 + kv.Key * 12 + 4, 1);   /* requested; o reset fica 0 */
+            }
+            return ADL2_Overdrive8_Setting_Set(ctx, pl.indice, set, atual);
+        }
+        finally { Marshal.FreeHGlobal(set); Marshal.FreeHGlobal(atual); }
+    }
+
+    static int Inteiro(object v, string nome)
+    {
+        if (!(v is double)) throw new Recusa("pedido", "valor que não é número em " + nome);
+        double d = (double)v;
+        if (d != Math.Floor(d) || Math.Abs(d) > 1e6) throw new Recusa("pedido", "valor que não é inteiro em " + nome);
+        return (int)d;
+    }
+    static void NaFaixa(Od8 o, int i, int v, string nome)
+    {
+        if (v < o.min[i] || v > o.max[i]) throw new Recusa("fora-da-faixa", nome + " " + N(v) + " fora da faixa (de " + N(o.min[i]) + " a " + N(o.max[i]) + ")");
+    }
+    static void PorNumero(Od8 o, Dictionary<int, int> alvo, bool tem, int i, object v, string nome)
+    {
+        if (!tem) throw new Recusa("sem-ajuste", "a placa não tem " + nome);
+        int x = Inteiro(v, nome);
+        NaFaixa(o, i, x, nome);
+        alvo[i] = x;
+    }
+
+    static void VentoinhaAlvo(Od8 o, Dictionary<int, int> alvo, Dictionary<string, object> v)
+    {
+        if (!TemCurva(o)) throw new Recusa("sem-ajuste", "a placa não tem a curva da ventoinha");
+        if (v == null || !v.ContainsKey("modo") || !(v["modo"] is string)) throw new Recusa("pedido", "a ventoinha sem o modo");
+        string modo = (string)v["modo"];
+        bool zero = Tem(o, C_ZERO_RPM, ZERO_RPM);
+        if (modo == "auto")
+        {
+            for (int i = CURVA; i < CURVA + 10; i++) alvo[i] = o.padrao[i];
+            if (zero) alvo[ZERO_RPM] = o.padrao[ZERO_RPM];
+        }
+        else if (modo == "fixa")
+        {
+            if (!v.ContainsKey("pct")) throw new Recusa("pedido", "a ventoinha fixa sem o pct");
+            int pct = Inteiro(v["pct"], "ventoinha");
+            for (int p = 0; p < 5; p++) { NaFaixa(o, CURVA + 2 * p + 1, pct, "ventoinha"); alvo[CURVA + 2 * p + 1] = pct; }
+            if (zero) alvo[ZERO_RPM] = 0;
+        }
+        else if (modo == "curva")
+        {
+            List<object> c = v.ContainsKey("curva") ? v["curva"] as List<object> : null;
+            if (c == null || c.Count != 5) throw new Recusa("pedido", "a curva da ventoinha precisa de 5 pontos");
+            for (int p = 0; p < 5; p++)
+            {
+                List<object> par = c[p] as List<object>;
+                if (par == null || par.Count != 2) throw new Recusa("pedido", "cada ponto da curva é [°C, %]");
+                int t = Inteiro(par[0], "temperatura da curva"), s = Inteiro(par[1], "ventoinha");
+                NaFaixa(o, CURVA + 2 * p, t, "temperatura da curva");
+                NaFaixa(o, CURVA + 2 * p + 1, s, "ventoinha");
+                alvo[CURVA + 2 * p] = t;
+                alvo[CURVA + 2 * p + 1] = s;
+            }
+            if (zero && v.ContainsKey("zeroRpm"))
+            {
+                int z = Inteiro(v["zeroRpm"], "zero rpm");
+                NaFaixa(o, ZERO_RPM, z, "zero rpm");
+                alvo[ZERO_RPM] = z;
+            }
+        }
+        else throw new Recusa("pedido", "modo da ventoinha desconhecido: " + modo);
+    }
+
+    /* o ajuste completo: o que veio no pedido e, no resto, o valor de agora */
+    static void Completar(Od8 o, Dictionary<string, object> ajuste, Dictionary<int, int> alvo)
+    {
+        foreach (KeyValuePair<string, object> kv in ajuste)
+        {
+            if (kv.Key == "potencia") PorNumero(o, alvo, Tem(o, C_POTENCIA, POTENCIA), POTENCIA, kv.Value, "potência");
+            else if (kv.Key == "tensao") PorNumero(o, alvo, Tem(o, C_TENSAO, TENSAO), TENSAO, kv.Value, "tensão");
+            else if (kv.Key == "clock") PorNumero(o, alvo, TemClock(o), CLK_MAX, kv.Value, "clock máximo");
+            else if (kv.Key == "memoria") PorNumero(o, alvo, Tem(o, C_MEMORIA, MEM_MAX), MEM_MAX, kv.Value, "memória");
+            else if (kv.Key == "temporizacao") PorNumero(o, alvo, Tem(o, C_TEMPORIZACAO, TEMPORIZACAO), TEMPORIZACAO, kv.Value, "temporização");
+            else if (kv.Key == "ventoinha") VentoinhaAlvo(o, alvo, kv.Value as Dictionary<string, object>);
+            else throw new Recusa("pedido", "campo desconhecido: " + kv.Key);
+        }
+        if (TemCurva(o))
+            for (int p = 1; p < 5; p++)
+                if (alvo[CURVA + 2 * p] <= alvo[CURVA + 2 * (p - 1)])
+                    throw new Recusa("fora-da-faixa", "as temperaturas da curva da ventoinha têm de subir de um ponto para o outro");
+    }
+
+    /* o pedido e o lido de cada ajuste */
+    static J Itens(Dictionary<int, int> alvo, Od8 depois)
+    {
+        J j = new J();
+        string[] nomes = { "potencia", "tensao", "clock", "memoria", "temporizacao" };
+        int[] ids = { POTENCIA, TENSAO, CLK_MAX, MEM_MAX, TEMPORIZACAO };
+        for (int k = 0; k < ids.Length; k++)
+            if (alvo.ContainsKey(ids[k]))
+                j.Put(nomes[k], new J().Put("pedido", alvo[ids[k]]).Put("lido", ids[k] < depois.n ? (object)depois.atual[ids[k]] : null));
+        if (alvo.ContainsKey(CURVA))
+        {
+            List<object> pedido = new List<object>(), lido = new List<object>();
+            for (int p = 0; p < 5; p++)
+            {
+                pedido.Add(Par(alvo[CURVA + 2 * p], alvo[CURVA + 2 * p + 1]));
+                if (TemCurva(depois)) lido.Add(Par(depois.atual[CURVA + 2 * p], depois.atual[CURVA + 2 * p + 1]));
+            }
+            j.Put("curva", new J().Put("pedido", pedido).Put("lido", lido));
+        }
+        if (alvo.ContainsKey(ZERO_RPM)) j.Put("zeroRpm", new J().Put("pedido", alvo[ZERO_RPM]).Put("lido", ZERO_RPM < depois.n ? (object)depois.atual[ZERO_RPM] : null));
+        return j;
+    }
+
+    static string Recusou(object id, int r)
+    {
+        int k = Array.IndexOf(CODIGOS, r);
+        return Erro(id, "recusou", "o driver recusou a gravação (" + N(r) + ": " + (k >= 0 ? NOMES_CODIGO[k] : "código") + ")");
+    }
+
+    /* aplicar: completa o ajuste com os valores de agora, confere, grava o modo (se não for o manual), grava tudo numa
+       chamada só e lê de novo. fabrica: o mesmo, com o padrão de cada ajuste. */
+    static string Aplicar(object id, Dictionary<string, object> d, bool fabrica)
+    {
+        string chave = d.ContainsKey("chave") ? d["chave"] as string : null;
+        Dictionary<string, object> ajuste = null;
+        if (!fabrica)
+        {
+            ajuste = d.ContainsKey("ajuste") ? d["ajuste"] as Dictionary<string, object> : null;
+            if (ajuste == null) return Erro(id, "pedido", "o pedido não traz o ajuste");
+        }
+        if (string.IsNullOrEmpty(chave)) return Erro(id, "pedido", "o pedido não traz a chave da placa");
+        return ComAdl(id, delegate
+        {
+            Placa pl = null;
+            foreach (Placa x in Placas()) if (x.chave == chave) { pl = x; break; }
+            if (pl == null) return Erro(id, "sem-placa", "a placa " + chave + " não foi encontrada");
+            int sup, lig, ver;
+            int r = ADL2_Overdrive_Caps(ctx, pl.indice, out sup, out lig, out ver);
+            if (r != 0) throw new FalhaAdl("ADL2_Overdrive_Caps", r);
+            if (ver != 8) return Erro(id, "sem-placa", "a placa " + chave + " não tem o Overdrive8");
+            Od8 o = LerOd8(pl);
+            Dictionary<int, int> alvo = new Dictionary<int, int>();
+            foreach (int i in Cuidados(o)) alvo[i] = fabrica ? o.padrao[i] : o.atual[i];
+            try { if (!fabrica) Completar(o, ajuste, alvo); }
+            catch (Recusa e) { return Erro(id, e.erro, e.Message); }
+            if (Tem(o, C_MODO, MODO) && o.atual[MODO] != 3)
+            {
+                Dictionary<int, int> modo = new Dictionary<int, int>();
+                modo[MODO] = 3;
+                r = Gravar(pl, o.n, modo);
+                if (r != 0) return Recusou(id, r);
+            }
+            r = Gravar(pl, o.n, alvo);
+            if (r != 0) return Recusou(id, r);
+            Od8 depois = LerOd8(pl);
+            return Json(new J().Put("id", id).Put("ok", true).Put("itens", Itens(alvo, depois)).Put("placa", PlacaJson(pl, depois)));
+        });
+    }
+
     /* ---------------- os pedidos ---------------- */
     static string Erro(object id, string erro, string msg)
     {
@@ -516,6 +704,8 @@ public static class PlacaAmd
         try
         {
             if (op == "ler") return Ler(id);
+            if (op == "aplicar") return Aplicar(id, d, false);
+            if (op == "fabrica") return Aplicar(id, d, true);
             return Erro(id, "pedido", "pedido desconhecido: " + (op ?? "(sem op)"));
         }
         catch (Exception e) { return Erro(id, "falhou", e.GetType().Name + ": " + e.Message); }

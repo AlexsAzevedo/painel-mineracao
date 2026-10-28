@@ -8,6 +8,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 DESKTOP = os.path.dirname(AQUI)
 PS1 = os.path.join(DESKTOP, "placa-amd.ps1")
 falhas = []
+TODAS = []   # todas as gravações de todos os cenários
 
 
 def ok(cond, msg):
@@ -78,6 +79,7 @@ def rodar(pasta, cen, pedidos, so="libadl.so", args=(), esperar=20):
         except Exception:
             ok(False, "%s: resposta que não é JSON: %r" % (cen, linha[:300]))
     chamadas = open(log).read().split() if os.path.exists(log) else []
+    TODAS.extend(gravacoes(chamadas))
     ok("PROIBIDO" not in r.stderr and "ERRADA" not in r.stderr, "%s: chamada errada ou proibida: %s" % (cen, r.stderr[-1500:]))
     ok(len(respostas) == len(pedidos), "%s: %d pedidos e %d respostas: %s" % (cen, len(pedidos), len(respostas), r.stdout[-800:]))
     return respostas, r.stderr, chamadas, r.returncode, dt
@@ -104,6 +106,93 @@ def confere_9070(nome, p):
     a = p.get("agora") or {}
     ok(a == {"clockMHz": 2950, "memoriaMHz": 2518, "tensaoMv": 850, "watts": 301, "tempC": 44, "quenteC": 61, "memoriaC": 60,
              "ventoinhaRpm": 2552, "ventoinhaPct": 74, "usoPct": 99}, "%s: agora %s" % (nome, a))
+
+
+CURVA = {19: 30, 20: 74, 21: 50, 22: 74, 23: 61, 24: 74, 25: 72, 26: 74, 27: 80, 28: 74}
+TUDO = {0: 0, 8: 2518, 9: -20, 14: 0, 15: 0, **CURVA, 37: -75}   # o que a placa tem agora, nos ajustes que o painel cuida
+
+
+def gravacoes(ch):
+    """As chamadas do Setting_Set, pelo registro: [{"placa": índice, "itens": {ajuste: valor}}]"""
+    l = []
+    for c in ch:
+        if c == "ADL2_Overdrive8_Setting_Set":
+            l.append({"placa": None, "itens": {}})
+        elif c.startswith("SET:placa=") and l:
+            l[-1]["placa"] = int(c.split("=")[1])
+        elif c.startswith("SET:") and c not in ("SET:fim", "SET:recusou") and l:
+            i, v = c[4:].split("=")
+            l[-1]["itens"][int(i)] = int(v)
+    return l
+
+
+def com(base, **mud):
+    d = dict(base)
+    d.update({int(k[1:]): v for k, v in mud.items()})
+    return d
+
+
+def gravar(pasta):
+    ap = lambda i, ajuste, chave=PNP1: {"id": i, "op": "aplicar", "chave": chave, "ajuste": ajuste}
+
+    # a potência: uma chamada só, com todos os ajustes e a curva junto; a ventoinha não cai
+    rs, err, ch, *_ = rodar(pasta, "9070xt", [ap(1, {"potencia": -21})])
+    gs = gravacoes(ch)
+    ok([g["itens"] for g in gs] == [com(TUDO, _9=-21)], "potência: gravações %s" % gs)
+    r = rs[0] if rs else {}
+    ok(r.get("ok") is True and (r.get("itens") or {}).get("potencia") == {"pedido": -21, "lido": -21}, "potência: resposta %s" % json.dumps(r)[:500])
+    p = r.get("placa") or {}
+    ok((p.get("potencia") or {}).get("atual") == -21 and (p.get("agora") or {}).get("ventoinhaRpm") == 2552, "potência: placa depois %s" % json.dumps(p)[:300])
+    ok((r.get("itens") or {}).get("curva") == {"pedido": [[30, 74], [50, 74], [61, 74], [72, 74], [80, 74]], "lido": [[30, 74], [50, 74], [61, 74], [72, 74], [80, 74]]}
+       and (r.get("itens") or {}).get("zeroRpm") == {"pedido": 0, "lido": 0}, "potência: itens da ventoinha %s" % (r.get("itens") or {}))
+
+    # a ventoinha: fixa, automática e uma curva de outro programa
+    rs, err, ch, *_ = rodar(pasta, "9070xt", [ap(2, {"ventoinha": {"modo": "fixa", "pct": 70}})])
+    ok([g["itens"] for g in gravacoes(ch)] == [com(TUDO, _20=70, _22=70, _24=70, _26=70, _28=70)], "fixa: %s" % gravacoes(ch))
+    rs, err, ch, *_ = rodar(pasta, "9070xt", [ap(3, {"ventoinha": {"modo": "auto"}})])
+    ok([g["itens"] for g in gravacoes(ch)] == [com(TUDO, _20=15, _22=32, _24=49, _26=66, _28=100, _15=1)], "auto: %s" % gravacoes(ch))
+    rs, err, ch, *_ = rodar(pasta, "9070xt", [ap(4, {"ventoinha": {"modo": "curva", "curva": [[30, 40], [50, 50], [61, 60], [72, 70], [80, 80]], "zeroRpm": 0}})])
+    ok([g["itens"] for g in gravacoes(ch)] == [com(TUDO, _20=40, _22=50, _24=60, _26=70, _28=80)], "curva: %s" % gravacoes(ch))
+
+    # de fábrica
+    rs, err, ch, *_ = rodar(pasta, "9070xt", [{"id": 5, "op": "fabrica", "chave": PNP1}])
+    ok([g["itens"] for g in gravacoes(ch)] == [{0: 0, 8: 2518, 9: 0, 14: 0, 15: 1, 19: 30, 20: 15, 21: 50, 22: 32, 23: 61, 24: 49, 25: 72, 26: 66, 27: 80, 28: 100, 37: 0}],
+       "fábrica: %s" % gravacoes(ch))
+    ok(rs and rs[0].get("ok") is True and (rs[0].get("placa") or {}).get("deFabrica") is True, "fábrica: resposta %s" % (json.dumps(rs[0])[:300] if rs else rs))
+
+    # fora da faixa ou pedido estranho: nada é gravado
+    rs, err, ch, *_ = rodar(pasta, "9070xt", [ap(6, {"potencia": -40}), ap(7, {"ventoinha": {"modo": "fixa", "pct": 101}}), ap(8, {"potencia": -20.5}),
+                                             ap(9, {"ventoinha": {"modo": "curva", "curva": [[50, 40], [30, 50], [61, 60], [72, 70], [80, 80]], "zeroRpm": 0}}),
+                                             ap(10, {"vram": 1}), ap(11, {"ventoinha": {"modo": "turbo"}}), {"id": 12, "op": "aplicar", "chave": PNP1}])
+    ok(not gravacoes(ch), "fora da faixa: gravou %s" % gravacoes(ch))
+    erros = [(r.get("id"), r.get("erro")) for r in rs]
+    ok(erros == [(6, "fora-da-faixa"), (7, "fora-da-faixa"), (8, "pedido"), (9, "fora-da-faixa"), (10, "pedido"), (11, "pedido"), (12, "pedido")], "fora da faixa: %s" % erros)
+    ok(rs and "fora da faixa (de -30 a 10)" in (rs[0].get("msg") or ""), "fora da faixa: msg %s" % (rs[0].get("msg") if rs else None))
+
+    # placa sem o ajuste de tensão
+    rs, err, ch, *_ = rodar(pasta, "sem-tensao", [ap(13, {"tensao": -80}), ap(14, {"potencia": -21})])
+    ok(rs and rs[0].get("erro") == "sem-ajuste" and "tens" in (rs[0].get("msg") or ""), "sem-tensao: %s" % (rs[0] if rs else rs))
+    gs = gravacoes(ch)
+    ok([g["itens"] for g in gs] == [{k: v for k, v in com(TUDO, _9=-21).items() if k != 37}], "sem-tensao: gravações %s" % gs)
+
+    # o modo de energia fora do manual: primeiro o modo, sozinho, depois tudo
+    rs, err, ch, *_ = rodar(pasta, "modo-1", [ap(15, {"potencia": -21})])
+    ok([g["itens"] for g in gravacoes(ch)] == [{36: 3}, com(TUDO, _9=-21)], "modo-1: %s" % gravacoes(ch))
+
+    # o driver recusa (sem administrador)
+    rs, err, ch, *_ = rodar(pasta, "sem-admin", [ap(16, {"potencia": -21})])
+    ok(rs and rs[0].get("ok") is False and rs[0].get("erro") == "recusou" and "-23: precisa de administrador" in (rs[0].get("msg") or ""), "sem-admin: %s" % rs)
+
+    # duas placas: grava na segunda; chave desconhecida
+    rs, err, ch, *_ = rodar(pasta, "duas", [ap(17, {"potencia": -21}, PNP2), ap(18, {"potencia": -21}, "PCI\\nao-existe")])
+    gs = gravacoes(ch)
+    ok(len(gs) == 1 and gs[0]["placa"] == 4, "duas: %s" % gs)
+    ok(len(rs) == 2 and rs[1].get("erro") == "sem-placa", "chave desconhecida: %s" % rs[1:])
+
+    # toda gravação, menos a do modo sozinho, leva a curva e o zero rpm
+    for g in TODAS:
+        ok(g["itens"] == {36: 3} or set(range(19, 29)) | {15} <= set(g["itens"]), "gravação sem a curva ou o zero rpm: %s" % g)
+    ok(len(TODAS) >= 10, "poucas gravações conferidas: %d" % len(TODAS))
 
 
 def main():
@@ -158,6 +247,8 @@ def main():
             ok(rs[1].get("id") == 5 and rs[1].get("erro") == "pedido", "op voar: %s" % rs[1])
             ok(rs[2].get("id") == 9 and rs[2].get("ok") is True, "JSON com escapes: %s" % json.dumps(rs[2])[:200])
             ok(rs[3].get("id") == "a1" and rs[3].get("ok") is True, "id de texto: %s" % json.dumps(rs[3])[:200])
+
+        gravar(pasta)
 
         # a vigia do processo pai: com a entrada aberta, o leitor sai quando o pai acaba
         pai = subprocess.Popen(["sleep", "1"])

@@ -1,6 +1,7 @@
 /* ADL de mentira (atiadlxx.dll), para testar o leitor da placa (placa-amd.ps1) no Linux, com o Mono.
-   - FALSO_CENARIO escolhe a placa: 9070xt (o padrão), od7, sem-amd, sem-adl, duas, reinicia;
-   - FALSO_LOG recebe o nome de cada função chamada, uma por linha;
+   - FALSO_CENARIO escolhe a placa: 9070xt (o padrão), od7, sem-amd, sem-adl, duas, reinicia, modo-1 (o modo de energia em 1),
+     sem-tensao (sem o ajuste de tensão), sem-admin (a gravação devolve -23);
+   - FALSO_LOG recebe o nome de cada função chamada, uma por linha, e as gravações ("SET:placa=i", "SET:i=v", "SET:fim");
    - compilado com -DSO_X2, não tem as funções antigas do Overdrive8 (só as X2).
    A tabela da 9070 XT é a dos testes no PC do Alex (28/10/2026). Uma chamada fora do esperado escreve "ERRADA" na saída de
    erro; uma função que muda a placa escreve "PROIBIDO" e aborta. */
@@ -49,6 +50,7 @@ static void monta(void)
     for (int i = 0; i < OD8_COUNT + 8; i++) { tab[i].id = i; tab[i].min = tab[i].max = tab[i].padrao = tab[i].atual = 0; }
     /* clock, memória, potência, temporização, zero rpm, auto UV/OC, curva, modo, tensão, interface, auto UV 2 */
     caps = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 16) | (1 << 17) | (1 << 26) | (1 << 27);
+    if (eh("sem-tensao")) caps &= ~(1 << 17);
     poe(0, -500, 1000, 0, 0);          /* clock máximo (offset) */
     poe(8, 2518, 3000, 2518, 2518);    /* memória máxima */
     poe(9, -30, 10, 0, -20);           /* potência % */
@@ -57,7 +59,7 @@ static void monta(void)
     int tc[5] = { 30, 50, 61, 72, 80 }, sp[5] = { 15, 32, 49, 66, 100 };
     for (int p = 0; p < 5; p++) { poe(19 + 2 * p, 25, 100, tc[p], tc[p]); poe(20 + 2 * p, 15, 100, sp[p], 74); }
     poe(35, 0, 0, 0, 50);
-    poe(36, 0, 3, 3, 3);               /* modo de energia: manual */
+    poe(36, 0, 3, 3, eh("modo-1") ? 1 : 3);   /* modo de energia: 3 é o manual */
     poe(37, -200, 0, 0, -75);          /* tensão (offset, mV) */
     poe(74, 1, 3, 1, 1);
 }
@@ -174,14 +176,48 @@ int ADL2_Overdrive8_Current_SettingX2_Get(void* ctx, int idx, int* n, void** lis
 }
 
 /* ---------- sensores ---------- */
+static int manual = 1;   /* a ventoinha na curva gravada (2552 rpm) ou no automático (1500 rpm) */
 int ADL2_New_QueryPMLogData_Get(void* ctx, int idx, int* saida)
 {
     if (!confere(ctx, "ADL2_New_QueryPMLogData_Get")) return -2;
-    int ids[10] = { 1, 2, 8, 9, 14, 15, 19, 21, 27, 73 }, val[10] = { 2950, 2518, 44, 60, 2552, 74, 99, 850, 61, 301 };
+    int ids[10] = { 1, 2, 8, 9, 14, 15, 19, 21, 27, 73 }, val[10] = { 2950, 2518, 44, 60, manual ? 2552 : 1500, manual ? 74 : 40, 99, 850, 61, 301 };
     for (int k = 0; k < 10; k++) { saida[1 + 2 * ids[k]] = 1; saida[2 + 2 * ids[k]] = val[k]; }
     return 0;
 }
 
 /* ---------- o que muda a placa ---------- */
 int ADL2_Adapter_RegValueInt_Set(void* ctx, int idx, int opcao, const char* sub, const char* nome, int v) { proibido("ADL2_Adapter_RegValueInt_Set"); return -8; }
-int ADL2_Overdrive8_Setting_Set(void* ctx, int idx, int* set, int* atual) { proibido("ADL2_Overdrive8_Setting_Set"); return -8; }
+/* grava: só os ajustes que o painel pode gravar, sem reset, o modo só em 3; anota "SET:i=v" de cada um e "SET:fim".
+   Como a placa de verdade, uma gravação sem a curva põe a ventoinha no automático. */
+static int pode_gravar(int i) { return i == 0 || i == 8 || i == 9 || i == 14 || i == 15 || (i >= 19 && i <= 28) || i == 36 || i == 37; }
+int ADL2_Overdrive8_Setting_Set(void* ctx, int idx, int* set, int* atual)
+{
+    if (!confere(ctx, "ADL2_Overdrive8_Setting_Set")) return -2;
+    if (!placa_ok(idx)) { errada("Setting_Set de placa que não é AMD"); return -5; }
+    char linha[64];
+    snprintf(linha, sizeof linha, "SET:placa=%d", idx); anota(linha);
+    int count = set[0];
+    if (count != n_driver) { errada("Setting_Set com count diferente do que o driver conhece"); return -3; }
+    int novo[OD8_COUNT + 8], tem_curva = 0;
+    for (int i = 0; i < count; i++) novo[i] = tab[i].atual;
+    for (int i = 0; i < count; i++)
+    {
+        int* e = set + 1 + 3 * i;   /* value, requested, reset */
+        if (e[2]) proibido("Setting_Set com reset");
+        if (!e[1]) { if (e[0]) { errada("valor num ajuste sem requested"); return -3; } continue; }
+        if (!pode_gravar(i)) proibido("Setting_Set de um ajuste fora da lista");
+        if (i == 36 && e[0] != 3) proibido("Setting_Set do modo diferente de 3");
+        if (e[0] < tab[i].min || e[0] > tab[i].max) { errada("Setting_Set fora da faixa"); return -3; }
+        snprintf(linha, sizeof linha, "SET:%d=%d", i, e[0]); anota(linha);
+        if (i >= 19 && i <= 28) tem_curva = 1;
+        novo[i] = e[0];
+    }
+    if (eh("sem-admin")) { anota("SET:recusou"); return -23; }   /* confere o pedido inteiro, mas não grava */
+    anota("SET:fim");
+    for (int i = 0; i < count; i++) tab[i].atual = novo[i];
+    manual = tem_curva;
+    int m = atual[0] < n_driver ? atual[0] : n_driver;
+    for (int i = 0; i < m; i++) atual[1 + i] = tab[i].atual;
+    atual[0] = m;
+    return 0;
+}
