@@ -2,7 +2,7 @@
 minuto do app da Kryptex e pelas marcas de energia do PC), desconta as paradas das horas do dia e mostra quanto deixou de
 ganhar (dados inventados; o app da Kryptex e as marcas do PC são de mentira).
 Uso: python3 testes/paradas.py"""
-import json, os, re, sys
+import datetime, json, os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from apoio import *  # noqa: F401,F403
 
@@ -128,6 +128,63 @@ def deteccao(p):
     pg.context.close()
 
 
+def ms(dia, h=0, m=0):
+    """a hora de Brasília de um dia de outubro de 2026, em ms"""
+    return int(datetime.datetime(2026, 10, dia, h, m, tzinfo=BRT).timestamp() * 1000)
+
+
+# a conta da Kryptex: R$ 24,72 por dia de 24 h (R$ 1,03 por hora), menos o 23 (aproximado) e o 22 (em US$)
+DIAS_KX = {f"2026-10-{d:02d}": {"btc": 0.0000618, "valor": 24.72, "moeda": "BRL", "horas": 24, "aproximado": False, "parcial": ""} for d in range(14, 25)}
+DIAS_KX["2026-10-23"] = {**DIAS_KX["2026-10-23"], "aproximado": True, "valor": 100}
+DIAS_KX["2026-10-22"] = {**DIAS_KX["2026-10-22"], "moeda": "USD", "valor": 24.72 / 5.04}
+P1 = {"ini": ms(24, 2), "fim": ms(24, 8), "ligou": ms(24, 7, 50), "motivo": "energia", "aprox": False, "ritmo": 1.03}
+P2 = {"ini": ms(22, 22), "fim": ms(23, 1), "ligou": None, "motivo": "parada", "aprox": False, "ritmo": 1.03}
+P4 = {"ini": ms(25, 5), "fim": ms(25, 7, 10), "ligou": ms(25, 7), "motivo": "energia", "aprox": False, "ritmo": 1.03}
+P6 = {"ini": ms(25, 13, 40), "fim": None, "ligou": None, "motivo": "parada", "aprox": False, "ritmo": None}
+DIA = lambda data, valor, horas, fonte="", n=1: {"_id": data, "data": data, "valor": valor, "moeda": "BRL", "dolar": 5.04, "horas": horas, "obs": "Kryptex" if fonte else "",
+                                                 "criado": n, **({"fonte": fonte} if fonte else {})}
+DADOS_CONTAS = {**DADOS, "min-kryptex": {"v": 1, "quando": AGORA_MS - 600000, "dias": DIAS_KX, "maquinas": [], "alertas": []},
+                "min-paradas": {"v": 1, "retro": True, "lista": [P1, P2, P4, P6]},
+                "min-diario": [DIA("2026-10-24", 18.54, 24, "kryptex", 1), DIA("2026-10-23", 24.72, 24, "", 2)]}
+achar = lambda p: f"paradas.lista.find(x => x.ini === {p['ini']})"
+
+
+def contas(p):
+    pg = abrir(p, dados=DADOS_CONTAS, pc=True)
+    pg.wait_for_timeout(1500)
+    pg.evaluate(FIX)
+    if not pg.evaluate("typeof ritmoConta === 'function'"):
+        return checa("contas: as contas das paradas existem", False)
+    # o ritmo da conta: os 7 dias antes, sem os aproximados, com o dia em US$ em reais
+    checa("ritmo da conta nos 7 dias antes (sem os aproximados, com US$ em reais)", abs(pg.evaluate("ritmoConta('2026-10-25')") - 1.03) < 1e-9, pg.evaluate("ritmoConta('2026-10-25')"))
+    checa("ritmo da conta sem dias antes: nenhum", pg.evaluate("ritmoConta('2026-10-14')") is None)
+    e = pg.evaluate("[ritmoEstimado(), totaisSetup({horas: 24}).recUsd / 365 / 24 * cfg.dolar * fatorSim().f]")
+    checa("ritmo estimado: a estimativa da Kryptex por hora, com a correção pelo real", e[0] > 0 and abs(e[0] - e[1]) < 1e-9, e)
+    # horas minerando de cada dia: 24 h menos as paradas, cortadas na meia-noite; hoje, até agora
+    h = pg.evaluate("['2026-10-24', '2026-10-22', '2026-10-23', '2026-10-25'].map(d => horasMinerandoDia(d, %d))" % AGORA_MS)
+    checa("horas minerando: 24 h menos as paradas do dia (e hoje, até agora)", h == [18, 22, 23, 11.5], h)
+    # quanto deixou de ganhar
+    v = pg.evaluate(f"[perdaParada({achar(P1)}), perdaParada({achar(P2)}, '2026-10-22'), perdaParada({achar(P6)}, undefined, {AGORA_MS})]")
+    checa("deixou de ganhar: as horas paradas vezes o ritmo", abs(v[0] - 6.18) < 1e-9 and abs(v[1] - 2.06) < 1e-9 and abs(v[2] - 20 / 60 * 1.03) < 1e-9, v)
+    # os dias que vieram da Kryptex ficam com as horas certas; os digitados, não mudam
+    r = pg.evaluate("""(() => { const mudou = aplicarParadasNosDias(%d), d = Object.fromEntries(diario.map(e => [e.data, e.horas]));
+      const kxg = JSON.parse(localStorage.getItem('min-kryptex')).dias, l = linhaDia(diario.find(e => e.data === '2026-10-24'));
+      return {mudou, d24: d['2026-10-24'], d23: d['2026-10-23'], kx24: kxg['2026-10-24'].horas, kx22: kxg['2026-10-22'].horas,
+        guardado: JSON.parse(localStorage.getItem('min-diario')).find(e => e.data === '2026-10-24').horas,
+        est: [l.eUsd, estDia('2026-10-24', 18).usd, estDia('2026-10-24', 24).usd]}; })()""" % AGORA_MS)
+    checa("o dia da Kryptex fica com 18 h; o digitado continua com 24", [r["mudou"], r["d24"], r["d23"], r["guardado"]] == [True, 18, 24, 18], r)
+    checa("os dias da conta da Kryptex ficam com as horas certas (e vão para o celular)", [r["kx24"], r["kx22"]] == [18, 22], r)
+    checa("o estimado do dia usa as horas minerando", abs(r["est"][0] - r["est"][1]) < 1e-12 and r["est"][1] < r["est"][2], r["est"])
+    # o ritmo fica guardado quando a parada acaba: o da conta nos 7 dias antes. A simulação começa sem as paradas guardadas
+    # (o 24 volta a ter 24 h); com o 24 rendendo R$ 31,20: (5 × 24,72 + 31,20) / 144 h
+    pg.evaluate("kx.dias['2026-10-24'].valor = 31.2; simularParadas([MIN, ...Array(12).fill(PARADO), MIN])")
+    rt = pg.evaluate("paradas.lista.map(p => p.ritmo)")
+    checa("o ritmo fica guardado quando a parada acaba", len(rt) == 1 and abs(rt[0] - 154.8 / 144) < 1e-9, rt)
+    checa("sem erros (contas)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
 with sync_playwright() as p:
     deteccao(p)
+    contas(p)
 fim()

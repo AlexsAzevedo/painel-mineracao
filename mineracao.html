@@ -3173,6 +3173,62 @@ function estDia(data, horas){
   const h = horas ?? cfg.horas, t = totaisSetup({ate:data, horas:h});
   return {usd: t.recUsd/365*(h/24), luz: t.tomada*h/1000*tarifaEf(), ativo: t.ligadas>0};
 }
+/* ---------- as contas das paradas: as horas minerando de cada dia, o ritmo da conta e quanto deixou de ganhar ----------
+   (as paradas ficam em min-paradas: veja "paradas", perto do app da Kryptex) */
+const inicioDia = dia => new Date(dia+"T00:00").getTime();
+const fimDia = dia => { const d = new Date(dia+"T00:00"); d.setDate(d.getDate()+1); return d.getTime(); };
+/* quanto das paradas cai entre a e b (ms); a parada sem fim vai até agora */
+const paradoEntre = (a, b, agora) => paradas.lista.reduce((s,p)=>s + Math.max(0, Math.min(p.fim ?? agora, b) - Math.max(p.ini, a)), 0);
+/* R$ por hora minerando que a conta da Kryptex rendeu nos 7 dias antes de "dia" (aaaa-mm-dd): só os dias inteiros, não
+   aproximados, com horas e valor; US$ pelo dólar das Premissas. null sem nenhum dia assim */
+function ritmoConta(dia){
+  if(!kx || !kx.dias) return null;
+  let v = 0, h = 0;
+  for(let i=1; i<=7; i++){
+    const d = new Date(dia+"T12:00"); d.setDate(d.getDate()-i);
+    const x = kx.dias[isoLocal(d)];
+    if(!x || x.aproximado || x.parcial || !(x.horas>0) || !(x.valor>0)) continue;
+    const brlDia = x.moeda==="USD" ? x.valor*cfg.dolar : x.moeda==="BRL" ? x.valor : null;
+    if(brlDia==null) continue;
+    v += brlDia; h += x.horas;
+  }
+  return h>0 ? v/h : null;
+}
+/* sem dias da conta: a estimativa da Kryptex deste setup por hora, com a correção pelo real (a mesma do simulador) */
+function ritmoEstimado(){
+  try{ const r = totaisSetup({horas:24}).recUsd/365/24*cfg.dolar*fatorSim().f; return Number.isFinite(r) && r>0 ? r : 0; }catch(e){ return 0; }
+}
+const ritmoParada = p => p.ritmo ?? ritmoConta(isoLocal(new Date(p.ini))) ?? ritmoEstimado();
+/* as horas paradas de um dia (hoje, até agora) */
+function horasParadasDia(dia, agora){ return paradoEntre(inicioDia(dia), Math.min(fimDia(dia), agora), agora)/3600e3; }
+/* as horas minerando de um dia: o dia inteiro (hoje, até agora) menos as paradas; no dia em que o painel começou a ler a
+   conta (parcial), desde a primeira leitura. Uma casa */
+function horasMinerandoDia(dia, agora){
+  let a = inicioDia(dia); const b = Math.min(fimDia(dia), agora), kd = kx && kx.dias && kx.dias[dia];
+  if(kd && kd.parcial && kxHist && Array.isArray(kxHist.saldos) && kxHist.saldos.length) a = Math.max(a, kxHist.saldos[0][0]);
+  if(!(b > a)) return 0;
+  return Math.round((b - a - paradoEntre(a, b, agora))/3600e3*10)/10;
+}
+/* quanto uma parada deixou de ganhar (R$): as horas dela (só as que caem no "dia", se vier) vezes o ritmo */
+function perdaParada(p, dia, agora = Date.now()){
+  const a = dia ? inicioDia(dia) : p.ini, b = dia ? fimDia(dia) : Infinity;
+  return Math.max(0, Math.min(p.fim ?? agora, b) - Math.max(p.ini, a))/3600e3*ritmoParada(p);
+}
+/* no PC: as horas dos dias da conta da Kryptex e as dos dias do Diário que vieram dela descontam as paradas (os dias
+   digitados ficam com as horas da pessoa). O estimado e a margem real do Diário passam a usar essas horas */
+function aplicarParadasNosDias(agora){
+  if(!PODE_KXA() || !kx || !kx.dias) return false;
+  let mudouKx = false, mudouD = false;
+  for(const [d, v] of Object.entries(kx.dias)){ if(!v) continue; const h = horasMinerandoDia(d, agora); if(v.horas!==h){ v.horas = h; mudouKx = true; } }
+  diario = diario.map(e=>{
+    const v = e.fonte==="kryptex" && kx.dias[e.data];
+    if(!v || !(v.horas>=0) || Math.abs((+e.horas||0) - v.horas) < 0.05) return e;
+    mudouD = true; return {...e, horas: v.horas};
+  });
+  if(mudouD){ lsSet("min-diario", diario); try{ renderDiario(); renderResumo(); }catch(e){} }
+  if(mudouKx){ kx.gravado = 0; salvarKx(); }
+  return mudouKx || mudouD;
+}
 const dolarDe = e => +e.dolar>0 ? +e.dolar : cfg.dolar;
 const realUsd = e => e.moeda==="BRL" ? e.valor/dolarDe(e) : e.valor;
 const realBrl = e => e.moeda==="BRL" ? e.valor : e.valor*dolarDe(e);
@@ -5336,17 +5392,6 @@ function registrarSaldo(s){
   kxHist.saldos.push([t, s.btc, s.preco || 0]);
   kxHist.saldos = kxHist.saldos.filter(x=>x[0] >= t - 6*864e5).slice(-400);
 }
-/* horas minerando num dia, pelas leituras das máquinas: a parte das leituras com alguma máquina minerando, vezes as horas
-   lidas (o dia todo, com 3/4 dele coberto: 36 leituras de meia em meia hora; ou só desde a primeira leitura, no dia em que
-   o painel começou a ler a conta) */
-function horasDoDiaKx(a, b){
-  const ts = new Map();
-  for(const h of Object.values(kxHist.hw)) for(const [t,,,on] of h) if(t>=a && t<b) ts.set(t, ts.get(t) || !!on);
-  if(!ts.size) return null;
-  const ini = Math.min(...ts.keys()), frac = [...ts.values()].filter(Boolean).length/ts.size;
-  if(ini > a + 90*60e3) return Math.round(frac*(b-ini)/3600e3*2)/2;
-  return ts.size>=36 ? Math.round(frac*48)/2 : null;
-}
 /* o ganho de cada dia inteiro (com leitura antes de 1h30 e depois da meia-noite seguinte), pela diferença do saldo */
 function calcularDiasKx(){
   const S = kxHist.saldos; if(S.length<2) return;
@@ -5364,7 +5409,8 @@ function calcularDiasKx(){
     let btc = 0, aprox = !!parcial;
     for(const s of segs){ const o = Math.min(s.t2, b) - Math.max(s.t1, a); if(o<=0) continue; btc += (s.d ?? ritmo*(s.t2-s.t1)) * o/(s.t2-s.t1); if(s.d==null || s.t2-s.t1 > 3*3600e3) aprox = true; }
     const depois = S.find(x=>x[0]>=b), preco = (depois && depois[2]) || (kx.saldo && kx.saldo.preco) || 0;
-    kx.dias[iso] = {btc, valor: preco>0 ? btc*preco : null, moeda: (kx.saldo && kx.saldo.moeda) || "", horas: horasDoDiaKx(a, b), aproximado: aprox, parcial, fonte:"saldo"};
+    kx.dias[iso] = {btc, valor: preco>0 ? btc*preco : null, moeda: (kx.saldo && kx.saldo.moeda) || "", horas: null, aproximado: aprox, parcial, fonte:"saldo"};
+    kx.dias[iso].horas = horasMinerandoDia(iso, Date.now());
   }
   const lim = isoLocal(new Date(Date.now() - 21*864e5));
   for(const d of Object.keys(kx.dias)) if(d<lim) delete kx.dias[d];
@@ -5811,11 +5857,12 @@ function atualizarParadas(agora){
   const vale = p => p.motivo==="energia" || (p.fim ?? agora) - p.ini >= PARADA_MIN;
   const lim = agora - PARADAS_DIAS*864e5;
   const lista = [...fora, ...novas].map(paradaOk).filter(p=>p && vale(p) && (p.fim ?? agora) >= lim).sort((a,b)=>a.ini-b.ini).slice(-PARADAS_MAX);
+  for(const p of lista) if(p.fim!=null && p.ritmo==null) p.ritmo = ritmoConta(isoLocal(new Date(p.ini))) ?? ritmoEstimado();
   const acabaram = lista.filter(p=>{ const g = porIni.get(p.ini); return p.fim!=null && agora - p.fim <= PARADA_AVISO && (!g || g.fim==null); });
   const ligouSemMinerar = lista.find(p=>p.fim==null && p.ligou!=null && agora - p.ligou >= PARADA_LIGOU && !p.avisoLigou) || null;
   const mudou = JSON.stringify(lista)!==JSON.stringify(antes);
   paradas.lista = lista;
-  if(mudou) lsSet("min-paradas", paradas);
+  if(mudou){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); }
   return {acabaram, ligouSemMinerar};
 }
 function processarLeituraKxa(l, agora){
