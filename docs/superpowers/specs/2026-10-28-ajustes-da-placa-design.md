@@ -15,7 +15,7 @@ Data: 28/10/2026 · Pedidos do Alex: "Existiria alguma forma de em outros comput
 
 Rodaram quatro testes: um só de leitura; um que gravou de volta os mesmos valores que a placa já tinha; um que mudou um pouco a potência, a ventoinha e a tensão, uma de cada vez, e voltou cada uma; e um que observou a ventoinha depois de gravar a potência.
 
-- **A placa e o acesso.** A placa é uma RX 9070 XT (XFX), e o ADLX do driver é a versão 1.5. O painel consegue ler e gravar pela biblioteca da AMD que vem com o driver (`amdadlx64.dll`, o ADLX) como usuário comum, sem administrador, e com o Afterburner aberto.
+- **A placa e o acesso.** A placa é uma RX 9070 XT (XFX). Os quatro testes foram pelo ADLX do driver (`amdadlx64.dll`, versão 1.5), como usuário comum, sem administrador, e com o Afterburner aberto. Por causa da licença (veja "Licença"), o painel vai usar a outra biblioteca da AMD que vem com o driver, o ADL (`atiadlxx.dll`); os testes pelo ADL estão no fim desta seção.
 - **O que dá para ajustar, e como estava:**
   - Potência: de −30% a +10%, padrão 0%; estava em −20%.
   - Tensão: em offset, de −200 a 0 mV; estava em −75 mV.
@@ -68,16 +68,24 @@ Rodaram quatro testes: um só de leitura; um que gravou de volta os mesmos valor
 
 ## Caminhos considerados
 
-1. **Processo separado (o escolhido).** Um processo de PowerShell com C#, como o dos sensores da 1.7.0, que fala com o ADLX.
+1. **Processo separado (o escolhido).** Um processo de PowerShell com C#, como o dos sensores da 1.7.0, que fala com o ADL (`atiadlxx.dll`), a mesma biblioteca dos sensores.
    - Já funcionou no PC do Alex, sem administrador.
    - Se o driver travar no meio de uma chamada, cai só esse processo.
-2. **Chamar o ADLX de dentro do programa,** pelo Node com uma biblioteca de FFI (como a koffi).
+2. **Chamar o ADL de dentro do programa,** pelo Node com uma biblioteca de FFI (como a koffi).
    - É mais rápido e dispensa o PowerShell.
    - Traz uma dependência nativa nova para o instalador.
    - Se o driver travar no meio de uma chamada, derruba o painel inteiro.
 3. **Comandar o Afterburner,** escrevendo os perfis dele e chamando-o por linha de comando.
    - O painel continuaria dependendo do Afterburner.
    - Os perfis ficam em Arquivos de Programas, que pede administrador.
+4. **O ADLX** (`amdadlx64.dll`), a biblioteca mais nova da AMD, que rodou os quatro primeiros testes: fica de fora pela licença (abaixo).
+
+## Licença
+
+O painel tem o código aberto no GitHub e leva o leitor da placa em texto dentro do instalador.
+
+- **ADLX:** a licença do SDK ("ADLX SDK License Agreement", o PDF do repositório da AMD) só deixa usar o código feito a partir dele internamente, ou distribuí-lo compilado e com um contrato de usuário nos termos da AMD. Os cabeçalhos dizem "All rights reserved". Por isso o painel não usa o ADLX. As sondas de 28/10 feitas com ele ficam só no PC do Alex, uso interno que a licença permite. (A primeira versão deste desenho dizia, errado, que o ADLX era MIT.)
+- **ADL:** os cabeçalhos do ADL SDK (github.com/GPUOpen-LibrariesAndSDKs/display-library) trazem a licença MIT no próprio texto. O painel usa deles só os nomes das funções, o formato das estruturas e os números dos ajustes, escritos à mão no C#, como o `sensores-amd.ps1` faz desde a 1.7.0, com o aviso de copyright da AMD no começo do arquivo. A pasta de documentos do SDK ainda cita um contrato antigo (EULA); o painel se apoia no texto MIT dos cabeçalhos, que é de onde vêm as declarações.
 
 ## 1. O leitor e gravador da placa (`desktop/placa-amd.ps1`)
 
