@@ -23,13 +23,19 @@ Rodaram quatro testes: um só de leitura; um que gravou de volta os mesmos valor
   - Memória: de 2518 a 3000 MHz, de 2 em 2; estava em 2518.
   - Temporização rápida da memória: estava desligada.
   - Ventoinha: curva de 5 pontos, de 15% a 100%; estava reta em 75%, com o zero rpm desligado.
-- **O que a placa não tem:** o undervolt automático da AMD.
+- **O undervolt automático da AMD:** pelo ADLX, a placa não tem; as capacidades lidas pelo ADL dizem que tem (`AUTO_UV_ENGINE`). O painel não usa.
 - **A gravação.** Gravar os mesmos −20% e −75 mV deu certo (`ADLX_OK`), e a mineração não sentiu: uns 271 W e 2.220 MHz, antes e depois.
 - **Mudar um pouco e voltar** (30 s cada, tudo `ADLX_OK`, tudo voltou):
   - potência de −20% para −21%: de 272 para 268 W, e o clock de 2.204 para 2.175 MHz, porque a placa trabalha no limite de potência;
   - ventoinha de 74% para 69%: de 2.551 para 2.430 rpm, com a mesma temperatura;
   - tensão de −75 para −80 mV: o clock subiu de 2.204 para 2.238 MHz, gastando o mesmo. A tensão ainda tem espaço para baixar, o que importa na segunda parte.
-- **A ventoinha do Afterburner cai quando o painel grava a potência.** Com a ventoinha posta pelo Afterburner, depois de o painel gravar a potência as rotações começaram a cair (de 2.511 para 2.048 rpm em 30 s), embora a curva lida continuasse igual. Às 17:14, isso levou a placa a 55 °C, e o Alex refez a ventoinha à mão. Depois que o painel gravou a curva da ventoinha, gravar a potência não mexeu mais nela: 2.550 rpm durante 1 minuto inteiro.
+- **A ventoinha do Afterburner cai quando o painel grava a potência.** Com a ventoinha posta pelo Afterburner, depois de o painel gravar a potência as rotações começaram a cair (de 2.511 para 2.048 rpm em 30 s), embora a curva lida continuasse igual. Às 17:14, isso levou a placa a 55 °C, e o Alex refez a ventoinha à mão. Depois que o painel gravou a curva da ventoinha, gravar a potência pelo ADLX não mexeu mais nela: 2.550 rpm durante 1 minuto inteiro.
+
+Depois, mais dois testes, pelo ADL (`atiadlxx.dll`), também sem administrador e com o Afterburner aberto:
+
+- **A leitura pelo ADL bateu com a do ADLX** em todos os ajustes: potência −20% (de −30 a +10), tensão −75 mV (de −200 a 0), clock máximo 0 (de −500 a +1000), memória 2518 MHz (de 2518 a 3000), temporização desligada, zero rpm desligado (padrão ligado), curva em 74% nos pontos de 30, 50, 61, 72 e 80 °C (temperaturas de 25 a 100 °C, velocidades de 15% a 100%), curva de fábrica 15, 32, 49, 66 e 100%. O modo de energia do Overdrive (`OPTIMZED_POWER_MODE`) estava em 3, o manual, que também é o padrão desta placa. O driver conhece 76 ajustes do Overdrive8. As funções "X2" de leitura só respondem quando recebem o número de ajustes (77, o do SDK); com 0, devolvem −9.
+- **Gravar os mesmos valores pelo ADL** (`ADL2_Overdrive8_Setting_Set`), um de cada vez, depois todos juntos: todas as gravações deram certo, a leitura voltou igual e, no fim, a placa ficou como estava.
+- **Toda gravação sem a curva da ventoinha devolve a ventoinha ao automático,** mesmo com a curva gravada antes pelo próprio teste, e a curva lida continua em 74%. Depois de gravar só a potência, as rotações caíram de 2.553 para 1.994 em 1 minuto (a placa foi de 45 para 46 °C). Aconteceu igual com a tensão, o clock, a memória e a temporização. Gravar a curva com o zero rpm trouxe as rotações de volta na hora (2.554). **Gravar tudo numa chamada só, com a curva junto, não mexeu na ventoinha** (2.557 a 2.560 rpm). É por isso que toda gravação do painel leva todos os ajustes e a curva numa chamada só.
 
 ## Critérios de pronto
 
@@ -37,8 +43,8 @@ Rodaram quatro testes: um só de leitura; um que gravou de volta os mesmos valor
    - os ajustes de agora;
    - as faixas que o driver permite;
    - como a placa está: clock, consumo, temperatura e uso.
-2. **Assumir sem mexer.** Na primeira vez que a pessoa marca "O painel cuida dos ajustes da placa", o painel guarda o que a placa já tem e não muda nenhum valor. No PC do Alex, isso é o −20%, −75 mV e ventoinha em 74% do Afterburner. O painel só grava de novo a mesma curva da ventoinha, para ela passar a ser do painel: com a curva posta pelo Afterburner, gravar a potência devolve a ventoinha ao automático.
-3. **Mudar.** A pessoa muda um ou mais campos e clica em Aplicar. O painel confere as faixas, grava só o que mudou, lê a placa de volta e diz o resultado de cada item.
+2. **Assumir sem mexer.** Na primeira vez que a pessoa marca "O painel cuida dos ajustes da placa", o painel guarda o que a placa já tem e não grava nada. No PC do Alex, isso é o −20%, −75 mV e ventoinha em 74% do Afterburner. Como toda gravação do painel leva a curva da ventoinha junto, não importa quem pôs a curva antes.
+3. **Mudar.** A pessoa muda um ou mais campos e clica em Aplicar. O painel confere as faixas, grava numa chamada só todos os ajustes (os que mudaram com o valor novo, os outros com o valor de agora, sempre com a curva da ventoinha), lê a placa de volta e diz o resultado de cada item.
 4. **Manter.** Com o painel cuidando da placa, ele confere ao abrir e a cada minuto. Se a placa não estiver com o ajuste guardado, ele aplica de novo. Isso acontece quando:
    - o PC reiniciou;
    - o driver reiniciou;
@@ -63,7 +69,7 @@ Rodaram quatro testes: um só de leitura; um que gravou de volta os mesmos valor
 - **Placas NVIDIA:** o próprio app da Kryptex já faz esses ajustes nelas.
 - **Mudar os ajustes pelo celular.**
 - **Curva de ventoinha personalizada.** Só existem "Automática (a da AMD)" e "Fixa em X%". Uma curva feita em outro programa aparece como "Personalizada" e fica como está enquanto a pessoa não mexer na ventoinha.
-- **Placas AMD antigas (RX 6000 para trás).** O clock, a tensão e a memória dessas placas usam outro jeito de ajuste, por estados. Nelas o painel ajusta só a potência e a ventoinha e mostra o resto como "não ajustável pelo painel".
+- **Ajustes que a placa não oferece pelo Overdrive8.** O painel mostra só o que a placa diz que tem (as capacidades do Overdrive8) e o resto como "não ajustável pelo painel". Placas com o clock por pontos (`GFXCLK_CURVE`, das gerações antigas) ficam sem o clock e a tensão. Placas sem Overdrive8 não aparecem.
 - **O que o Afterburner tem a mais:** os extras de jogo (contador na tela, gravação) e os perfis dele.
 
 ## Caminhos considerados
@@ -92,7 +98,13 @@ O painel tem o código aberto no GitHub e leva o leitor da placa em texto dentro
 ### Como roda
 
 - É Windows PowerShell 5.1 com o C# dentro (`Add-Type`), como o `sensores-amd.ps1`, e vai no instalador por `extraResources`.
-- Ele fala com o ADLX por uma tabela que diz a posição de cada função de cada interface. A tabela vem dos cabeçalhos do ADLX SDK 2.0.0.125 (MIT): um script gera, e o teste confere. É a mesma tabela das sondas que rodaram no PC do Alex.
+- Ele fala com o ADL (`atiadlxx.dll`) pelo Overdrive8, com as funções de estrutura de tamanho fixo, as mesmas das sondas que rodaram no PC do Alex:
+  - `ADL2_Overdrive8_Init_Setting_Get`: as capacidades e, de cada ajuste, a faixa e o padrão;
+  - `ADL2_Overdrive8_Current_Setting_Get`: os valores de agora;
+  - `ADL2_Overdrive8_Setting_Set`: gravar.
+
+  Na leitura, o `count` que vai ao driver é 77, o do SDK. Na gravação, é o número de ajustes que o driver respondeu na leitura (76 no driver de 10/2026). As estruturas têm folga, para o driver nunca escrever fora delas. Se o driver não tiver as funções de estrutura fixa, o leitor lê pelas "X2", passando o número de ajustes (77).
+- Os sensores de `agora` vêm do `ADL2_New_QueryPMLogData_Get`, como no `sensores-amd.ps1`.
 - Fica rodando escondido enquanto o painel precisa dele, e conversa por linhas de JSON:
   - cada pedido é uma linha na entrada;
   - cada resposta é uma linha na saída, com o mesmo `id` do pedido;
@@ -101,27 +113,29 @@ O painel tem o código aberto no GitHub e leva o leitor da placa em texto dentro
 
 ### Os pedidos
 
-- **`ler`** devolve as placas que têm ajuste manual. Cada placa traz:
-  - `chave`: tirada do `PNPString`, que identifica o slot e não muda quando o PC reinicia;
-  - `nome` e `deFabrica`;
-  - os ajustes `potencia`, `tensao`, `clock` e `memoria`, cada um com `{min, max, passo, atual, padrao}`. A tensão e o clock levam `offset: true` quando a faixa começa abaixo de zero;
-  - `temporizacao`: `{suporta, atual, opcoes}`;
-  - `ventoinha`: `{velMin, velMax, curva: [[°C, %] × 5], curvaPadrao, zeroRpm: {suporta, atual, padrao}}`;
+- **`ler`** devolve as placas AMD com Overdrive8, uma por barramento PCI. Cada placa traz:
+  - `chave`: tirada do `PNPString` do `AdapterInfo` do ADL, que identifica o slot e não muda quando o PC reinicia;
+  - `nome` e `deFabrica`: todos os ajustes que o painel cuida estão no padrão, que é como a placa fica depois de o driver reiniciar;
+  - os ajustes `potencia`, `tensao`, `clock` e `memoria`, cada um com `{suporta, min, max, passo, atual, padrao}`. O ADL não diz o passo: vale 1, e o valor que fica é o da leitura de volta. A tensão e o clock levam `offset: true` quando a faixa começa abaixo de zero;
+  - `temporizacao`: `{suporta, atual, opcoes}`, do `AC_TIMING` (0 ou 1 na 9070 XT);
+  - `ventoinha`: `{suporta, velMin, velMax, tempMin, tempMax, curva: [[°C, %] × 5], curvaPadrao, zeroRpm: {suporta, atual, padrao}}`;
+  - `modo`: o `OPTIMZED_POWER_MODE` de agora (3 é o manual);
   - `agora`: clock, memória, tensão, W da placa, °C da borda, do ponto quente e da memória, rpm e uso.
 
   A resposta também traz `afterburner`, que diz se o `MSIAfterburner.exe` está aberto.
 - **`aplicar`** com `{chave, ajuste}`:
-  - grava só os campos que vieram e que estão diferentes do valor atual;
-  - grava na ordem: potência, tensão, clock, memória e, por último, a ventoinha. Quando o pedido traz a ventoinha, ela é gravada de novo no fim mesmo sem mudar, porque gravar os outros ajustes pode devolvê-la ao automático;
-  - antes de gravar, confere cada valor na faixa e no passo; fora disso, responde "fora da faixa" e não grava;
-  - responde o resultado de cada campo e a leitura da placa depois.
-- **`fabrica`** com `{chave}` chama `ResetToFactory` e responde a leitura depois.
+  - monta o ajuste completo: os campos que vieram, com o valor novo, e os outros com o valor de agora;
+  - confere cada valor na faixa do driver e, na curva, as temperaturas subindo de um ponto para o outro; fora disso, responde "fora da faixa" e não grava nada;
+  - se o modo de energia não for o manual (3), grava antes só o modo em 3, como faz o exemplo da AMD;
+  - grava numa chamada só do `Setting_Set`: potência, tensão, clock, memória, temporização, a curva da ventoinha (as 5 temperaturas e as 5 velocidades) e o zero rpm, cada um só se a placa tiver. Com a curva sempre junto, a ventoinha não volta ao automático;
+  - responde o resultado e a leitura da placa depois.
+- **`fabrica`** com `{chave}` é um `aplicar` com o padrão de cada ajuste (a curva e o zero rpm também os de fábrica) e responde a leitura depois.
 
 ### Segurança e erros
 
-- **Só estas gravações existem.** A lista fica no C#, como no teste de gravação: `SetPowerLimit`, `SetGPUVoltage`, `SetGPUMaxFrequency`, `SetMaxVRAMFrequency`, `SetMemoryTimingDescription`, `SetFanTuningStates` (mais os `SetFanSpeed` dos pontos da lista que vai ser gravada), `SetZeroRPMState` e `ResetToFactory`. Qualquer outra função de escrita é recusada antes de chegar ao driver.
-- **Ventoinha.** "Fixa em X%" põe os 5 pontos da curva em X%, mantém as temperaturas dos pontos e desliga o zero rpm. "Automática" põe a curva padrão e o zero rpm padrão. Antes de gravar a curva, o leitor confere com `IsValidFanTuningStates`.
-- **Erro de objeto do ADLX** (`INVALID_OBJECT`, `GPU_INACTIVE` ou `ORPHAN_OBJECTS`, que acontecem quando o driver reiniciou ou foi atualizado): o leitor reinicia o ADLX e tenta de novo uma vez.
+- **Só uma função de escrita existe no C#:** `ADL2_Overdrive8_Setting_Set`. Ela só leva os ajustes da lista: `POWER_PERCENTAGE`, `OD_VOLTAGE`, `GFXCLK_FMAX`, `UCLK_FMAX`, `AC_TIMING`, `FAN_ZERORPM_CONTROL`, os 10 da curva (de `FAN_CURVE_TEMPERATURE_1` a `FAN_CURVE_SPEED_5`) e o `OPTIMZED_POWER_MODE`, este só com o valor 3. O `reset` nunca é usado. Qualquer outro ajuste é recusado antes de chegar ao driver, e o teste confere que o C# não declara outra função de escrita do ADL.
+- **Ventoinha.** "Fixa em X%" põe as 5 velocidades em X%, mantém as temperaturas dos pontos e desliga o zero rpm. "Automática" põe a curva de fábrica e o zero rpm de fábrica.
+- **Driver reiniciado ou atualizado:** quando uma chamada que funcionava passa a falhar, o leitor fecha o ADL, abre de novo, lista as placas de novo e tenta mais uma vez.
 
 ## 2. O programa do PC
 
@@ -129,7 +143,7 @@ O painel tem o código aberto no GitHub e leva o leitor da placa em texto dentro
 
 - **Ligar e pedir.** O processo liga na primeira chamada e atende um pedido de cada vez, numa fila.
 - **Prazos.** 60 s para o primeiro pedido, porque o C# compila; 20 s para cada pedido; 30 s para o de fábrica. Se um pedido não responde no prazo, o processo é encerrado e o pedido volta com erro.
-- **Quedas.** Se o processo cai, liga de novo depois de 1, 5 e 30 minutos. Sem placa AMD ou sem o ADLX, confere de novo só depois de 1 hora.
+- **Quedas.** Se o processo cai, liga de novo depois de 1, 5 e 30 minutos. Sem placa AMD com Overdrive8 ou sem o ADL, confere de novo só depois de 1 hora.
 - **Ocioso.** Sem nenhum pedido por 5 minutos, o processo encerra.
 - **No teste.** `PAINEL_PLACA_CMD` troca o leitor por um de mentira, em Node, e os tempos vêm de variáveis, como nos sensores.
 
@@ -182,7 +196,7 @@ Roda logo que o painel abre e depois a cada minuto, enquanto o painel cuida da p
     - Limite de potência (%);
     - Tensão (mV; "ajuste" quando for offset);
     - Clock máximo (MHz; "ajuste" quando for offset);
-    - Memória (MHz), com a caixa "Temporização rápida" quando a placa oferece (`MEMORYTIMING_FAST_TIMING`);
+    - Memória (MHz), com a caixa "Temporização rápida" quando a placa oferece (`AC_TIMING`);
     - Ventoinha: Automática ou Fixa em X%;
   - embaixo de cada campo, a faixa e o padrão, por exemplo "de −30% a +10% · padrão 0%". Um campo fora da faixa fica marcado e o Aplicar não segue.
 - **Botões:**
@@ -207,15 +221,15 @@ Roda logo que o painel abre e depois a cada minuto, enquanto o painel cuida da p
 
 - **Depois de reiniciar o PC.** Ainda não sabemos se o driver da AMD guarda o ajuste sozinho. A vigia funciona dos dois jeitos: se a placa voltar de fábrica, o painel aplica de novo quando abrir.
 - **O AMD Adrenalin.** Ele pode reaplicar um perfil próprio quando o Windows entra. A vigia trata isso como "outro programa".
-- **A ventoinha posta por outro programa.** Com a curva gravada pelo Afterburner, gravar a potência pelo painel devolveu a ventoinha ao automático. Por isso o painel grava a ventoinha por último em toda aplicação, assume a curva ao começar a cuidar da placa e vigia as rotações.
+- **A ventoinha volta ao automático.** Toda gravação sem a curva devolve a ventoinha ao automático, como os testes de 28/10 mostraram. Por isso toda gravação do painel leva a curva junto, numa chamada só, e a vigia confere as rotações: se outro programa gravar sem a curva, o painel grava de novo.
 - **Um ajuste que trava a placa.** A proteção vale tanto para um travamento do driver (a placa volta ao de fábrica) quanto para o PC inteiro travar e ser desligado no botão (o PC liga sem o desligamento normal).
 
 ## 5. Testes
 
 - **O C# do leitor, sem Windows.**
-  - É compilado com o `mcs` do Mono no modo C# 5, o mesmo do Windows PowerShell 5.1.
-  - Roda contra um ADLX de mentira, em C, com as vtables geradas dos mesmos cabeçalhos. Toda função de escrita fora da lista faz o processo abortar.
-  - Cenários: a 9070 XT, interfaces antigas, placa sem suporte, gravação recusada, valor fora da faixa, driver reiniciado no meio, duas placas.
+  - É compilado com o `mcs` do Mono no modo C# 5, o mesmo do Windows PowerShell 5.1, a partir do próprio `placa-amd.ps1`: o teste tira o C# de dentro dele.
+  - Roda contra um ADL de mentira, em C (`desktop/scripts/adl-falso.c`), com a tabela do Overdrive8 da 9070 XT. O `Setting_Set` de mentira confere o `count`, os `requested` e as faixas, anota cada gravação e, como a placa de verdade, devolve a ventoinha ao automático quando a gravação vem sem a curva. Qualquer outra função de escrita faz o processo abortar.
+  - Cenários: a 9070 XT, driver só com as funções X2, placa sem Overdrive8, gravação recusada, valor fora da faixa, driver reiniciado no meio, duas placas.
   - Arquivo novo: `desktop/scripts/teste-placa-amd-cs.py`. Precisa de `gcc` e `mono-mcs`.
 - **O processo e as regras:** `desktop/scripts/teste-placa-amd.js`, com o leitor de mentira (`placa-falsa.js`). Cobre a fila, os prazos, as quedas e todas as decisões: teste, travou, de fábrica, outro programa e as esperas.
 - **O programa inteiro:** um roteiro do Electron (`teste-placa-app.js`) com o leitor de mentira. Cobre o aplicar, a vigia, o PC reiniciando no meio do teste (com marcas de energia de mentira) e os avisos.
@@ -226,7 +240,7 @@ Roda logo que o painel abre e depois a cada minuto, enquanto o painel cuida da p
   - Claro e escuro, com fotos.
 - **O instalador:** o `teste-pacote.js` passa a conferir também os `extraResources` (o `placa-amd.ps1` e o `sensores-amd.ps1`) dentro do pacote montado.
 - **No PC do Alex, com o OK dele em cada passo:**
-  1. **Antes da versão nova (feito em 28/10):** pela pasta "mineração", os quatro testes do começo deste desenho: ler; gravar os mesmos valores; potência em −21%, ventoinha em 69% e tensão em −80 mV, voltando cada uma; e a ventoinha observada depois de gravar a potência. O leitor da versão nova roda de novo esses testes antes de entrar no instalador.
+  1. **Antes da versão nova (feito em 28/10):** pela pasta "mineração", os quatro testes pelo ADLX do começo deste desenho (ler; gravar os mesmos valores; potência em −21%, ventoinha em 69% e tensão em −80 mV, voltando cada uma; e a ventoinha observada depois de gravar a potência) e os dois pelo ADL (ler; gravar os mesmos valores, um de cada vez e todos juntos). Antes de entrar no instalador, o leitor da versão nova roda no PC do Alex, pela mesma pasta, a leitura e a gravação dos mesmos valores.
   2. **Com a 1.11.0 instalada:** nada muda na placa até ele marcar a caixa.
      - Assumir o ajuste de agora.
      - Mudar um pouco a potência e ver o teste virar bom depois de 15 minutos.
