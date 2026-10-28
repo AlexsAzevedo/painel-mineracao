@@ -63,6 +63,22 @@ try {
   assert.strictEqual(ms[0].t, t - 299 * 1000);
   assert.strictEqual(noDisco().marcas.length, 300);
 
+  /* inicialização rápida do Windows (o padrão): desligar e ligar não zera o tempo ligado (os.uptime continua contando) e
+     a hora do boot fica a mesma; com um desligamento normal depois da última ligação, a ligação desta vez é a hora em que
+     o programa abriu (ele abre com o Windows). Abrir de novo na mesma ligação não repete */
+  const arq2 = path.join(pasta, "rapida.json");
+  t = 2e12; up = 7200;
+  let R = criar({ arquivo: arq2, ...relogio });
+  R.registrarLigou();                                    /* ligou às t − 2 h */
+  t += 3600e3; up += 3600; R.marcar("desligou");         /* desligou 1 h depois */
+  t += 4 * 3600e3; up += 4 * 3600;                       /* ligou de novo 4 h depois, e o tempo ligado continuou */
+  R = criar({ arquivo: arq2, ...relogio });
+  assert.strictEqual(R.registrarLigou(), t);
+  t += 600e3; up += 600;
+  R = criar({ arquivo: arq2, ...relogio });
+  assert.strictEqual(R.registrarLigou(), t - 600e3);
+  assert.deepStrictEqual(R.estado().marcas.map((m) => [m.t - 2e12, m.tipo]), [[-7200e3, "ligou"], [3600e3, "desligou"], [5 * 3600e3, "ligou"]]);
+
   /* arquivo estragado: começa de novo, sem erro */
   fs.writeFileSync(arquivo, "{");
   assert.deepStrictEqual(criar({ arquivo, ...relogio }).estado(), { desde: t, marcas: [] });

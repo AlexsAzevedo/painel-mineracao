@@ -3233,7 +3233,10 @@ function horasParadasDia(dia, agora){ return paradoEntre(inicioDia(dia), Math.mi
    conta (parcial), desde a primeira leitura. Uma casa */
 function horasMinerandoDia(dia, agora){
   let a = inicioDia(dia); const b = Math.min(fimDia(dia), agora), kd = kx && kx.dias && kx.dias[dia];
-  if(kd && kd.parcial && kxHist && Array.isArray(kxHist.saldos) && kxHist.saldos.length) a = Math.max(a, kxHist.saldos[0][0]);
+  /* o dia parcial guarda a hora da primeira leitura ("14:05"): os saldos daquele dia saem depois de 6 dias */
+  const hm = kd && kd.parcial ? /^(\d{1,2}):(\d{2})/.exec(String(kd.parcial)) : null;
+  if(hm) a = Math.max(a, new Date(dia+"T00:00").setHours(+hm[1], +hm[2], 0, 0));
+  else if(kd && kd.parcial && kxHist && Array.isArray(kxHist.saldos) && kxHist.saldos.length && kxHist.saldos[0][0] < b) a = Math.max(a, kxHist.saldos[0][0]);
   if(!(b > a)) return 0;
   return Math.round((b - a - paradoEntre(a, b, agora))/3600e3*10)/10;
 }
@@ -5958,7 +5961,7 @@ function paradasDasAmostras(amostras, energia, agora){
   return r;
 }
 /* os dias que já passaram, antes das leituras de cada minuto: um buraco de mais de 45 minutos entre os saldos guardados da
-   conta ([t, btc, preço]) que acaba até "ate" é "sem leitura", com o horário aproximado, quando o saldo cresceu menos da
+   conta ([t, btc, preço]) que começa antes de "ate" é "sem leitura", com o horário aproximado, quando o saldo cresceu menos da
    metade do ritmo da conta (R$/h, ritmoDe(início)) vezes a duração; sem o ritmo ou a cotação, só quando não cresceu nada
    (assim o painel fechado com a placa minerando não vira parada) */
 function paradasDosSaldos(saldos, ate, ritmoDe){
@@ -5967,9 +5970,11 @@ function paradasDosSaldos(saldos, ate, ritmoDe){
   const r = [];
   for(let i=1; i<S.length; i++){
     const [t1, b1, p1] = S[i-1], [t2, b2, p2] = S[i];
-    if(t2 - t1 <= PARADA_SALDOS || t2 > ate) continue;
+    /* conta o buraco que começa antes das leituras de cada minuto; o que passa do começo delas acaba nele (o saldo da
+       primeira leitura depois de uma queda é gravado uns milissegundos depois dela) */
+    if(t2 - t1 <= PARADA_SALDOS || t1 >= ate) continue;
     const preco = p2 || p1, rit = preco > 0 ? ritmoDe(t1) : null;
-    if(rit > 0 ? (b2 - b1)*preco < 0.5*rit*(t2 - t1)/3600e3 : b2 - b1 <= 0) r.push({ini:t1, fim:t2, ligou:null, motivo:"semleitura", aprox:true});
+    if(rit > 0 ? (b2 - b1)*preco < 0.5*rit*(t2 - t1)/3600e3 : b2 - b1 <= 0) r.push({ini:t1, fim:Math.min(t2, ate), ligou:null, motivo:"semleitura", aprox:true});
   }
   return r;
 }
@@ -5980,7 +5985,7 @@ function atualizarParadas(agora){
   const am = kxaHist.amostras, janelaIni = am.length ? am.reduce((m,a)=>Math.min(m, a[0]), Infinity) : agora;
   const novas = paradasDasAmostras(am, energiaCache, agora);
   const antes = paradas.lista, retro = !paradas.retro;
-  const doSaldo = retro ? paradasDosSaldos(kxHist && kxHist.saldos, janelaIni, t=>ritmoConta(isoLocal(new Date(t))))
+  const doSaldo = retro ? paradasDosSaldos(kxHist && kxHist.saldos, janelaIni, t=>ritmoConta(isoLocal(new Date(t))) ?? ritmoEstimado())
     .filter(s=>!antes.some(p=>p.ini < s.fim && (p.fim ?? Infinity) > s.ini)) : [];
   /* as dos saldos contam como guardadas: são de dias que já passaram e não viram aviso */
   const porIni = new Map([...antes, ...doSaldo].map(p=>[p.ini, p]));
@@ -6007,6 +6012,21 @@ function atualizarParadas(agora){
   if(retro) paradas.retro = true;
   if(mudou || retro){ lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); try{ renderDiario(); }catch(e){} }
   return {acabaram, ligouSemMinerar};
+}
+/* a leitura do app da Kryptex foi desligada: a parada que estava aberta acaba na última leitura (sem leituras, ela
+   cresceria para sempre e os dias seguintes ficariam com 0 h minerando) */
+function fecharParadasAbertas(){
+  if(!PODE_KXA()) return;
+  const ult = kxaHist.amostras.reduce((m,a)=>Math.max(m, +a[0] || 0), 0);
+  let mudou = false;
+  for(const p of paradas.lista) if(p.fim==null){
+    p.fim = Math.max(ult, p.ini + 1);
+    if(p.ritmo==null) p.ritmo = ritmoConta(isoLocal(new Date(p.ini))) ?? ritmoEstimado();
+    mudou = true;
+  }
+  if(!mudou) return;
+  const agora = Date.now();
+  lsSet("min-paradas", paradas); aplicarParadasNosDias(agora); try{ renderDiario(); }catch(e){}
 }
 /* os avisos das paradas: a que acabou nesta leitura (menos a pausa da pessoa), com o horário, o motivo e quanto deixou de
    ganhar; e o PC que religou há 15 minutos sem a placa voltar a minerar (uma vez por parada) */
@@ -6224,7 +6244,7 @@ function textoDiagKxa(){
     + ocultar(JSON.stringify({estado:kxa.estado, falha:kxa.falha, cfg:kxaCfg(), leitura:l, amostras:kxaHist.amostras.slice(-10)}, null, 1));
 }
 if(PODE_KXA()){
-  $("kxa-ligado").addEventListener("change", e=>{ mudarKxaCfg({ligado:e.target.checked}); sincronizarSegundoPlano(); renderKxaPremissas(); if(e.target.checked) lerKryptexApp("manual"); else { status2("ag-status", ""); renderAgora(); renderVivo(); } });
+  $("kxa-ligado").addEventListener("change", e=>{ mudarKxaCfg({ligado:e.target.checked}); sincronizarSegundoPlano(); renderKxaPremissas(); if(e.target.checked) lerKryptexApp("manual"); else { fecharParadasAbertas(); status2("ag-status", ""); renderAgora(); renderVivo(); } });
   $("kxa-protecao").addEventListener("change", e=>{ mudarKxaCfg({protecao:e.target.checked}); renderKxaPremissas(); renderAgora(); });
   for(const [id, k, min, max] of [["kxa-limtemp","limTemp",60,110], ["kxa-limmem","limMem",60,120], ["kxa-limhot","limHot",60,120]])
     $(id).addEventListener("change", e=>{ const v = Math.round(+e.target.value); if(v>=min && v<=max){ mudarKxaCfg({[k]:v}); renderAgora(); } else e.target.value = kxaCfg()[k]; });

@@ -375,16 +375,50 @@ def retro(p):
       return [paradasDosSaldos(s(4e5, 0), Infinity, () => null).length,       // sem o ritmo e sem crescer: parada
               paradasDosSaldos(s(4e5, 1e-6), Infinity, () => null).length,    // sem o ritmo e cresceu: não
               paradasDosSaldos(s(0, 1e-8), Infinity, () => 1.03).length,      // sem a cotação: como sem o ritmo
-              paradasDosSaldos(s(4e5, 0), t + h - 1, () => 1.03).length,      // acaba depois de as leituras de cada minuto começarem: não
-              paradasDosSaldos([[t, 0.001, 4e5], [t + 45 * 60e3, 0.001, 4e5]], Infinity, () => 1.03).length];   // 45 min: não é buraco
+              paradasDosSaldos(s(4e5, 0), t, () => 1.03).length,              // começa quando as leituras de cada minuto já começaram: não
+              paradasDosSaldos([[t, 0.001, 4e5], [t + 45 * 60e3, 0.001, 4e5]], Infinity, () => 1.03).length,   // 45 min: não é buraco
+              paradasDosSaldos(s(4e5, 0), t + h / 2, () => 1.03).map(p => p.fim - t)];   // atravessa o começo das leituras: acaba nele
     })()""" % (t0 - 10 * 3600000))
-    checa("paradas dos saldos: sem o ritmo (ou a cotação), só quando o saldo não cresceu; só antes das leituras; buraco de mais de 45 min", d == [1, 0, 0, 0, 0], d)
+    checa("paradas dos saldos: sem o ritmo (ou a cotação), só quando o saldo não cresceu; só antes das leituras; buraco de mais de 45 min",
+          d == [1, 0, 0, 0, 0, [1800000]], d)
     # a queda dos saldos que acabou há menos de 3 minutos (as leituras de cada minuto começando agora) também não vira aviso
     a = pg.evaluate("""(() => { const t = %d; paradas = {v: 1, retro: false, lista: []}; kxaHist = {v: 2, amostras: [[t, 0.001, 300, 1, 1.13e14, 63, 78, null, "m"]]};
       kxHist.saldos = [[t - 61 * 60e3, 0.001, 4e5], [t - 60e3, 0.001, 4e5]];
       const r = atualizarParadas(t); return {acabaram: r.acabaram.length, lista: paradas.lista.length}; })()""" % t0)
     checa("dias que já passaram: a queda dos saldos que acabou agora não vira aviso", a == {"acabaram": 0, "lista": 1}, a)
     checa("sem erros (dias que já passaram)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
+def correcoes(p):
+    """o que a revisão final achou: o dia em que o painel começou a ler a conta (já sem os saldos dele), a parada aberta
+    quando a leitura do app é desligada, e as quedas dos dias que já passaram sem o ritmo da conta e no começo das
+    leituras de cada minuto"""
+    pg = abrir(p, dados=DADOS_CONTAS, pc=True)
+    pg.wait_for_timeout(1500)
+    pg.evaluate(FIX)
+    # o dia parcial, já sem os saldos dele (os saldos ficam 6 dias; os dias da conta, 21): desde a primeira leitura (14:05)
+    h = pg.evaluate("""(() => { kx.dias['2026-10-15'] = {...kx.dias['2026-10-15'], parcial: '14:05', aproximado: true};
+      kxHist.saldos = [[%d, 0.001, 4e5], [%d, 0.0011, 4e5]]; return horasMinerandoDia('2026-10-15', %d); })()""" % (ms(20, 10), ms(20, 11), AGORA_MS))
+    checa("o dia em que o painel começou a ler a conta: as horas desde a primeira leitura, mesmo sem os saldos daquele dia", h == 9.9, h)
+    # a leitura do app desligada com uma parada aberta: ela acaba na última leitura (senão cresceria para sempre)
+    sim(pg, ["MIN"] + ["PARADO"] * 12, [], {"t0": AGORA_MS})
+    f = pg.evaluate("""(() => { const c = document.getElementById('kxa-ligado'); c.checked = false; c.dispatchEvent(new Event('change', {bubbles: true}));
+      const g = JSON.parse(localStorage.getItem('min-paradas')); return [paradas.lista.map(p => p.fim), g.lista.map(p => p.fim)]; })()""")
+    checa("a leitura do app desligada: a parada aberta acaba na última leitura (e fica guardada)", f == [[AGORA_MS + 12 * 60000]] * 2, f)
+    # sem o ritmo da conta (nenhum dia nos 7 antes), vale a estimativa: o saldo que quase não cresceu no buraco é queda
+    a = pg.evaluate("""(() => { const t = %d; paradas = {v: 1, retro: false, lista: []}; kx.dias = {};
+      kxaHist = {v: 2, amostras: [[t, 0.001, 300, 1, 1.13e14, 63, 78, null, "m"]]};
+      kxHist.saldos = [[t - 4 * 3600e3, 0.001, 4e5], [t - 2 * 3600e3, 0.001 + 1e-9, 4e5]];
+      atualizarParadas(t); return paradas.lista.map(p => [Math.round((p.ini - t) / 60e3), Math.round((p.fim - t) / 60e3), p.motivo]); })()""" % AGORA_MS)
+    checa("dias que já passaram, sem o ritmo da conta: vale a estimativa", a == [[-240, -120, "semleitura"]], a)
+    # o buraco nos saldos que acaba na primeira leitura de cada minuto (o saldo dela vem uns milissegundos depois)
+    b = pg.evaluate("""(() => { const t = %d, m = 60e3; paradas = {v: 1, retro: false, lista: []};
+      kxaHist = {v: 2, amostras: Array.from({length: 61}, (_, i) => [t - (60 - i) * m, 0.002, 300, 1, 1.13e14, 63, 78, null, "m"])};
+      kxHist.saldos = [[t - 300 * m, 0.002, 4e5], [t - 285 * m, 0.002, 4e5], [t - 60 * m + 5, 0.002, 4e5]];
+      atualizarParadas(t); return paradas.lista.map(p => [Math.round((p.ini - t) / m), Math.round((p.fim - t) / m), p.motivo, p.aprox]); })()""" % AGORA_MS)
+    checa("dias que já passaram: a queda que acaba no começo das leituras de cada minuto", b == [[-285, -60, "semleitura", True]], b)
+    checa("sem erros (correções)", not erros(pg), erros(pg)[:3])
     pg.context.close()
 
 
@@ -415,6 +449,7 @@ with sync_playwright() as p:
     retro(p)
     diario_ui(p)
     resumo_avisos(p)
+    correcoes(p)
     if FOTOS:
         fotos(p, FOTOS)
 fim()
