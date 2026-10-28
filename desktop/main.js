@@ -192,8 +192,10 @@ ipcMain.handle("inicio-windows", (e, op) => {
   }
   return inicioPublico();
 });
-/* as marcas de energia deste PC (energia.js), para o painel saber por que a mineração parou */
-const Energia = require("./energia.js");
+/* as marcas de energia deste PC (energia.js), para o painel saber por que a mineração parou. Se o arquivo faltar (o
+   instalador da 1.10.0 saiu sem ele, e o programa nem abria), o programa abre do mesmo jeito, só sem as marcas */
+let Energia = null;
+try { Energia = require("./energia.js"); } catch (e) { console.error("energia.js:", (e && e.message) || e); }
 let energia = null;
 ipcMain.handle("energia", (e) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return energia ? energia.estado() : null; });
 ipcMain.handle("notificar", (e, n) => { if (!deUmaJanelaNossa(e)) throw new Error("origem não permitida"); return notificar(n || {}); });
@@ -1451,10 +1453,14 @@ function montarMenu() {
 app.on("before-quit", () => { saindo = true; });
 if (UNICO) app.whenReady().then(() => {
   /* as marcas de energia (energia.js): a ligação do Windows desta vez, a suspensão e a volta dela */
-  energia = Energia.criar({ arquivo: path.join(app.getPath("userData"), "energia.json") });
-  energia.registrarLigou();
-  powerMonitor.on("suspend", () => energia.marcar("suspendeu"));
-  powerMonitor.on("resume", () => energia.marcar("acordou"));
+  if (Energia) {
+    try {
+      energia = Energia.criar({ arquivo: path.join(app.getPath("userData"), "energia.json") });
+      energia.registrarLigou();
+      powerMonitor.on("suspend", () => energia.marcar("suspendeu"));
+      powerMonitor.on("resume", () => energia.marcar("acordou"));
+    } catch (e) { energia = null; console.error("energia:", (e && e.message) || e); }
+  }
   montarMenu();
   lerSegundoPlano();
   criarPrincipal();

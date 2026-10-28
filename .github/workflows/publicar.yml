@@ -89,10 +89,15 @@ jobs:
         working-directory: desktop
         run: python3 scripts/gerar-index.py ../mineracao.html
 
+      # cada arquivo que o programa carrega tem que ir no instalador (a 1.10.0 saiu sem o energia.js e nem abria):
+      # confere a lista antes de montar e o pacote montado (app.asar) depois
       - name: Gerar o instalador do Windows
         if: steps.v.outputs.publicar == 'sim'
         working-directory: desktop
-        run: node scripts/build-win.js
+        run: |
+          node scripts/teste-pacote.js
+          node scripts/build-win.js
+          node scripts/teste-pacote.js --asar dist/win-unpacked/resources/app.asar
 
       - uses: actions/setup-java@v5
         if: steps.v.outputs.apk == 'sim'
