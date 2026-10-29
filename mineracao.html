@@ -286,7 +286,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .area-h{margin-bottom:14px}
   .area-t{display:none}
   .area-nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)));
-    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+    scroll-padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
   .area-nav::-webkit-scrollbar{display:none}
   .tela-bt{min-height:44px;border-radius:999px;padding:0 14px;flex:none}
   .tela-bt svg{display:none}
@@ -1540,8 +1541,8 @@ details.saiba > :not(summary){margin-bottom:14px}
 
     <section class="view cfg" id="v-perfil" aria-labelledby="t-perfil" hidden>
       <header class="vh"><div><h1 id="t-perfil" tabindex="-1">Perfil</h1><p class="sub">Você, a sua cidade e as contas do Facebook e da Kryptex que o painel usa.</p></div></header>
-      <article class="painel" id="perfil-p" aria-labelledby="t-perfil">
-        <div class="painel-h"><h2 id="t-perfil">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
+      <article class="painel" id="perfil-p" aria-labelledby="t-perfil-p">
+        <div class="painel-h"><h2 id="t-perfil-p">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
         <div class="pf-g">
           <label><span class="lbl">Seu nome</span><input id="pf-nome" type="text" maxlength="40" autocomplete="given-name"></label>
           <div class="campo combo">
@@ -1699,8 +1700,8 @@ details.saiba > :not(summary){margin-bottom:14px}
 
     <section class="view cfg" id="v-sobre" aria-labelledby="t-sobre" hidden>
       <header class="vh"><div><h1 id="t-sobre" tabindex="-1">Sobre</h1><p class="sub">Quem fez o painel e como falar com ele.</p></div></header>
-      <article class="painel sobre" id="sobre-p" aria-labelledby="t-sobre" data-aberto>
-        <div class="painel-h"><h2 id="t-sobre">Sobre o painel</h2><small class="hint" id="sobre-versao"></small></div>
+      <article class="painel sobre" id="sobre-p" aria-labelledby="t-sobre-p" data-aberto>
+        <div class="painel-h"><h2 id="t-sobre-p">Sobre o painel</h2><small class="hint" id="sobre-versao"></small></div>
         <p>Criado por <b>Alexsander Azevedo</b>. Dúvidas, ideias ou problemas: fale comigo.</p>
         <ul class="sobre-contato" id="sobre-contato">
           <li><span class="lbl">E-mail</span><a href="mailto:alexs_azevedo@hotmail.com">alexs_azevedo@hotmail.com</a></li>
@@ -7625,6 +7626,7 @@ function irPara(v, foco){
   $("topo-t").textContent = $("t-"+v).textContent;
   try{ localStorage.setItem("min-view", v); }catch(e){}
   try{ history.replaceState(null, "", "#"+v); }catch(e){}
+  mostrarBotaoAtual();
   window.scrollTo(0,0);
   if(foco){ const h = $("t-"+v); if(h) h.focus({preventScroll:true}); }
   if(v==="resumo" && REMOTO) pedirRetrato().catch(()=>{});
@@ -7635,6 +7637,13 @@ document.addEventListener("click", e=>{
   const b = e.target.closest("[data-ir],[data-view]");
   if(b){ irPara(b.dataset.ir || b.dataset.view, !b.dataset.rolar); const alvo = b.dataset.rolar && $(b.dataset.rolar); if(alvo){ abrirSecao(alvo); alvo.scrollIntoView({block:"start", behavior:suave()}); const h = alvo.querySelector("h2"); if(h){ h.tabIndex = -1; h.focus({preventScroll:true}); } } }
 });
+/* no celular, o botão da tela aberta fica à vista na linha que rola para o lado (ao trocar de tela e ao a janela ficar estreita) */
+function mostrarBotaoAtual(){
+  if(!CELULAR()) return;
+  const b = document.querySelector('.area-nav:not([hidden]) .tela-bt[aria-current="page"]');
+  if(b) try{ b.scrollIntoView({block:"nearest", inline:"nearest"}); }catch(e){}
+}
+matchMedia("(max-width:899px)").addEventListener("change", e=>{ if(e.matches) mostrarBotaoAtual(); });
 /* uma área (menu lateral ou barra de baixo) abre a última tela vista dela; o nav dos botões também tem data-area, mas não é botão */
 document.addEventListener("click", e=>{ const b = e.target.closest("button[data-area]"); if(b) irPara(telaDaArea(b.dataset.area), true); });
 

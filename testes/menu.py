@@ -40,6 +40,14 @@ def nomes(pg, sel):
       const n = b.querySelector('span:not(.badge)'); return (n ? n.textContent : b.textContent).trim(); })""", sel)
 
 
+REPETIDOS = """(() => { const vistos = new Set(), rep = []; for (const e of document.querySelectorAll('[id]')) { if (vistos.has(e.id)) rep.push(e.id); vistos.add(e.id); } return rep; })()"""
+# o nome de um quadro (aria-labelledby) vem de um título dentro dele
+NOME_DO_QUADRO = """(i) => { const q = document.getElementById(i); const t = q && document.getElementById(q.getAttribute('aria-labelledby')); return t ? [t.tagName, t.textContent.trim(), q.contains(t)] : null; }"""
+# o botão da tela aberta, na linha que rola no celular, fica inteiro à vista
+BOTAO_A_VISTA = """(() => { const b = document.querySelector('.area-nav:not([hidden]) .tela-bt[aria-current="page"]'); if (!b) return null;
+  const r = b.getBoundingClientRect(); return {view: b.dataset.view, esq: Math.round(r.left), dir: Math.round(r.right), larg: innerWidth, ok: r.left >= 0 && r.right <= innerWidth}; })()"""
+
+
 def titulo(pg, v):
     return pg.evaluate("(v) => { const h = document.getElementById('t-' + v); return h ? h.textContent.trim() : null; }", v)
 
@@ -74,6 +82,9 @@ def pc(p):
           [titulo(pg, "computador"), nomes(pg, ".tela-bt[data-view=computador]")])
     checa("títulos das telas", [titulo(pg, v) for v in ("resumo", "setup", "mineracao", "perfil", "integracoes", "sobre")]
           == ["Resumo geral", "Meu setup", "Mineração", "Perfil", "Integrações", "Sobre"], [titulo(pg, v) for v in ("resumo", "setup")])
+    checa("sem ids repetidos (PC)", pg.evaluate(REPETIDOS) == [], pg.evaluate(REPETIDOS))
+    checa("o quadro Seu perfil com o próprio nome", pg.evaluate(NOME_DO_QUADRO, "perfil-p") == ["H2", "Seu perfil", True], pg.evaluate(NOME_DO_QUADRO, "perfil-p"))
+    checa("o quadro Sobre o painel com o próprio nome", pg.evaluate(NOME_DO_QUADRO, "sobre-p") == ["H2", "Sobre o painel", True], pg.evaluate(NOME_DO_QUADRO, "sobre-p"))
     badge = pg.evaluate("(() => { const b = document.getElementById('b-diario'); return b && b.closest('.tela-bt[data-view=diario]') ? b.textContent.trim() : null; })()")
     checa("números nos botões", badge == "14", badge)
     checa("sem erros", not erros(pg), erros(pg)[:3])
@@ -135,6 +146,14 @@ def celular(p):
     checa("tema claro pela Aparência", pg.evaluate("document.documentElement.dataset.tema") == "claro")
     checa("os dois seletores marcam o mesmo tema", pg.evaluate("(() => { const b = [...document.querySelectorAll('[data-tema-op=claro]')]; return b.length >= 2 && b.every(x => x.getAttribute('aria-pressed') === 'true'); })()"))
     checa("voltar sem folha", pg.evaluate("[fecharFolha(), fecharMais()]") == [False, False])
+    checa("sem ids repetidos (celular)", pg.evaluate(REPETIDOS) == [], pg.evaluate(REPETIDOS))
+    secbt = pg.evaluate("(() => { const b = document.querySelector('#perfil-p .sec-bt'); const t = b && document.getElementById(b.getAttribute('aria-labelledby')); return t ? t.textContent.trim() : null; })()")
+    checa("o botão de abrir Seu perfil com o nome do quadro", secbt == "Seu perfil", secbt)
+    pg.evaluate("irPara('sobre')"); pg.wait_for_timeout(100)
+    checa("o botão da tela aberta à vista (Sobre)", (pg.evaluate(BOTAO_A_VISTA) or {}).get("ok"), pg.evaluate(BOTAO_A_VISTA))
+    clica(pg, ".abas [data-area=resumo]"); pg.wait_for_timeout(100)
+    clica(pg, ".abas [data-area=config]"); pg.wait_for_timeout(100)
+    checa("o botão da tela aberta à vista ao voltar para Configurações", (pg.evaluate(BOTAO_A_VISTA) or {}).get("view") == "sobre" and pg.evaluate(BOTAO_A_VISTA)["ok"], pg.evaluate(BOTAO_A_VISTA))
     for v in TODAS:
         pg.evaluate(f"irPara('{v}')"); pg.wait_for_timeout(60)
         checa(f"sem rolagem para o lado ({v})", pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), pg.evaluate("document.documentElement.scrollWidth"))
@@ -147,6 +166,11 @@ def largura(p):
     pg.evaluate("irPara('placas')"); pg.wait_for_timeout(100)
     pg.set_viewport_size({"width": 390, "height": 844}); pg.wait_for_timeout(250)
     checa("estreita: Comprar marcado embaixo", atual(pg, ".abas [data-area=comprar]") == "page" and visivel(pg, ".area-nav[data-area=comprar]") and visivel(pg, "#v-placas"))
+    pg.set_viewport_size({"width": 1366, "height": 900}); pg.wait_for_timeout(150)
+    pg.evaluate("irPara('sobre')"); pg.wait_for_timeout(100)
+    pg.set_viewport_size({"width": 390, "height": 844}); pg.wait_for_timeout(250)
+    checa("estreita: o botão da tela aberta à vista", (pg.evaluate(BOTAO_A_VISTA) or {}).get("ok"), pg.evaluate(BOTAO_A_VISTA))
+    pg.evaluate("irPara('placas')"); pg.wait_for_timeout(100)
     pg.set_viewport_size({"width": 1366, "height": 900}); pg.wait_for_timeout(250)
     checa("larga: menu e cabeçalho", visivel(pg, "#area-t") and texto(pg, "#area-t") == "Comprar" and atual(pg, ".item[data-area=comprar]") == "page")
     checa("sem erros (largura)", not erros(pg), erros(pg)[:3])
