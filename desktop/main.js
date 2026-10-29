@@ -119,7 +119,7 @@ function mostrarPrincipal(tela, chave) {
 /* ---------- segundo plano: ícone perto do relógio e abrir junto com o Windows ----------
    bandeja: fechar a janela só esconde (o alerta de ofertas, os avisos no celular, o acesso pelo navegador ou o app do
    celular precisam do painel rodando); iniciar: o que essas funções pedem para abrir junto com o Windows (o painel calcula).
-   comWindows e minimizado: a escolha da pessoa em Premissas › Este computador (comWindows null = ainda não escolheu,
+   comWindows e minimizado: a escolha da pessoa em Configurações › Este computador (comWindows null = ainda não escolheu,
    vale o que as funções pedem). */
 const arquivoSegundoPlano = () => path.join(app.getPath("userData"), "segundo-plano.json");
 let segundoPlano = { bandeja: false, iniciar: false, avisouBandeja: false, comWindows: null, minimizado: true, kxa: false };
@@ -180,7 +180,7 @@ ipcMain.handle("segundo-plano", (e, op) => {
   }
   return { bandeja: segundoPlano.bandeja, iniciar: segundoPlano.iniciar, temBandeja: !!bandeja };
 });
-/* Premissas › Este computador: abrir junto com o Windows e abrir minimizado */
+/* Configurações › Este computador: abrir junto com o Windows e abrir minimizado */
 const inicioPublico = () => ({ comWindows: inicioEfetivo(), escolheu: segundoPlano.comWindows != null, minimizado: segundoPlano.minimizado !== false,
   bandeja: !!(segundoPlano.bandeja && bandeja), precisa: !!(segundoPlano.bandeja && segundoPlano.iniciar) });
 ipcMain.handle("inicio-windows", (e, op) => {
@@ -540,7 +540,7 @@ const ESTILO_ENTRAR = "body{margin:0;font:16px/1.5 system-ui,sans-serif;backgrou
 function paginaEntrar(erro) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0C1016">` +
     `<link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icone.png"><title>Painel de Mineração</title><style>${ESTILO_ENTRAR}</style></head><body><main>` +
-    `<h1>Painel de Mineração</h1><p>Digite a senha de 6 números que aparece no PC, em Premissas › Abrir no celular.</p>` +
+    `<h1>Painel de Mineração</h1><p>Digite a senha de 6 números que aparece no PC, em Configurações › Integrações › Abrir no navegador do celular.</p>` +
     `<form method="post" action="/entrar"><input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" aria-label="Senha" required autofocus><button type="submit">Entrar</button></form>` +
     (erro ? `<p class="erro" role="alert">${erro}</p>` : "") + `</main></body></html>`;
 }
@@ -578,7 +578,7 @@ async function tratarPedido(req, res) {
       const espera = bloqueado(ip);
       if (espera) return responder(req, res, 429, "text/html; charset=utf-8", paginaEntrar(`Muitas tentativas. Tente de novo em ${espera} ${espera === 1 ? "minuto" : "minutos"}.`));
       const pin = new URLSearchParams(await lerCorpo(req, 4096)).get("pin");
-      if (!pinCerto(pin)) { errou(ip); return responder(req, res, 401, "text/html; charset=utf-8", paginaEntrar("Senha errada. Confira no PC, em Premissas › Abrir no celular.")); }
+      if (!pinCerto(pin)) { errou(ip); return responder(req, res, 401, "text/html; charset=utf-8", paginaEntrar("Senha errada. Confira no PC, em Configurações › Integrações › Abrir no navegador do celular.")); }
       tentativas.delete(ip);
       return responder(req, res, 303, "text/plain", "", { "Location": "/", "Set-Cookie": `painel=${novoToken()}; Path=/; Max-Age=34560000; HttpOnly; SameSite=Strict` });
     }
@@ -657,7 +657,7 @@ ipcMain.handle("acesso-config", (e, op) => {
 });
 
 /* ---------- app do celular (Android): os dados vão e voltam pelo ntfy.sh, criptografados ----------
-   Em Premissas › App do celular, o PC mostra um QR code com o código de vinculação. O app lê o código e, dali em diante,
+   Em Configurações › Integrações › App do celular, o PC mostra um QR code com o código de vinculação. O app lê o código e, dali em diante,
    PC e celular conversam por dois tópicos do ntfy.sh tirados do código (sincronia.js), com tudo cifrado: nenhuma porta
    fica aberta no PC e o ntfy.sh só vê bytes embaralhados.
    - Versões: cada mudança nos dados do PC ganha um número (versao). O celular diz qual versão tem ("ola") e o PC responde

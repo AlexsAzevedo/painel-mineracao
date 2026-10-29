@@ -5,7 +5,7 @@ try{ document.documentElement.dataset.tema = localStorage.getItem("min-tema")===
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&family=JetBrains+Mono:wght@400&display=swap">
 <style>
-/* Layout: menu lateral fixo à esquerda + uma tela por vez (Resumo, Diário de ganhos, Minhas placas, Ofertas, Analisar anúncio, Todas as placas, Montar setup, Premissas) */
+/* Layout: menu lateral fixo à esquerda com as três áreas (Resumo geral, Comprar e Configurações), os botões das telas da área no alto e uma tela por vez */
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums}
 [hidden]{display:none!important}
 .app{display:flex;min-height:100vh}
@@ -133,7 +133,7 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .kxa-lims{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px;max-width:450px;align-items:end}
 .nw{white-space:nowrap}
 .kxa-lims label{display:flex;flex-direction:column;gap:5px}
-/* Premissas › Placa de vídeo deste PC: um cartão por placa, com os campos lado a lado e a faixa embaixo de cada um */
+/* Configurações › Mineração › Placa de vídeo deste PC: um cartão por placa, com os campos lado a lado e a faixa embaixo de cada um */
 .placa-lista{display:flex;flex-direction:column;gap:12px}
 .placa-c{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:14px;min-width:0}
 .placa-cab{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 14px}
@@ -815,7 +815,7 @@ td.name small.d-parou{white-space:normal;min-width:210px;max-width:290px;margin-
 .dif-pos{color:var(--good)}
 @media (max-width:900px){.dform{grid-template-columns:1fr 1fr}.dform .obs{grid-column:1/-1}.dform button{grid-column:1/-1}}
 
-/* perfil (Premissas) */
+/* perfil (Configurações › Perfil) */
 .pf-g{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,.8fr);gap:12px;align-items:end}
 .pf-g > label,.pf-g > .campo{display:flex;flex-direction:column;gap:4px;min-width:0}
 .combo li .uf{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
@@ -1132,7 +1132,7 @@ details.saiba > :not(summary){margin-bottom:14px}
   .painel-h.so-cel{display:flex}
   .note > .painel-h h2{color:var(--fg)}
   .empty .so-cel.pri{display:block;margin:12px auto 0}
-  /* Premissas: cada quadro fechado mostra só o título; tocar abre */
+  /* Configurações: cada quadro fechado mostra só o título; tocar abre */
   .sec > .painel-h,.sec > legend{position:relative}
   .sec-bt{all:unset;box-sizing:border-box;display:grid;place-items:center;width:32px;height:32px;flex:none;margin-left:auto;border-radius:50%;color:var(--muted);cursor:pointer}
   .sec-bt::after{content:"";position:absolute;inset:-16px}
@@ -1280,7 +1280,7 @@ details.saiba > :not(summary){margin-bottom:14px}
           <p class="hint">Avisa no Windows quando aparecer um anúncio novo, ou um que baixou de preço, que se paga dentro do seu prazo. Descartados, preço suspeito e “no estado” não geram aviso.</p>
           <div class="of-al-opcoes" id="al-opcoes" hidden>
             <label class="check"><input type="checkbox" id="al-bandeja"> Continuar procurando com a janela fechada (o painel fica no ícone perto do relógio)</label>
-            <p class="hint" style="margin:0">Abrir junto com o Windows, e se abre minimizado: em Premissas › Este computador.</p>
+            <p class="hint" style="margin:0">Abrir junto com o Windows, e se abre minimizado: em Configurações › Este computador.</p>
           </div>
         </fieldset>
         <div class="of-prog" id="of-prog" hidden><span></span></div>
@@ -1312,7 +1312,7 @@ details.saiba > :not(summary){margin-bottom:14px}
       <details class="saiba">
         <summary>Saiba mais: como as contas são feitas</summary>
         <div class="note">
-          <span><b>Se paga em:</b> preço do anúncio ÷ lucro da placa por mês (receita da Kryptex com a sua margem de segurança, menos a luz). “Compensa” é quando se paga dentro do seu prazo (Premissas › Recuperar em); “apertado” vai até 20% além.</span>
+          <span><b>Se paga em:</b> preço do anúncio ÷ lucro da placa por mês (receita da Kryptex com a sua margem de segurança, menos a luz). “Compensa” é quando se paga dentro do seu prazo (Configurações › Mineração › Recuperar em); “apertado” vai até 20% além.</span>
           <span><b>Distância:</b> em linha reta entre as cidades, com 25% a mais para aproximar a estrada. O Marketplace procura em volta da localização da sua conta do Facebook; a OLX, no seu estado e nos vizinhos que caem dentro do raio.</span>
           <span><b>O que fica de fora:</b> PCs e notebooks completos, placas com defeito ou “para peças”, pedidos de compra, quem só aceita troca e anúncios fora do raio.</span>
           <span><b>Antes de pagar:</b> teste a placa na hora (10 a 15 minutos minerando ou num benchmark, de olho na temperatura e nas ventoinhas), não pague nada adiantado e desconfie de preço muito abaixo do normal. Na OLX, comprar pelo botão “Comprar” dá a Garantia da OLX.</span>
@@ -1428,8 +1428,8 @@ details.saiba > :not(summary){margin-bottom:14px}
       <div class="note">
         <span><b>Como ler:</b> o ganho bruto é a receita da Kryptex em US$ (moeda mais lucrativa do dia) × dólar, menos a margem de segurança, antes de pagar a luz. Lucro = ganho bruto − energia. Energia = watts × horas × 30 ÷ 1000 × tarifa. “Compensa?” é <b>Sim</b> quando o seu preço fica até o limite, <b>Apertado</b> até 20% acima, e <b>Não</b> além disso. Lucro por W é o lucro do mês dividido pelo consumo: mostra quem aproveita melhor a luz.</span>
         <span><b>Retorno:</b> usa o seu preço; sem ele, o preço no Brasil (usado ou novo, conforme o “Preço base”); sem os dois, o menor preço dos anúncios que você analisou; por último, o preço de referência da Kryptex nos EUA convertido em real, que costuma ser mais baixo que o daqui.</span>
-        <span><b>Preços no Brasil:</b> pesquisa de 22/10/2026, que dá para atualizar em Premissas › Dados de fora (novas pelo Promotech, usadas pelo Marketplace) ou buscando em Ofertas. Usado é a mediana dos anúncios de placa avulsa perto da sua cidade, sem PCs, notebooks, placas com defeito e lotes; até você atualizar, vale a pesquisa inicial, feita na região de Itajaí (SC). Modelos com só 1 ou 2 anúncios têm preço menos confiável. Novo é o menor preço à vista encontrado em loja; o link “nova ↗” embaixo do campo “Seu preço” abre essa oferta (muitas vezes pelo comparador Promotech, que lista as lojas), e “procurar nova ↗” abre a busca no Google Shopping. Confira preço, estado de nova e estoque na loja antes de comprar. Placas marcadas “notebook” (RTX 4050, RTX 2050 e 860M) não se vendem avulsas.</span>
-        <span><b>Atenção:</b> a receita muda todo dia com o preço da moeda e a dificuldade da rede. Para trazer os números de hoje, use Premissas › Dados de fora › Receitas da Kryptex. “Editar dados das placas” serve para pôr um número seu (o consumo medido da sua placa, por exemplo), que passa na frente do da Kryptex.</span>
+        <span><b>Preços no Brasil:</b> pesquisa de 22/10/2026, que dá para atualizar em Configurações › Integrações › Dados de fora (novas pelo Promotech, usadas pelo Marketplace) ou buscando em Ofertas. Usado é a mediana dos anúncios de placa avulsa perto da sua cidade, sem PCs, notebooks, placas com defeito e lotes; até você atualizar, vale a pesquisa inicial, feita na região de Itajaí (SC). Modelos com só 1 ou 2 anúncios têm preço menos confiável. Novo é o menor preço à vista encontrado em loja; o link “nova ↗” embaixo do campo “Seu preço” abre essa oferta (muitas vezes pelo comparador Promotech, que lista as lojas), e “procurar nova ↗” abre a busca no Google Shopping. Confira preço, estado de nova e estoque na loja antes de comprar. Placas marcadas “notebook” (RTX 4050, RTX 2050 e 860M) não se vendem avulsas.</span>
+        <span><b>Atenção:</b> a receita muda todo dia com o preço da moeda e a dificuldade da rede. Para trazer os números de hoje, use Configurações › Integrações › Dados de fora › Receitas da Kryptex. “Editar dados das placas” serve para pôr um número seu (o consumo medido da sua placa, por exemplo), que passa na frente do da Kryptex.</span>
       </div>
     </details>
     </section>
@@ -1612,9 +1612,9 @@ details.saiba > :not(summary){margin-bottom:14px}
             <label class="check"><input type="checkbox" id="cel-resumo"><span>Resumo todo dia às <input type="time" id="cel-hora" value="08:00" aria-label="Hora do resumo"><br><small>Lucro, ganho anotado, quanto já recuperou e as melhores ofertas. O botão Atualizar, no aviso, pede um resumo novo na hora.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-ofertas"><span>Ofertas boas que a busca automática encontrar<br><small id="cel-ofertas-h">Os mesmos avisos que aparecem no Windows, com o link do anúncio.</small></span></label>
             <label class="check"><input type="checkbox" id="cel-sinal"><span>Avisar se este computador ficar mais de 45 minutos sem dar sinal<br><small>Desligado, travado ou sem internet: a mineração parou. Sair pelo painel não avisa.</small></span></label>
-            <label class="check"><input type="checkbox" id="cel-maquinas"><span>Máquina parada ou rendendo menos<br><small id="cel-maquinas-h">Vem do app da Kryptex deste PC (a cada minuto) e da sua conta da Kryptex (de meia em meia hora), as duas em Premissas.</small></span></label>
+            <label class="check"><input type="checkbox" id="cel-maquinas"><span>Máquina parada ou rendendo menos<br><small id="cel-maquinas-h">Vem do app da Kryptex deste PC (a cada minuto) e da sua conta da Kryptex (de meia em meia hora), as duas em Configurações (Integrações e Perfil).</small></span></label>
           </div>
-          <p class="hint" style="margin:0">Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos (para fechar de vez: botão direito no ícone › Sair). Abrir junto com o Windows: em Premissas › Este computador.</p>
+          <p class="hint" style="margin:0">Com os avisos ligados, fechar a janela deixa o painel no ícone perto do relógio, mandando os avisos (para fechar de vez: botão direito no ícone › Sair). Abrir junto com o Windows: em Configurações › Este computador.</p>
           <div class="acoes"><button type="button" id="cel-resumo-agora">Mandar o resumo agora</button><button type="button" class="link" id="cel-trocar">Gerar outro nome</button><button type="button" class="link" id="cel-desligar">Desligar os avisos</button></div>
         </div>
         <p class="status" id="cel-status" role="status" aria-live="polite"></p>
@@ -1631,7 +1631,7 @@ details.saiba > :not(summary){margin-bottom:14px}
             <li>Para ficar com cara de aplicativo: no Chrome, ⋮ › Adicionar à tela inicial; no Safari, Compartilhar › Adicionar à Tela de Início.</li>
             <li id="ac-ts">Fora de casa: instale o <b>Tailscale</b> no PC e no celular e entre com a mesma conta nos dois. O endereço do Tailscale aparece aqui, e ele funciona de qualquer lugar.</li>
           </ol>
-          <p class="hint" style="margin:0">Na primeira vez, o Windows pergunta se o painel pode usar a rede: clique em Permitir acesso. O celular só abre o painel com este computador ligado; por isso, com o acesso ligado, fechar a janela deixa o painel no ícone perto do relógio (abrir junto com o Windows: em Este computador, acima).</p>
+          <p class="hint" style="margin:0">Na primeira vez, o Windows pergunta se o painel pode usar a rede: clique em Permitir acesso. O celular só abre o painel com este computador ligado; por isso, com o acesso ligado, fechar a janela deixa o painel no ícone perto do relógio (abrir junto com o Windows: em Configurações › Este computador).</p>
           <div class="acoes"><button type="button" id="ac-mandar">Mandar o endereço para o celular</button><button type="button" class="link" id="ac-desconectar">Desconectar os celulares</button><button type="button" class="link" id="ac-desligar">Desligar</button></div>
         </div>
         <p class="status" id="ac-status" role="status" aria-live="polite"></p>
@@ -1782,7 +1782,7 @@ details.saiba > :not(summary){margin-bottom:14px}
           <span><b>Estimado:</b> a receita da Kryptex (22/10/2026) das placas que já estavam minerando naquele dia, mais o processador se ele estiver minerando, proporcional às horas informadas. Fica sem a margem de segurança, para comparar com o que entrou de verdade.</span>
           <span><b>Lucro real:</b> o que entrou menos a luz estimada do PC inteiro na tomada nesse dia.</span>
           <span><b>Margem real:</b> quanto o real ficou abaixo do estimado. Com 5 dias ou mais anotados, o painel sugere usar esse número como margem de segurança, que vale para todas as contas.</span>
-          <span><b>Dólar:</b> valor em US$ é convertido pelo dólar das premissas no dia em que você anotou.</span>
+          <span><b>Dólar:</b> valor em US$ é convertido pelo dólar de Configurações (Mineração) no dia em que você anotou.</span>
         </div>
       </details>
     </section>
@@ -1814,7 +1814,7 @@ details.saiba > :not(summary){margin-bottom:14px}
 
     <section class="bv-sec" data-passo="nome">
       <h2 id="bv-titulo" tabindex="-1">Vamos deixar o painel com a sua cara</h2>
-      <p>Algumas perguntas rápidas para as contas usarem a sua cidade, a sua conta de luz e os seus computadores. Tudo fica salvo só aqui e dá para mudar depois em Premissas.</p>
+      <p>Algumas perguntas rápidas para as contas usarem a sua cidade, a sua conta de luz e os seus computadores. Tudo fica salvo só aqui e dá para mudar depois em Configurações.</p>
       <div class="bv-campos"><label class="s2"><span class="lbl">Como você se chama?</span><input id="bv-nome" type="text" maxlength="40" autocomplete="given-name" placeholder="Seu nome"></label></div>
       <p class="bv-credito">Painel criado por Alexsander Azevedo, com a ajuda do Claude, da Anthropic. Contato: alexs_azevedo@hotmail.com · WhatsApp (79) 99920-2165.</p>
     </section>
@@ -1865,14 +1865,14 @@ details.saiba > :not(summary){margin-bottom:14px}
 
     <section class="bv-sec" data-passo="pcs" hidden>
       <h2 tabindex="-1">Quais computadores vão minerar?</h2>
-      <p id="bv-pcs-txt">Coloque a fonte e as vagas para placa de vídeo de cada um. Com isso o painel calcula o consumo na tomada e quantas placas cabem. Se ainda não tiver, pule: dá para montar depois em Montar setup.</p>
+      <p id="bv-pcs-txt">Coloque a fonte e as vagas para placa de vídeo de cada um. Com isso o painel calcula o consumo na tomada e quantas placas cabem. Se ainda não tiver, pule: dá para montar depois em Meu setup.</p>
       <div class="bv-pcs" id="bv-pcs"></div>
       <div><button type="button" id="bv-pc-mais">+ Adicionar um computador</button></div>
     </section>
 
     <section class="bv-sec" data-passo="facebook" hidden>
       <h2 tabindex="-1">Facebook e OLX</h2>
-      <p>Para procurar placas usadas no Marketplace, o painel usa a sua conta do Facebook num navegador escondido dentro do aplicativo. A OLX não precisa de login. Se preferir, entre depois em Premissas › Este computador.</p>
+      <p>Para procurar placas usadas no Marketplace, o painel usa a sua conta do Facebook num navegador escondido dentro do aplicativo. A OLX não precisa de login. Se preferir, entre depois em Configurações › Perfil.</p>
       <div><button type="button" id="bv-fb">Entrar no Facebook</button></div>
       <p class="status" id="bv-fb-st" role="status" aria-live="polite"></p>
     </section>
@@ -1951,7 +1951,7 @@ const REMOTO = !!(window.desktop && window.desktop.remoto);
 const APP = REMOTO && !!window.desktop.app;
 const DESKTOP = !!(window.desktop && window.desktop.versao) && !REMOTO;
 const ONDE_SALVO = REMOTO ? "Dados do PC" : DESKTOP ? "Salvo neste computador" : "Salvo neste navegador";
-const ONDE_FB = DESKTOP ? "Clique em Entrar no Facebook (Premissas › Este computador), entre na sua conta" : "Entre no Facebook no navegador do app";
+const ONDE_FB = DESKTOP ? "Clique em Entrar no Facebook (Configurações › Perfil), entre na sua conta" : "Entre no Facebook no navegador do app";
 
 /* número de cada placa: o da Kryptex de 22/10, trocado pelo que "Atualizar" trouxe da Kryptex, e por cima o que você editou à mão */
 function dados(c){ const k = ((cfg.kryptex||{}).gpus||{})[c.id] || {}, o = cfg.overrides[c.id] || {}; return {...c, w:o.w ?? k.w ?? c.w, rec:o.rec ?? k.rec ?? c.rec}; }
@@ -1986,7 +1986,7 @@ function historicoModelo(id){
   const base = b && b.usado > 0 ? [["2026-10-22", b.usado, b.n||0]] : [];
   return [...base.filter(x=>!l.length || x[0] < l[0][0]), ...l];
 }
-/* desvalorização por ano: pelo histórico do modelo quando ele cobre 60 dias ou mais (regressão do logaritmo do preço), senão a das Premissas */
+/* desvalorização por ano: pelo histórico do modelo quando ele cobre 60 dias ou mais (regressão do logaritmo do preço), senão a de Configurações › Mineração */
 const _deprec = new Map();
 function deprecModelo(id){
   const h = (cfg.historico||{})[id] || [], chave = `${id}|${cfg.deprec}|${h.length}|${h.length ? h[h.length-1][0] : ""}`;
@@ -2030,7 +2030,7 @@ function rendimentoParcelado(preco, parcelas){
 /* como a placa foi paga: "avista" ou "cartao". Os cadastros de antes da pergunta só tinham as parcelas: mais de 1 = cartão */
 function pagamentoDe(p){ return p && (p.pagamento==="cartao" || p.pagamento==="avista") ? p.pagamento : ((+(p && p.parcelas)||1) > 1 ? "cartao" : "avista"); }
 function parcelasDe(p){ return pagamentoDe(p)==="cartao" ? Math.min(24, Math.max(1, Math.round(+p.parcelas||1))) : 1; }
-/* parcelas sugeridas ao escolher "no cartão": as de Montar setup (Compras em Nx) */
+/* parcelas sugeridas ao escolher "no cartão": as de Meu setup (Compras em Nx) */
 function parcelasPadrao(){ try{ const n = Math.round(+setup.parcelas||1); return n>1 ? Math.min(24, n) : 1; }catch(e){ return 1; } }
 
 /* ---------- persistência: db do artifact, com fallback local ---------- */
@@ -2106,7 +2106,7 @@ const OFERTAS = {
   "amd-rx-9060-xt":{url:"https://promotech.app.br/comparar/placa-de-video/rx-9060-xt-16gb-vs-rx-9060-xt-8gb", onde:"ofertas no Promotech (menor: Patoloco, 8GB)"}
 };
 const buscaShopping = c => "https://www.google.com/search?tbm=shop&q=" + encodeURIComponent("placa de vídeo " + c.curto);
-/* preço no Brasil: a pesquisa de 22/10 por baixo, e por cima o que o botão "Atualizar" trouxe (Premissas › Dados de fora) */
+/* preço no Brasil: a pesquisa de 22/10 por baixo, e por cima o que o botão "Atualizar" trouxe (Configurações › Integrações › Dados de fora) */
 function mercado(id){
   const b = MERCADO.precos[id] || {}, a = (cfg.precosAtual||{})[id] || {}, o = {...b};
   if(a.usado>0){ o.usado = a.usado; o.n = a.n; o.quandoU = a.quandoU; }
@@ -2213,7 +2213,7 @@ function renderHistorico(){
   const pts = historicoModelo(c.id).map(([d,p,n])=>({d, p, n, t:Date.parse(d+"T12:00")}));
   const r = calc(c), dp = deprecModelo(c.id), txt = [];
   if(pts.length>=2){ const a = pts[0], b = pts[pts.length-1], v = (b.p/a.p-1)*100; txt.push(`Desde ${dataBR(a.d)}: ${brl0(a.p)} → ${brl0(b.p)} (${v>=0?"+":"−"}${n1(Math.abs(v))}%).`); }
-  txt.push(dp.fonte==="historico" ? `Desvalorização pelo histórico de ${dp.dias} dias: ${n1(dp.d*100)}% ao ano.` : `Com menos de 60 dias de histórico, a revenda usa a desvalorização das Premissas (${n1(+cfg.deprec)}% ao ano).`);
+  txt.push(dp.fonte==="historico" ? `Desvalorização pelo histórico de ${dp.dias} dias: ${n1(dp.d*100)}% ao ano.` : `Com menos de 60 dias de histórico, a revenda usa a desvalorização de Configurações (${n1(+cfg.deprec)}% ao ano).`);
   if(r.revendaBase>0) txt.push(`Revenda estimada daqui a ${cfg.meses} meses: cerca de ${brl0(r.revenda)}.`);
   $("hist-txt").textContent = txt.join(" ");
   $("hist-tab").innerHTML = `<div class="tw"><table><thead><tr><th>Dia</th><th class="n">Preço típico</th><th class="n">Anúncios</th></tr></thead><tbody>${pts.slice().reverse().map(p=>`<tr><td>${dataBR(p.d)}</td><td class="n">${brl0(p.p)}</td><td class="n">${p.n||"—"}</td></tr>`).join("")}</tbody></table></div>`;
@@ -2691,7 +2691,7 @@ async function analisarLinkNoPc(url){
 async function analisarLink(url){
   if(REMOTO) return analisarLinkNoPc(url);
   if(analisando) return;
-  if(atualizandoDados){ status("Espere terminar a atualização dos dados de fora (Premissas) e tente de novo.", "erro"); return; }
+  if(atualizandoDados){ status("Espere terminar a atualização dos dados de fora (Configurações › Integrações) e tente de novo.", "erro"); return; }
   if(ofEst.rodando){ status("Espere terminar a busca de ofertas e tente de novo.", "erro"); return; }
   if(!linkSeguro(url)){ status("Cole um link completo, começando com https://", "erro"); return; }
   const mcp = await mcpPronto;
@@ -2827,7 +2827,7 @@ function maqBase(o){
     fonteW:650, selo:"Bronze", fonteNome:"", gpus:[], troca:{on:false, w:750, selo:"Bronze", preco:354.43},
     extras:[], semRiser:false, nova:false, pecas:pecasVazias(), ...o};
 }
-/* começa sem máquinas: cada pessoa cadastra as suas (na configuração inicial ou em Montar setup) */
+/* começa sem máquinas: cada pessoa cadastra as suas (na configuração inicial ou em Meu setup) */
 function setupPadrao(){
   return {v:1, tensao:220, parcelas:12, aloc:{}, maquinas:[]};
 }
@@ -3289,7 +3289,7 @@ const fimDia = dia => { const d = new Date(dia+"T00:00"); d.setDate(d.getDate()+
 /* quanto das paradas cai entre a e b (ms); a parada sem fim vai até agora */
 const paradoEntre = (a, b, agora) => paradas.lista.reduce((s,p)=>s + Math.max(0, Math.min(p.fim ?? agora, b) - Math.max(p.ini, a)), 0);
 /* R$ por hora minerando que a conta da Kryptex rendeu nos 7 dias antes de "dia" (aaaa-mm-dd): só os dias inteiros, não
-   aproximados, com horas e valor; US$ pelo dólar das Premissas. null sem nenhum dia assim */
+   aproximados, com horas e valor; US$ pelo dólar de Configurações. null sem nenhum dia assim */
 function ritmoConta(dia){
   if(!kx || !kx.dias) return null;
   let v = 0, h = 0;
@@ -3648,7 +3648,7 @@ function dadosRelatorio(ano){
 var NOTAS_REL = [
   "Recebido em R$: cada dia anotado em US$ foi convertido pelo dólar guardado naquele dia; o que foi anotado em R$ entra como está.",
   "BTC: só aparece nos dias que vieram da conta da Kryptex com a quantidade em bitcoin.",
-  "Luz estimada: o consumo do PC na tomada nas horas minerando, pela tarifa de hoje das Premissas. Não é a conta da distribuidora.",
+  "Luz estimada: o consumo do PC na tomada nas horas minerando, pela tarifa de hoje (Configurações › Mineração). Não é a conta da distribuidora.",
   "Placas: o valor pago e a data em que cada uma começou a minerar (a data da compra pode ser outra: confira na nota fiscal).",
   "O relatório só organiza os números do painel. Como declarar (rendimento, bens e direitos, ganho de capital) quem diz é o contador."
 ];
@@ -3799,7 +3799,7 @@ function retornoPlaca(p){
   let pagoReal = null, quandoReal = null;
   if(custo>0 && n){ const x = pontos.find(x=>x.acum>=custo); if(x) pagoReal = x.data; else if(media>0) quandoReal = somaDiasIso(hoje, (custo-acum)/media); }
   const completos = Math.max(0, diasEntreIso(p.data, hoje));
-  /* atrasada: com uma semana anotada, o ritmo real só paga a placa depois do prazo das Premissas (ou nunca) */
+  /* atrasada: com uma semana anotada, o ritmo real só paga a placa depois do prazo de Configurações (ou nunca) */
   const atrasada = n>=7 && custo>0 && !pagoReal && (!quandoReal || quandoReal>prazo);
   return {p, c, q, inv, rend, custo, prevDia, pontos, n, acum, media, prazo, quandoPrev, quandoReal, pagoReal, atrasada,
     pctPrev: n && prevDia>0 ? acum/(n*prevDia) : null, completos, futuro: p.data>hoje};
@@ -3829,7 +3829,7 @@ function renderRetornos(){
   const L = [];
   if(R.custo<=0) L.push(`<p>Sem valor pago cadastrado para a ${esc(R.c.curto)}: não há custo a recuperar.</p>`);
   else {
-    L.push(`<p>Custo a recuperar: <b>${brl0(R.custo)}</b>${R.rend>0 ? ` (pagou ${brl0(R.inv)}; o dinheiro guardado durante as parcelas rende ${brl0(R.rend)})` : ""}. Previsto: ${R.quandoPrev ? `se paga em <b>${mesAnoIso(R.quandoPrev)}</b>, com ${brl(R.prevDia)} de lucro por dia` : "com as premissas de hoje, ela não dá lucro"}. Seu prazo: ${Math.round(+cfg.meses||12)} meses (${mesAnoIso(R.prazo)}).</p>`);
+    L.push(`<p>Custo a recuperar: <b>${brl0(R.custo)}</b>${R.rend>0 ? ` (pagou ${brl0(R.inv)}; o dinheiro guardado durante as parcelas rende ${brl0(R.rend)})` : ""}. Previsto: ${R.quandoPrev ? `se paga em <b>${mesAnoIso(R.quandoPrev)}</b>, com ${brl(R.prevDia)} de lucro por dia` : "com os valores de hoje, ela não dá lucro"}. Seu prazo: ${Math.round(+cfg.meses||12)} meses (${mesAnoIso(R.prazo)}).</p>`);
     if(R.futuro) L.push(`<p>Ela começa a minerar em ${dataBR(R.p.data)}. Depois disso, cada dia anotado no Diário entra no real.</p>`);
     else if(!R.n) L.push(`<p>Ainda não há dias anotados no Diário desde ${dataBR(R.p.data)}. Anote os ganhos (ou ligue a leitura da conta da Kryptex) para ver o real.</p>`);
     else {
@@ -4320,9 +4320,9 @@ if(DESKTOP){
   $("este-pc").hidden = $("fb-p").hidden = false;
   $("pc-versao").textContent = "versão " + window.desktop.versao;
   $("sobre-versao").textContent = "versão " + window.desktop.versao;
-  document.querySelector("#dados-fora > .sub").textContent = "O painel abre as páginas num navegador escondido, uma por vez, e lê os números. Se o Facebook pedir login, use Entrar no Facebook (em Este computador, logo abaixo).";
+  document.querySelector("#dados-fora > .sub").textContent = "O painel abre as páginas num navegador escondido, uma por vez, e lê os números. Se o Facebook pedir login, use Entrar no Facebook (Configurações › Perfil).";
   document.querySelector(".x-colar > summary").textContent = "Colar a lista da Kryptex (se a leitura automática não der certo)";
-  const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o painel abre o anúncio num navegador escondido e lê título, preço e descrição. Se o Facebook pedir login, use Premissas › Este computador › Entrar no Facebook.";
+  const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o painel abre o anúncio num navegador escondido e lê título, preço e descrição. Se o Facebook pedir login, use Configurações › Perfil › Entrar no Facebook.";
   /* os botões de Este computador e o Entrar no Facebook (Configurações › Perfil): o recado sai no quadro do botão */
   const botaoPc = async e=>{
     const b = e.target.closest("[data-pc]"); if(!b) return;
@@ -4346,9 +4346,9 @@ if(DESKTOP){
 /* no celular, o que precisa de navegador roda no PC */
 if(REMOTO){
   if(APP) $("sobre-versao").textContent = "app do celular, versão " + window.desktop.versao;
-  document.querySelector("#dados-fora > .sub").textContent = "O PC abre as páginas no navegador escondido dele, uma por vez, lê os números e manda para cá. Se o Facebook pedir login, resolva no PC (Premissas › Este computador › Entrar no Facebook).";
+  document.querySelector("#dados-fora > .sub").textContent = "O PC abre as páginas no navegador escondido dele, uma por vez, lê os números e manda para cá. Se o Facebook pedir login, resolva no PC (Configurações › Perfil › Entrar no Facebook).";
   document.querySelector(".x-colar > summary").textContent = "Colar a lista da Kryptex";
-  const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o PC abre o anúncio no navegador escondido dele e lê título, preço e descrição. Se o Facebook pedir login, resolva no PC (Premissas › Este computador › Entrar no Facebook).";
+  const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o PC abre o anúncio no navegador escondido dele e lê título, preço e descrição. Se o Facebook pedir login, resolva no PC (Configurações › Perfil › Entrar no Facebook).";
 }
 
 /* ---------- cidade e distância: municípios do IBGE com latitude e longitude ---------- */
@@ -4490,7 +4490,7 @@ const bvPc = n => ({nome:`PC ${n}`, fonteW:650, selo:"Bronze", x16:1, x1:0});
 function renderBvPcs(){
   const box = $("bv-pcs");
   if(bv.tinhaSetup){
-    box.innerHTML = `<p class="hint" style="margin:0">Você já tem ${setup.maquinas.length} ${plural(setup.maquinas.length,"computador","computadores")} em Montar setup (${setup.maquinas.map(m=>esc(m.nome)).join(", ")}). Para mudar, use aquela tela.</p>`;
+    box.innerHTML = `<p class="hint" style="margin:0">Você já tem ${setup.maquinas.length} ${plural(setup.maquinas.length,"computador","computadores")} em Meu setup (${setup.maquinas.map(m=>esc(m.nome)).join(", ")}). Para mudar, use aquela tela.</p>`;
     $("bv-pc-mais").hidden = true; return;
   }
   $("bv-pc-mais").hidden = false;
@@ -4501,7 +4501,7 @@ function renderBvPcs(){
       <label><span class="lbl">Vagas x16</span><input data-k="x16" type="number" min="0" max="8" step="1" inputmode="numeric" value="${p.x16}" title="Vagas PCIe x16, as compridas"></label>
       <label><span class="lbl">Vagas x1</span><input data-k="x1" type="number" min="0" max="8" step="1" inputmode="numeric" value="${p.x1}" title="Vagas PCIe x1, as curtas (usam riser)"></label>
       <button type="button" class="ghost" data-del="${i}" aria-label="Remover ${esc(p.nome)}">Remover</button>
-    </div>`).join("") || `<p class="hint" style="margin:0">Nenhum computador. Dá para montar depois em Montar setup.</p>`;
+    </div>`).join("") || `<p class="hint" style="margin:0">Nenhum computador. Dá para montar depois em Meu setup.</p>`;
 }
 function lerBvPc(e){
   const row = e.target.closest(".bv-pc"), k = e.target.dataset.k; if(!row || !k) return;
@@ -4523,7 +4523,7 @@ $("bv-fb").addEventListener("click", async ()=>{
   if(!DESKTOP){ return; }
   st.className = "status"; st.textContent = "Entre na sua conta na janela do Facebook e feche a janela quando terminar.";
   try{ await window.desktop.entrarFacebook(); st.className = "status ok"; st.textContent = "Pronto: as buscas do Marketplace vão usar essa conta."; }
-  catch(e){ st.className = "status erro"; st.textContent = "Não deu certo agora. Dá para entrar depois em Premissas › Este computador."; }
+  catch(e){ st.className = "status erro"; st.textContent = "Não deu certo agora. Dá para entrar depois em Configurações › Perfil."; }
 });
 function abrirBoasVindas(novo){
   const p = perfil();
@@ -4563,7 +4563,7 @@ function renderBvResumo(){
     `<li>${nome ? `<b>${esc(nome)}</b>, em` : "Em"} <b>${c ? esc(c.n)+"/"+c.uf : "—"}</b>, procurando anúncios até <b>${$("bv-raio").value} km</b></li>`,
     `<li>Luz a <b>${brl(t||0)} por kWh</b>${+$("bv-bandeira").value ? " mais a bandeira" : ""}, ${+$("bv-horas").value||24} horas por dia</li>`,
     `<li>Compensa quando se paga em até <b>${+$("bv-meses").value||12} meses</b>, com ${+$("bv-margem").value||0}% de margem de segurança</li>`,
-    `<li>${n ? `<b>${n} ${plural(n,"computador","computadores")}</b> para minerar` : "Computadores: dá para montar depois em Montar setup"}</li>`
+    `<li>${n ? `<b>${n} ${plural(n,"computador","computadores")}</b> para minerar` : "Computadores: dá para montar depois em Meu setup"}</li>`
   ].join("");
   $("bv-pronto-txt").textContent = OF_PODE() ? "Próximo passo: procurar ofertas de placas perto de você. As placas que você já tem entram em Minhas placas." : "Próximo passo: cadastrar as placas que você já tem em Minhas placas ou ver quais compensam em Todas as placas.";
 }
@@ -4800,7 +4800,7 @@ async function buscarOfertas(op){
   if(ofEst.rodando){ if(auto || remoto) return {ok:false, texto:"Já tem uma busca rodando no PC."}; ofEst.parar = true; ofStatus("Parando depois da página atual…"); return; }
   if(!OF_PODE()) return {ok:false, texto:"A busca de ofertas só funciona no aplicativo do computador."};
   if(!temCidade()) return fim("Informe a sua cidade primeiro (botão Mudar cidade).", "erro");
-  if(atualizandoDados || analisando) return fim("Espere terminar a leitura em andamento (Premissas ou Analisar anúncio) e tente de novo.", "erro");
+  if(atualizandoDados || analisando) return fim("Espere terminar a leitura em andamento (Configurações ou Analisar anúncio) e tente de novo.", "erro");
   const sites = remoto ? ["fb","olx"].filter(s=>[].concat(op.sites||[]).includes(s)) : [$("of-fb").checked && "fb", $("of-olx").checked && "olx"].filter(Boolean);
   if(!sites.length) return fim("Marque o Marketplace, a OLX ou os dois.", "erro");
   const ids = remoto && Array.isArray(op.modelos) && op.modelos.length ? op.modelos.filter(id=>byId[id]) : modelosOfertas();
@@ -4909,7 +4909,7 @@ async function lerDetalhesOferta(x){
       return;
     }
     const r = await window.desktop.detalhesAnuncio({site:x.site, url:x.url});
-    if(r && r.bloqueio) x.det = {erro: r.bloqueio==="login" ? "O Facebook pediu login. Use Premissas › Este computador › Entrar no Facebook." : "O site pediu uma verificação. Use Premissas › Este computador › Mostrar o navegador escondido."};
+    if(r && r.bloqueio) x.det = {erro: r.bloqueio==="login" ? "O Facebook pediu login. Use Configurações › Perfil › Entrar no Facebook." : "O site pediu uma verificação. Use Configurações › Este computador › Mostrar o navegador escondido."};
     else x.det = x.site==="fb" ? lerDetalheFb(r && r.texto) : lerDetalheOlx(r && r.texto);
   }catch(e){ x.det = {erro: REMOTO ? "Não deu para pedir ao PC: " + (e && e.message || e) : "Não consegui abrir o anúncio agora. Tente de novo em alguns segundos."}; }
   finally{ ofEst.lendo.delete(x.k); analisando = false; if(!REMOTO) salvarOfertas(); renderOfertas({k:x.k, of:"det"}); }
@@ -5167,7 +5167,7 @@ function renderBranca(){
   $("br-hint").textContent = `Ponta das ${horaTxt(i)} às ${horaTxt(f)}; intermediária uma hora antes e uma depois (${horaTxt(i-1)} às ${horaTxt(i)} e ${horaTxt(f)} às ${horaTxt(f+1)}).`
     + (v.estimado.length ? " Os campos em branco usam uma estimativa a partir da convencional: confira os valores no site da sua distribuidora." : "");
   const t = totaisSetup({horas:24});
-  if(!(t.tomada>0)){ box.innerHTML = `<div class="empty">Cadastre as suas placas (Minhas placas) ou as máquinas (Montar setup) para comparar.</div>`; return; }
+  if(!(t.tomada>0)){ box.innerHTML = `<div class="empty">Cadastre as suas placas (Minhas placas) ou as máquinas (Meu setup) para comparar.</div>`; return; }
   const kw = t.tomada/1000, band = +cfg.bandeira||0;
   const conv = {horas:720, luz:kw*720*(v.conv+band), bruto:t.bruto}; conv.lucro = conv.bruto - conv.luz;
   const linhas = [
@@ -5407,7 +5407,7 @@ function renderCelular(){
   $("cel-desligado").hidden = lig; $("cel-ligado").hidden = !lig;
   $("cel-topico").textContent = c.topico || "";
   for(const k of ["resumo","ofertas","sinal","maquinas"]) $("cel-"+k).checked = !!c[k];
-  $("cel-maquinas-h").textContent = c.maquinas && !kxCfg().ligado && !(PODE_KXA() && kxaCfg().ligado) ? "Ligue a leitura do app da Kryptex deste PC ou da sua conta da Kryptex (Premissas) para esses avisos chegarem." : "Vem do app da Kryptex deste PC (a cada minuto) e da sua conta da Kryptex (de meia em meia hora), as duas em Premissas.";
+  $("cel-maquinas-h").textContent = c.maquinas && !kxCfg().ligado && !(PODE_KXA() && kxaCfg().ligado) ? "Ligue a leitura do app da Kryptex deste PC ou da sua conta da Kryptex (Configurações › Integrações e Perfil) para esses avisos chegarem." : "Vem do app da Kryptex deste PC (a cada minuto) e da sua conta da Kryptex (de meia em meia hora), as duas em Configurações (Integrações e Perfil).";
   if(document.activeElement!==$("cel-hora")) $("cel-hora").value = c.hora || "08:00";
   $("cel-ofertas-h").textContent = c.ofertas && !alerta.horas ? "Ligue Procurar sozinho, em Ofertas, para a busca rodar sem você." : "Os mesmos avisos que aparecem no Windows, com o link do anúncio.";
   const st = $("cel-status");
@@ -5647,7 +5647,7 @@ function registrarFalhaKx(estado, detalhe){
   /* login: avisa uma vez por dia (não na primeira leitura de todas, quando ainda nem entrou) */
   if(estado==="login" && kx.quando && (antes!=="login" || Date.now() - (kx.loginAvisou||0) > 864e5)){
     kx.loginAvisou = Date.now();
-    avisoKx("login", "A Kryptex pediu para entrar de novo", "Abra o painel e clique em Entrar na Kryptex (Premissas › Sua conta da Kryptex). Até lá o painel não vê se as máquinas param.");
+    avisoKx("login", "A Kryptex pediu para entrar de novo", "Abra o painel e clique em Entrar na Kryptex (Configurações › Perfil › Sua conta da Kryptex). Até lá o painel não vê se as máquinas param.");
   }
   else if(estado!=="login" && kx.quando && Date.now() - kx.quando > 6*3600e3 && Date.now() - (kx.falhaAvisou||0) > 864e5){
     kx.falhaAvisou = Date.now();
@@ -5730,8 +5730,8 @@ function renderKryptex(){
   }
   $("kx-quando").textContent = kxLendo ? "lendo agora…" : kx.quando ? `lida ${quando(kx.quando)}${pode ? "" : " (o PC confere de meia em meia hora)"}` : "";
   const L = [];
-  if(kx.estado==="login") L.push(`<p class="kx-aviso w">${pode ? "A Kryptex pediu para você entrar na conta. Clique em Entrar na Kryptex, entre e feche a janela." : "A Kryptex pediu para entrar de novo: resolva no PC (Premissas › Sua conta da Kryptex › Entrar na Kryptex)."}</p>`);
-  else if(kx.estado && kx.estado!=="ok") L.push(`<p class="kx-aviso w">Última tentativa: ${esc(MSG_KX[kx.estado] || "erro")}${kx.msg ? ` (${esc(kx.msg)})` : ""}. ${kx.estado==="formato" ? "Use Copiar o que o painel leu e mande na conversa com o Claude para ajustar a leitura." : kx.estado==="bloqueado" && pode ? "O painel tenta de novo sozinho; se continuar, abra Premissas › Este computador › Mostrar o navegador escondido e resolva a verificação." : "O painel tenta de novo sozinho."}</p>`);
+  if(kx.estado==="login") L.push(`<p class="kx-aviso w">${pode ? "A Kryptex pediu para você entrar na conta. Clique em Entrar na Kryptex, entre e feche a janela." : "A Kryptex pediu para entrar de novo: resolva no PC (Configurações › Perfil › Sua conta da Kryptex › Entrar na Kryptex)."}</p>`);
+  else if(kx.estado && kx.estado!=="ok") L.push(`<p class="kx-aviso w">Última tentativa: ${esc(MSG_KX[kx.estado] || "erro")}${kx.msg ? ` (${esc(kx.msg)})` : ""}. ${kx.estado==="formato" ? "Use Copiar o que o painel leu e mande na conversa com o Claude para ajustar a leitura." : kx.estado==="bloqueado" && pode ? "O painel tenta de novo sozinho; se continuar, abra Configurações › Este computador › Mostrar o navegador escondido e resolva a verificação." : "O painel tenta de novo sozinho."}</p>`);
   else if(!kx.quando) L.push(`<p class="sub" style="margin:0">${kxLendo ? "Lendo a sua conta…" : "Ainda não leu a conta."}</p>`);
   if(kx.maquinas.length){
     const pill = m => m.estado==="parada" ? `<span class="pill b">Parada</span>` : m.estado==="lenta" ? `<span class="pill w">Rendendo menos</span>` : `<span class="pill g">Minerando</span>`;
@@ -6345,11 +6345,11 @@ if(PODE_KXA()){
   setInterval(()=>{ lerKryptexApp().catch(()=>{}); }, KXA_CADA);
 }
 
-/* ---------- Premissas › Placa de vídeo deste PC: os ajustes da placa AMD, no lugar do MSI Afterburner ----------
+/* ---------- Configurações › Mineração › Placa de vídeo deste PC: os ajustes da placa AMD, no lugar do MSI Afterburner ----------
    Quem lê e grava na placa é o programa do PC (placa.js, com o leitor placa-amd.ps1, pela ponte window.desktop.placa); a
    página mostra a leitura, os campos e a situação de cada placa e pede para cuidar, aplicar e voltar ao de fábrica.
    O estado chega por carregarPlaca(): ao abrir o painel, a cada aviso do programa (aoMudar; com o painel cuidando, a vigia
-   avisa a cada minuto), ao abrir Premissas e a cada minuto com ela aberta. Os avisos do programa (travou, outro programa,
+   avisa a cada minuto), ao abrir Configurações › Mineração e a cada minuto com ela aberta. Os avisos do programa (travou, outro programa,
    ventoinha, não conseguiu aplicar) vêm no estado, uma vez só, e vão para o Windows e o celular, como os do app da Kryptex.
    A min-placa leva o ajuste guardado e a situação para o celular, que só mostra. */
 function PODE_PLACA(){ return DESKTOP && !!(window.desktop && window.desktop.placa && typeof window.desktop.placa.estado === "function"); }
@@ -6422,7 +6422,7 @@ function gravarMinPlaca(){
 function avisoPlaca(ev){
   if(!ev || !ev.titulo || !PODE_PLACA()) return;
   const titulo = String(ev.titulo), corpo = String(ev.corpo || "");
-  if(window.desktop.notificar) window.desktop.notificar({titulo, corpo, tela:"premissas"}).catch(()=>{});
+  if(window.desktop.notificar) window.desktop.notificar({titulo, corpo, tela:"mineracao"}).catch(()=>{});
   if(celAtivo("maquinas")) window.desktop.celular.enviar({tipo:"maquina", titulo, corpo}).catch(()=>{});
 }
 /* um pedido de cada vez: quem chama durante outro pega o mesmo, que roda mais uma vez no fim */
@@ -6658,7 +6658,7 @@ if(PODE_PLACA()){
   $("placa-lista").addEventListener("input", editouPlaca);
   $("placa-lista").addEventListener("change", editouPlaca);
   carregarPlaca();
-  setInterval(()=>{ if(!$("v-premissas").hidden) carregarPlaca(); }, PLACA_CADA);
+  setInterval(()=>{ if(!$("v-mineracao").hidden) carregarPlaca(); }, PLACA_CADA);
 }
 /* no celular: o ajuste e a situação que o PC guardou na min-placa, só para ver (quem muda é o PC) */
 function renderPlacaCel(){
@@ -6930,7 +6930,7 @@ function renderAppCelPc(){
   if(!c.ligado) status2("appcel-status", "");
   else if(c.erro) status2("appcel-status", "Não deu certo: " + c.erro + ".", "erro");
   else if(apQrAberto) status2("appcel-status", "Esperando o celular ler o código…");
-  else status2("appcel-status", c.ultimoEnvio ? `Última mensagem para o celular: ${quando(c.ultimoEnvio)}.` : "Com o app vinculado, fechar a janela deixa o painel no ícone perto do relógio: o celular só recebe dados com o painel aberto neste PC. Abrir junto com o Windows: em Este computador, acima.");
+  else status2("appcel-status", c.ultimoEnvio ? `Última mensagem para o celular: ${quando(c.ultimoEnvio)}.` : "Com o app vinculado, fechar a janela deixa o painel no ícone perto do relógio: o celular só recebe dados com o painel aberto neste PC. Abrir junto com o Windows: em Configurações › Este computador.");
 }
 function avisoApc(txt, tipo){ status2("appcel-status", txt, tipo); $("appcel-status").dataset.fixo = String(Date.now() + 9000); }
 /* um celular novo apareceu com o QR code aberto: pronto, vinculou */
@@ -6950,7 +6950,7 @@ async function mudarAppCel(op){ try{ apCfg = await window.desktop.appCelular.con
 if(APC){
   window.desktop.appCelular.aoMudar(s=>{ apCfg = s; conferirVinculo(); renderAppCelPc(); });
   window.desktop.appCelular.config().then(c=>{ apCfg = c; renderAppCelPc(); sincronizarSegundoPlano(); }).catch(()=>{});
-  setInterval(()=>{ if(apCfg && apCfg.ligado && !$("v-premissas").hidden) renderAppCelPc(); }, 30e3);   /* "visto há x min" */
+  setInterval(()=>{ if(apCfg && apCfg.ligado && !$("v-integracoes").hidden) renderAppCelPc(); }, 30e3);   /* "visto há x min" */
   $("appcel-vincular").addEventListener("click", async ()=>{ await mudarAppCel({vincular:true}); if(apCfg && apCfg.ligado) abrirQrApp(); });
   $("appcel-outro").addEventListener("click", abrirQrApp);
   $("appcel-pronto").addEventListener("click", ()=>{ apQrAberto = false; apIdsAntes = null; renderAppCelPc(); $("appcel-outro").focus(); });
@@ -7030,7 +7030,7 @@ function renderAppNova(i, e){
 }
 if(APP){
   renderAppCel();
-  setInterval(()=>{ if(!$("v-premissas").hidden) renderAppCel(); }, 30e3);
+  setInterval(()=>{ if(!$("v-computador").hidden) renderAppCel(); }, 30e3);
   if(window.desktop.atualizador){
     window.desktop.atualizador.aoMudar(()=>renderAppCel());
     $("estecel-procurar").addEventListener("click", async ev=>{
@@ -7231,7 +7231,7 @@ if(DESKTOP && window.desktop.atualizacao){
   window.desktop.atualizacao.aoMudar(s=>{
     const antes = atuEst && atuEst.estado; if(s) atuEst = s; renderAtualizacao();
     if(s && s.estado==="pronta" && antes!=="pronta" && window.desktop.janelaVisivel)
-      window.desktop.janelaVisivel().then(v=>{ if(!v) window.desktop.notificar({titulo:`Versão ${s.versao || "nova"} do painel pronta`, corpo:"Abra o painel e clique em Reiniciar e atualizar, ou ela é instalada quando você sair.", tela:"premissas"}); }).catch(()=>{});
+      window.desktop.janelaVisivel().then(v=>{ if(!v) window.desktop.notificar({titulo:`Versão ${s.versao || "nova"} do painel pronta`, corpo:"Abra o painel e clique em Reiniciar e atualizar, ou ela é instalada quando você sair.", tela:"computador"}); }).catch(()=>{});
   });
   window.desktop.atualizacao.estado().then(s=>{ if(s) atuEst = s; renderAtualizacao(); }).catch(()=>{});
   $("atu-btn").addEventListener("click", ()=>{
@@ -7639,7 +7639,7 @@ document.addEventListener("click", e=>{ const b = e.target.closest("button[data-
    fluxoSim (o dinheiro mês a mês) e taxaEmprestimo (os juros); a mineração vem do Montar setup (calcMaq). */
 /* imposto de renda da aplicação pelo tempo (tabela regressiva): até 6 meses, até 12, até 24 e depois */
 function irRegressivo(m){ return m<=6 ? 0.225 : m<=12 ? 0.20 : m<=24 ? 0.175 : 0.15; }
-/* quanto a conta rende ao mês: o seu % do CDI das Premissas, em 21 dias úteis */
+/* quanto a conta rende ao mês: o seu % do CDI (Configurações › Mineração), em 21 dias úteis */
 function taxaMesCdi(){
   const dia = Math.pow(1+(+cfg.cdi||0)/100, 1/252) - 1;
   return Math.pow(1 + dia*(+cfg.pctCdi||0)/100, 21) - 1;
@@ -7743,7 +7743,7 @@ function fatorKxReal(l){
   return est > 0 && real > 0 ? Math.min(2, Math.max(0.2, real/est)) : null;
 }
 /* a correção que o simulador usa: no PC, a leitura de agora do app da Kryptex; senão (e no celular) a do retrato. Sem
-   nenhuma, a estimativa da Kryptex com a margem de segurança das Premissas: as duas medem o mesmo e não entram juntas */
+   nenhuma, a estimativa da Kryptex com a margem de segurança de Configurações: as duas medem o mesmo e não entram juntas */
 function fatorSim(){
   let f = null, de = null;
   try{ if(PODE_KXA() && kxa && kxa.leitura){ f = fatorKxReal(kxa.leitura); de = kxa.leitura; } }catch(e){ f = null; }

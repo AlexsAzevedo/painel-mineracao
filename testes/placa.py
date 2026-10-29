@@ -339,7 +339,7 @@ def pc(p):
     pg.evaluate("carregarPlaca()")
     pg.wait_for_timeout(100)
     nots = [x for x in pg.evaluate("window.__notificacoes") if x.get("titulo") == TRAVOU_T]
-    checa("aviso no Windows", len(nots) == 1 and nots[0].get("corpo") == TRAVOU_C and nots[0].get("tela") == "premissas", nots)
+    checa("aviso no Windows", len(nots) == 1 and nots[0].get("corpo") == TRAVOU_C and nots[0].get("tela") == "mineracao", nots)
     cel = [x for x in pg.evaluate("window.__celular") if x.get("titulo") == TRAVOU_T]
     checa("aviso no celular", len(cel) == 1 and cel[0].get("tipo") == "maquina" and cel[0].get("corpo") == TRAVOU_C, cel)
     pg.evaluate("carregarPlaca()")

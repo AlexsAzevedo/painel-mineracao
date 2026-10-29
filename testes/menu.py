@@ -1,7 +1,7 @@
 """O menu novo (1.12.0): três áreas (Resumo geral, Comprar e Configurações), os botões das telas no alto, Configurações
 em cinco telas e os endereços de antes (dados inventados).
 Uso: python3 testes/menu.py"""
-import os, sys
+import os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from apoio import *  # noqa: F401,F403
 
@@ -163,6 +163,42 @@ def facebook(p):
     pg.context.close()
 
 
+# o texto da página sem as novidades das versões antigas (que continuam como estão) e sem os comentários
+NOVIDADES_RE = re.compile(r"const NOVIDADES = \[.*?\n\];", re.S)
+COMENTARIOS_RE = re.compile(r"/\*.*?\*/", re.S)
+SEM_NOVID = """(() => { const n = document.getElementById('novid'), ia = n && !n.hidden; if (ia) n.hidden = true;
+  const t = document.body.innerText; if (ia) n.hidden = false; return t; })()"""
+
+
+def textos(p):
+    for modo, larg, alt in (("pc", 1366, 900), ("celular", 390, 844)):
+        pg = abrir(p, larg, alt, dados=DADOS, pc=(modo == "pc"), celular=(modo == "celular"))
+        achados = []
+        for v in TODAS:
+            pg.evaluate(f"irPara('{v}')"); pg.wait_for_timeout(60)
+            if re.search(r"(?i)premissas", pg.evaluate(SEM_NOVID)):
+                achados.append(v)
+        checa(f"nenhum Premissas à vista ({modo})", not achados, achados)
+        pg.context.close()
+    pagina = open(PAGINA, encoding="utf-8").read()
+    fonte = COMENTARIOS_RE.sub("", NOVIDADES_RE.sub("", pagina)).replace('{premissas:"mineracao"}', "")   # o apelido, para os endereços de antes
+    restos = [m.group(0) for m in re.finditer(r'(?i).{0,40}premissas.{0,40}', fonte)]
+    checa("nenhum Premissas no código, fora as novidades antigas", not restos, restos[:6])
+    # toda tela que o código procura pelo id existe (uma seção que mudou de nome deixaria um $("v-...") nulo num setInterval)
+    citadas = set(re.findall(r'\$\(\s*["\']v-([a-z]+)["\']\s*\)', fonte)) | set(re.findall(r'getElementById\(\s*["\']v-([a-z]+)["\']\s*\)', fonte))
+    faltam = sorted(v for v in citadas if f'id="v-{v}"' not in pagina)
+    checa("toda tela citada no código existe", citadas and not faltam, faltam)
+    ponte = open(os.path.join(RAIZ, "celular", "src", "ponte-app.js"), encoding="utf-8").read()
+    checa("tela de vincular", "Premissas" not in ponte and "Configurações › Integrações › App do celular" in ponte)
+    main = open(os.path.join(RAIZ, "desktop", "main.js"), encoding="utf-8").read()
+    checa("senha do acesso", "Premissas" not in main and "Configurações › Integrações › Abrir no navegador do celular" in main)
+    pg = abrir(p, dados=DADOS, pc=True)
+    pg.evaluate("PODE_PLACA = () => true; avisoPlaca({titulo: 'x', corpo: 'y'})"); pg.wait_for_timeout(150)
+    nots = pg.evaluate("window.__notificacoes")
+    checa("avisos", any(n.get("tela") == "mineracao" for n in nots), nots)
+    pg.context.close()
+
+
 def links(p):
     pg = abrir(p, dados=DADOS, pc=True)
     clica(pg, ".credito button"); pg.wait_for_timeout(250)
@@ -187,4 +223,5 @@ with sync_playwright() as p:
     largura(p)
     facebook(p)
     links(p)
+    textos(p)
 fim()

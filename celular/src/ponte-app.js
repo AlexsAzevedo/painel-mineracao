@@ -512,7 +512,7 @@ html.pm-vinculando .app{visibility:hidden}
       <div class="pm-topo"><img src="icone.png" alt=""><div><h1 id="pm-t" tabindex="-1">Painel de Mineração</h1><small>app do celular · versão ${PAINEL}</small></div></div>
       <div id="pm-inicio" class="pm-c" style="gap:16px">
         <p class="pm-sub">Vincule este celular ao painel do seu PC. Os dados ficam no PC e chegam aqui criptografados; o que você mudar aqui vai para lá.</p>
-        <ol class="pm-passos"><li>No PC, abra o painel e vá em <b>Premissas › App do celular</b>.</li><li>Clique em <b>Vincular um celular</b>.</li><li>Aqui, toque em <b>Ler o QR code</b> e aponte a câmera para o código da tela do PC.</li></ol>
+        <ol class="pm-passos"><li>No PC, abra o painel e vá em <b>Configurações › Integrações › App do celular</b>.</li><li>Clique em <b>Vincular um celular</b>.</li><li>Aqui, toque em <b>Ler o QR code</b> e aponte a câmera para o código da tela do PC.</li></ol>
         <div class="pm-botoes"><button type="button" class="pri" id="pm-ler">Ler o QR code</button><button type="button" id="pm-colar-b">Colar o código</button></div>
         <div class="pm-colar" id="pm-colar" hidden>
           <div><label for="pm-cod">Código do PC (começa com PM1-)</label><textarea id="pm-cod" rows="3" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea></div>
@@ -530,7 +530,7 @@ html.pm-vinculando .app{visibility:hidden}
         <button type="button" id="pm-desistir">Cancelar</button>
       </div>
       <p class="pm-status" id="pm-status" role="status" aria-live="polite"></p>
-      <p class="pm-nota">Os avisos (resumo do dia, ofertas, PC parado) continuam chegando pelo app ntfy, se você ligou em Premissas › Avisos no celular.</p>
+      <p class="pm-nota">Os avisos (resumo do dia, ofertas, PC parado) continuam chegando pelo app ntfy, se você ligou em Configurações › Integrações › Avisos no celular.</p>
     </div>`;
     document.body.appendChild(vincEl);
     $("pm-ler").addEventListener("click", lerQr);
@@ -592,7 +592,7 @@ html.pm-vinculando .app{visibility:hidden}
           if (cod) { pararCamera(); vincular(cod); return; }
           if (Date.now() - avisouOutro > 3000) {
             avisouOutro = Date.now();
-            status(/\.apk/i.test(r.data) ? "Esse é o código para baixar o app. Aponte para o outro, o de vincular." : "Esse QR code não é do painel. Aponte para o código em Premissas › App do celular, no PC.", "erro");
+            status(/\.apk/i.test(r.data) ? "Esse é o código para baixar o app. Aponte para o outro, o de vincular." : "Esse QR code não é do painel. Aponte para o código em Configurações › Integrações › App do celular, no PC.", "erro");
           }
         }
       }
@@ -608,7 +608,7 @@ html.pm-vinculando .app{visibility:hidden}
   let esperaIv = null;
   async function vincular(txt) {
     const cod = S.lerCodigo(txt);
-    if (!cod) { status("Esse código não é o do painel. Ele começa com PM1- e aparece em Premissas › App do celular, no PC.", "erro"); return; }
+    if (!cod) { status("Esse código não é o do painel. Ele começa com PM1- e aparece em Configurações › Integrações › App do celular, no PC.", "erro"); return; }
     let c;
     try { c = await S.abrirCanal(cod, { servidor: SERVIDOR }); } catch (e) { status("Esse código não é o do painel.", "erro"); return; }
     /* vínculo novo: esquece o que havia e começa do zero com os dados do PC */

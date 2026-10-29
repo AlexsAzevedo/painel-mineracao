@@ -47,7 +47,7 @@ contextBridge.exposeInMainWorld("desktop", {
   segundoPlano: (op) => ipcRenderer.invoke("segundo-plano", op ? { bandeja: !!op.bandeja, iniciar: !!op.iniciar, kxa: !!op.kxa } : null),
   /* as marcas de energia deste PC: quando o Windows ligou, desligou normalmente, suspendeu e acordou ({desde, marcas}) */
   energia: () => ipcRenderer.invoke("energia"),
-  /* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha da pessoa) */
+  /* Configurações › Este computador: abrir junto com o Windows e abrir minimizado (a escolha da pessoa) */
   inicioWindows: (op) => {
     if (!op || typeof op !== "object") return ipcRenderer.invoke("inicio-windows", null);
     const o = {};
