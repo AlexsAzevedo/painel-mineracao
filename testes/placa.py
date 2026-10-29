@@ -406,6 +406,33 @@ def duas(p):
     pg.context.close()
 
 
+@parte
+def contagem(p):
+    """durante os 15 minutos do teste, a min-placa não vai para o celular a cada minuto (cada uma é uma mensagem do ntfy.sh):
+    só no começo, com 10 e 5 minutos faltando e no fim"""
+    pg = abrir(p, dados=DADOS, pc=True, hash="premissas", extra=ponte(cuidar=True))
+    pg.wait_for_timeout(300)
+    c = cartao(pg)
+    campo(c, "potencia").fill("-21")
+    c.locator('[data-acao="aplicar"]').click()
+    pg.wait_for_timeout(300)
+    n0, m0 = pg.evaluate("window.__minPlaca"), mudancas(pg)
+    vistos = []
+    for f in range(14, 0, -1):
+        pg.evaluate("(a) => { const e = __pst.placas[a[0]]; e.faltam = a[1]; e.teste.minutos = 15 - a[1]; }", [CHAVE, f])
+        pg.evaluate("carregarPlaca()")
+        vistos.append((f, pg.evaluate("JSON.parse(localStorage.getItem('min-placa')).placas[0].faltam")))
+    pg.evaluate("(k) => { Object.assign(__pst.placas[k], {teste: null, situacao: 'bom', faltam: null, bomDesde: Date.now(), bom: __pst.placas[k].salvo}); }", CHAVE)
+    pg.evaluate("carregarPlaca()")
+    checa("contagem: a min-placa só com 10 e 5 minutos faltando e no fim", pg.evaluate("window.__minPlaca") - n0 == 3, [pg.evaluate("window.__minPlaca") - n0, vistos])
+    checa("contagem: o celular fica sabendo 3 vezes", mudancas(pg) - m0 == 3, mudancas(pg) - m0)
+    checa("contagem: o que o celular vê", [v for _, v in vistos] == [15] * 4 + [10] * 5 + [5] * 5, vistos)
+    checa("contagem: no fim, bom", pg.evaluate("JSON.parse(localStorage.getItem('min-placa')).placas[0].situacao") == "bom")
+    checa("contagem: o PC mostra os minutos de verdade", cartao(pg).locator(".placa-sit").text_content() == "Ajuste bom desde 25/10 14:00.", cartao(pg).locator(".placa-sit").text_content())
+    checa("sem erros (contagem)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
 MIN_PLACA = {"v": 1, "quando": AGORA_MS - 120000, "cuidar": True,
              "placas": [{"nome": NOME, "ajuste": AJ, "situacao": "teste", "desde": AGORA_MS - 180000, "faltam": 12, "travou": None}]}
 AJ_TXT = "Potência −20% · Tensão −75 mV · Clock máximo +0 MHz · Memória 2518 MHz · Ventoinha fixa em 74%"
@@ -508,6 +535,7 @@ with sync_playwright() as p:
     pc(p)
     abrir_premissas(p)
     duas(p)
+    contagem(p)
     celular(p)
     listas(p)
     tela(p, FOTOS)

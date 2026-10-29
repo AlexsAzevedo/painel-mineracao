@@ -70,6 +70,13 @@ function novo(op = {}) {
   x.vigiar = async (vezes = 1, passo = MIN) => { for (let i = 0; i < vezes; i++) { x.T += passo; await x.placa.vigiar(); } };
   return x;
 }
+/* o painel aberto de novo (outro processo): o mesmo arquivo, o mesmo leitor e as mesmas marcas, com o relógio seguindo */
+function reabrir(x) {
+  const y = { ...x, mudou: 0 };
+  y.placa = Placa.criar({ arquivo: x.arquivo, amd: x.amd, energia: () => y.en, agora: () => y.T, aoMudar: () => { y.mudou++; } });
+  y.vigiar = async (vezes = 1, passo = MIN) => { for (let i = 0; i < vezes; i++) { y.T += passo; await y.placa.vigiar(); } };
+  return y;
+}
 
 (async () => {
   try {
@@ -173,6 +180,64 @@ function novo(op = {}) {
       clock: { suporta: true, padrao: 0 }, memoria: { suporta: true, padrao: 2518 }, temporizacao: { suporta: true, padrao: 0 }, ventoinha: { suporta: true } }));
     assert.deepStrictEqual(est.eventos.map((e) => e.corpo), ["AMD Radeon RX 9070 XT: o driver de vídeo reiniciou 2 vezes em 24 horas. O painel voltou a placa para o de fábrica."]);
     assert.strictEqual(est.placas[CHAVE].travou[0].ajuste.potencia, -20);
+
+    /* a inicialização rápida do Windows (o padrão): Sair, desligar e ligar não deixa marca, e a placa volta de fábrica.
+       Sem ter visto o ajuste desde que abriu, o painel não conclui que o driver reiniciou */
+    x = novo();
+    await x.placa.cuidar(true);
+    r = await x.placa.aplicar(CHAVE, { ...A, potencia: -21 });
+    assert(r.ok, JSON.stringify(r));
+    x.amd.c.uso = 100;
+    await x.vigiar(3);
+    x.placa.saiu();
+    x.T += 10 * H;
+    x.amd.reiniciarDriver();
+    x = reabrir(x);
+    await x.vigiar();
+    est = await x.placa.estado();
+    assert.deepStrictEqual(est.eventos, [], "teste de antes de abrir, placa de fábrica sem marca: sem travou");
+    assert(x.amd.c.potencia === -21 && est.placas[CHAVE].teste && est.placas[CHAVE].teste.minutos === 0, "aplica de novo e recomeça o teste: " + JSON.stringify(est.placas[CHAVE].teste));
+    /* sem teste: duas voltas assim em 24 horas não travam o ajuste (nem contam como o driver reiniciando) */
+    x = novo();
+    await x.placa.cuidar(true);
+    for (let i = 0; i < 2; i++) {
+      x.placa.saiu();
+      x.T += 3 * H;
+      x.amd.reiniciarDriver();
+      x = reabrir(x);
+      await x.vigiar();
+    }
+    est = await x.placa.estado();
+    assert.deepStrictEqual(est.eventos, [], "duas voltas sem marca: sem aviso");
+    assert.deepStrictEqual(est.placas[CHAVE].salvo, A, "o ajuste continua o mesmo");
+    assert.strictEqual(x.amd.c.potencia, -20, "aplicado de novo");
+    /* o PC suspendeu no meio do teste e a placa acordou de fábrica; a primeira gravação falha: depois da espera, o painel
+       aplica de novo, sem travou (a marca da suspensão não se perde com a falha) */
+    x = novo();
+    await x.placa.cuidar(true);
+    r = await x.placa.aplicar(CHAVE, { ...A, potencia: -21 });
+    assert(r.ok, JSON.stringify(r));
+    x.amd.c.uso = 100;
+    await x.vigiar(2);
+    x.en.marcas.push({ t: x.T + 10e3, tipo: "suspendeu" }, { t: x.T + 50e3, tipo: "acordou" });
+    x.amd.reiniciarDriver();
+    x.amd.falha.aplicar = { ok: false, erro: "prazo", msg: "o leitor da placa não respondeu" };
+    await x.vigiar();
+    delete x.amd.falha.aplicar;
+    await x.vigiar(1, 11 * MIN);
+    est = await x.placa.estado();
+    assert(!est.eventos.some((e) => e.tipo === "travou"), "sem travou: " + JSON.stringify(est.eventos.map((e) => e.tipo)));
+    assert(x.amd.c.potencia === -21 && est.placas[CHAVE].teste && est.placas[CHAVE].teste.minutos === 0, "aplicou o ajuste em teste de novo: " + JSON.stringify(est.placas[CHAVE].teste));
+    /* com o painel aberto e o ajuste visto, o driver reiniciando no meio do teste ainda é travou */
+    x = novo();
+    await x.placa.cuidar(true);
+    r = await x.placa.aplicar(CHAVE, { ...A, potencia: -21 });
+    x.amd.c.uso = 100;
+    await x.vigiar(2);
+    x.amd.reiniciarDriver();
+    await x.vigiar();
+    est = await x.placa.estado();
+    assert.deepStrictEqual(est.eventos.map((e) => e.corpo), ["AMD Radeon RX 9070 XT: o driver de vídeo reiniciou durante o teste. O painel voltou para o ajuste anterior."]);
 
     /* outro programa: aplica de novo e avisa no máximo uma vez por hora */
     x = novo();

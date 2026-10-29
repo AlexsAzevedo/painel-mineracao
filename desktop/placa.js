@@ -18,6 +18,8 @@ const rpmNovo = () => ({ referencia: 0, amostras: [] });
 
 function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar = () => {} }) {
   let st = carregar(), leitura = null, erro = null, fila = Promise.resolve();
+  /* quando o painel abriu desta vez: o driver só "reiniciou" se o painel viu a placa com o ajuste depois disso */
+  const inicio = agora();
 
   function carregar() {
     try {
@@ -39,7 +41,7 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
   function emFila(fn) { const r = fila.then(fn); fila = r.then(() => {}, () => {}); return r; }
 
   function entrada(chave, nome) {
-    if (!st.placas[chave]) st.placas[chave] = { nome, salvo: null, bom: null, bomDesde: 0, teste: null, travou: [], resetes: [], rpm: rpmNovo(), avisos: {}, ultimaVigia: 0, erroAte: 0 };
+    if (!st.placas[chave]) st.placas[chave] = { nome, salvo: null, bom: null, bomDesde: 0, teste: null, travou: [], resetes: [], rpm: rpmNovo(), avisos: {}, ultimaVigia: 0, vistoOk: 0, erroAte: 0 };
     const e = st.placas[chave];
     if (nome) e.nome = nome;
     for (const [k, v] of [["travou", []], ["resetes", []], ["avisos", {}]]) if (!e[k] || typeof e[k] !== "object") e[k] = v;
@@ -119,7 +121,7 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
         /* assume o que a placa tem agora, sem gravar nada nela */
         for (const p of l.placas) {
           const e = entrada(p.chave, p.nome);
-          Object.assign(e, { salvo: R.ajusteDaLeitura(p), teste: null, resetes: [], rpm: rpmNovo(), erroAte: 0, ultimaVigia: t, bomDesde: t });
+          Object.assign(e, { salvo: R.ajusteDaLeitura(p), teste: null, resetes: [], rpm: rpmNovo(), erroAte: 0, ultimaVigia: t, vistoOk: t, bomDesde: t });
           e.bom = e.salvo;
         }
         tentaGravar(); mudou();
@@ -151,7 +153,7 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
         return { ok: false, erro: (r && r.erro) || "falhou", msg: (r && r.msg) || "" };
       }
       const lido = R.ajusteDaLeitura(r.placa);
-      e.salvo = lido; e.teste.ajuste = lido;
+      e.salvo = lido; e.teste.ajuste = lido; e.vistoOk = agora();
       atualizarLeitura(r.placa);
       tentaGravar(); mudou();
       return { ok: true, itens: r.itens, leitura: r.placa };
@@ -167,7 +169,7 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
       const r = await amd.pedir("fabrica", { chave });
       if (!r || !r.ok) return { ok: false, erro: (r && r.erro) || "falhou", msg: (r && r.msg) || "" };
       const t = agora(), lido = R.ajusteDaLeitura(r.placa);
-      Object.assign(e, { salvo: lido, bom: lido, bomDesde: t, teste: null, resetes: [], rpm: rpmNovo(), erroAte: 0 });
+      Object.assign(e, { salvo: lido, bom: lido, bomDesde: t, teste: null, resetes: [], rpm: rpmNovo(), erroAte: 0, vistoOk: t });
       atualizarLeitura(r.placa);
       tentaGravar(); mudou();
       return { ok: true, itens: r.itens, leitura: r.placa };
@@ -180,7 +182,8 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
     if (d.acao === "contar") { e.teste.minutos = (e.teste.minutos || 0) + 1; return false; }
     if (d.acao === "bom") { e.bom = e.salvo; e.teste = null; e.bomDesde = t; return false; }
     if (d.acao === "aplicar") {
-      if (d.reiniciarTeste && e.teste) { e.teste.desde = t; e.teste.minutos = 0; }
+      const testeAntes = d.reiniciarTeste && e.teste ? { desde: e.teste.desde, minutos: e.teste.minutos } : null;
+      if (testeAntes) { e.teste.desde = t; e.teste.minutos = 0; }
       if (d.contarReset) e.resetes = [...(e.resetes || []).filter((x) => x > t - DIA), t];
       tentaGravar();
       const ref = e.rpm.referencia, rpm = p.agora ? p.agora.ventoinhaRpm : null;
@@ -188,8 +191,11 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
       if (r && r.ok) {
         e.rpm = rpmNovo();
         atualizarLeitura(r.placa);
+        if (R.igual(r.placa, e.salvo)) e.vistoOk = t;
         if (d.aviso) avisar(chave, e, d.aviso, { ref, rpm });
       } else {
+        /* a marca do reinício não se perde com a falha: o teste continua de quando era, e a próxima tentativa o recomeça */
+        if (testeAntes && e.teste) Object.assign(e.teste, testeAntes);
         e.erroAte = t + ESPERA_ERRO;
         avisar(chave, e, "parou", { msg: r && r.msg });
       }
@@ -210,7 +216,7 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
         tentaGravar();
         r = await amd.pedir("aplicar", { chave, ajuste: e.salvo });
       }
-      if (r && r.ok) atualizarLeitura(r.placa); else e.erroAte = t + ESPERA_ERRO;
+      if (r && r.ok) { atualizarLeitura(r.placa); if (R.igual(r.placa, e.salvo)) e.vistoOk = t; } else e.erroAte = t + ESPERA_ERRO;
       avisar(chave, e, "travou", { motivo: d.motivo, fabrica: fabricaJa });
       return true;
     }
@@ -227,12 +233,13 @@ function criar({ arquivo, amd, energia = () => null, agora = Date.now, aoMudar =
         const e = entrada(p.chave, p.nome);
         if (!e.salvo) {
           /* uma placa nova, com o painel já cuidando: assume, como no começo */
-          Object.assign(e, { salvo: R.ajusteDaLeitura(p), teste: null, rpm: rpmNovo(), bomDesde: t, ultimaVigia: t });
+          Object.assign(e, { salvo: R.ajusteDaLeitura(p), teste: null, rpm: rpmNovo(), bomDesde: t, ultimaVigia: t, vistoOk: t });
           e.bom = e.salvo;
           continue;
         }
-        const d = R.decidir({ placa: p, e, energia: en, saiu: st.saiu, agora: t });
+        const d = R.decidir({ placa: p, e, energia: en, saiu: st.saiu, agora: t, inicio });
         const aplicou = await agir(p, e, d, t);
+        if (!aplicou && R.igual(p, e.salvo)) e.vistoOk = t;
         /* a referência da ventoinha fixa: as 3 primeiras rotações depois de aplicar */
         const rpm = p.agora ? p.agora.ventoinhaRpm : null;
         if (!aplicou && e.salvo && e.salvo.ventoinha && e.salvo.ventoinha.modo === "fixa" && !(e.rpm.referencia > 0) && Number.isFinite(rpm)) {

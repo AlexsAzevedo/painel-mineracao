@@ -6356,13 +6356,15 @@ function placaEntrada(e){
   return {nome: String(e.nome || ""), ajuste: e.salvo || null, situacao: e.situacao || "sem", desde: e.teste ? (+e.teste.desde || 0) : (+e.bomDesde || 0),
     faltam: e.teste && Number.isFinite(e.faltam) ? e.faltam : null, travou: e.situacao === "travou" && t ? {quando: t.quando, motivo: t.motivo} : null};
 }
-/* a min-placa (o celular mostra): só quando muda, sem contar a hora; quem nunca usou não grava nada */
+/* a min-placa (o celular mostra): só quando muda, sem contar a hora e com os minutos do teste de 5 em 5 (cada gravação
+   vira uma mensagem para o celular: com 15, 10 e 5 minutos faltando, e não a cada minuto); quem nunca usou não grava nada */
 function gravarMinPlaca(){
   if(!PODE_PLACA() || !placaEst) return;
   const novo = {v:1, quando: Date.now(), cuidar: !!placaEst.cuidar, placas: Object.values(placaEst.placas || {}).map(placaEntrada)};
   const antes = lsGet("min-placa");
   if(!antes && !novo.cuidar && !novo.placas.length) return;
-  if(antes && canon({...antes, quando:0}) === canon({...novo, quando:0})) return;
+  const comparar = m => canon({...m, quando:0, placas: (Array.isArray(m.placas) ? m.placas : []).map(p=>({...p, faltam: p && Number.isFinite(p.faltam) ? Math.ceil(p.faltam/5) : null}))});
+  if(antes && typeof antes === "object" && comparar(antes) === comparar(novo)) return;
   lsSet("min-placa", novo);
 }
 /* um aviso do programa (travou, outro programa, ventoinha, parou): no Windows e no celular, como os do app da Kryptex */

@@ -95,6 +95,8 @@ assert.strictEqual(R.reiniciou(marcas([-5 * MIN, "ligou"]), D, AGORA - 12 * MIN)
 assert.strictEqual(R.reiniciou(marcas([-20 * MIN, "ligou"]), D, 0), null);
 assert.strictEqual(R.reiniciou(marcas([-12 * MIN, "desligou"], [-5 * MIN, "ligou"]), D, 0), "repente", "o desligou antes do começo não conta");
 assert.strictEqual(R.reiniciou(marcas([-5 * MIN, "ligou"], [-4 * MIN, "desligou"], [-3 * MIN, "ligou"]), D, 0), "repente", "vale a primeira ligação");
+assert.strictEqual(R.reiniciou(marcas([-6 * MIN, "suspendeu"], [-5 * MIN, "acordou"]), D, 0), "normal", "acordar da suspensão também (a placa pode voltar de fábrica)");
+assert.strictEqual(R.reiniciou(marcas([-30 * MIN, "suspendeu"], [-20 * MIN, "acordou"]), D, 0), null, "acordou antes do começo não conta");
 
 /* decidir: com teste */
 assert.deepStrictEqual(decide({ e: E({ teste: T() }), energia: marcas([-5 * MIN, "ligou"]) }),
@@ -126,6 +128,22 @@ assert.deepStrictEqual(decide({ e: E({ salvo: auto, rpm: { referencia: 2550, amo
 assert.deepStrictEqual(decide({ e: E({ erroAte: AGORA + MIN }), placa: P({ potencia: { atual: -10 } }) }), { acao: "esperar" });
 assert.deepStrictEqual(decide({ placa: null }), { acao: "nada" });
 assert.deepStrictEqual(decide({ e: E({ salvo: null }) }), { acao: "nada" });
+
+/* decidir: o driver só "reiniciou" se o painel viu a placa com o ajuste desde que abriu (inicio). Com a inicialização
+   rápida do Windows (o padrão), desligar e ligar com o painel fechado não deixa marca, e a placa pode voltar de fábrica:
+   isso é o normal, não um travamento (nem um reinício do driver para contar) */
+const INI = AGORA - 30 * MIN, SUSP = marcas([-4 * MIN, "suspendeu"], [-1 * MIN, "acordou"]);
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ teste: T(), vistoOk: AGORA - 40 * MIN }), placa: FABRICA }), { acao: "aplicar", reiniciarTeste: true },
+  "teste de antes de abrir, placa de fábrica: aplica de novo e recomeça o teste");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ teste: T() }), placa: FABRICA }), { acao: "aplicar", reiniciarTeste: true }, "sem vistoOk: nunca viu");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ teste: T(), vistoOk: AGORA - 5 * MIN }), placa: FABRICA }),
+  { acao: "travou", motivo: "o driver de vídeo reiniciou durante o teste", volta: "bom" }, "viu o ajuste nesta abertura: o driver reiniciou");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ teste: T(), vistoOk: AGORA - 5 * MIN }), placa: FABRICA, energia: SUSP }), { acao: "aplicar", reiniciarTeste: true },
+  "o PC suspendeu e acordou no meio do teste: aplica de novo e recomeça");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ vistoOk: AGORA - 40 * MIN }), placa: FABRICA }), { acao: "aplicar" }, "sem teste, sem ter visto nesta abertura: aplica sem contar");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ vistoOk: AGORA - 40 * MIN, resetes: [AGORA - 2 * H] }), placa: FABRICA }), { acao: "aplicar" }, "e não trava");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ vistoOk: AGORA - 5 * MIN }), placa: FABRICA }), { acao: "aplicar", contarReset: true }, "viu nesta abertura: conta");
+assert.deepStrictEqual(decide({ inicio: INI, e: E({ vistoOk: AGORA - 5 * MIN }), placa: FABRICA, energia: SUSP }), { acao: "aplicar" }, "acordou depois de ver: o normal");
 
 /* mediana */
 assert.strictEqual(R.mediana([2552, 2500, 2600]), 2552);

@@ -633,7 +633,11 @@ public static class PlacaAmd
             }
             r = Gravar(pl, o.n, alvo);
             if (r != 0) return Recusou(id, r);
-            Od8 depois = LerOd8(pl);
+            /* a leitura de volta falhou (o driver pode ter reiniciado com o ajuste): responde que falhou, sem deixar o ComAdl
+               tentar de novo, porque a nova tentativa gravaria o mesmo ajuste outra vez */
+            Od8 depois;
+            try { depois = LerOd8(pl); }
+            catch (FalhaAdl e) { return Erro(id, "falhou", "a placa não respondeu depois de gravar (" + e.Message + ")"); }
             return Json(new J().Put("id", id).Put("ok", true).Put("itens", Itens(alvo, depois)).Put("placa", PlacaJson(pl, depois)));
         });
     }

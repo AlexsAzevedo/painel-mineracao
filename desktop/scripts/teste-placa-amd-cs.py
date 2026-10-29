@@ -189,6 +189,13 @@ def gravar(pasta):
     ok(len(gs) == 1 and gs[0]["placa"] == 4, "duas: %s" % gs)
     ok(len(rs) == 2 and rs[1].get("erro") == "sem-placa", "chave desconhecida: %s" % rs[1:])
 
+    # o driver reiniciou logo depois de gravar (a leitura de volta falha): o leitor não grava de novo, porque um ajuste que
+    # derruba o driver não pode ir duas vezes seguidas; responde que falhou
+    rs, err, ch, *_ = rodar(pasta, "reinicia", [ap(19, {"potencia": -21})])
+    gs = gravacoes(ch)
+    ok(len(gs) == 1, "reinicia no aplicar: gravou %d vezes: %s" % (len(gs), gs))
+    ok(rs and rs[0].get("ok") is False and rs[0].get("erro") == "falhou" and "depois de gravar" in (rs[0].get("msg") or ""), "reinicia no aplicar: %s" % rs)
+
     # toda gravação, menos a do modo sozinho, leva a curva e o zero rpm
     for g in TODAS:
         ok(g["itens"] == {36: 3} or set(range(19, 29)) | {15} <= set(g["itens"]), "gravação sem a curva ou o zero rpm: %s" % g)

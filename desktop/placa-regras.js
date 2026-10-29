@@ -126,12 +126,13 @@ function limparAjuste(x) {
   return a;
 }
 
-/* o Windows ligou de novo depois de "desde"? "normal" (houve o desligamento normal, ou o painel tinha saído pelo Sair e
-   não teria como marcá-lo), "repente" (o PC apagou com o painel aberto) ou null */
+/* o Windows ligou de novo, ou o PC acordou da suspensão, depois de "desde"? "normal" (houve o desligamento normal, o painel
+   tinha saído pelo Sair e não teria como marcá-lo, ou o PC só suspendeu: a placa pode voltar de fábrica), "repente" (o PC
+   apagou com o painel aberto) ou null */
 function reiniciou(energia, desde, saiu) {
   const m = energia && Array.isArray(energia.marcas) ? energia.marcas : [];
   const ligou = m.filter((x) => x && x.tipo === "ligou" && x.t > desde).sort((a, b) => a.t - b.t)[0];
-  if (!ligou) return null;
+  if (!ligou) return m.some((x) => x && x.tipo === "acordou" && x.t > desde) ? "normal" : null;
   if (m.some((x) => x && x.tipo === "desligou" && x.t > desde && x.t < ligou.t)) return "normal";
   if (saiu > desde && saiu < ligou.t) return "normal";
   return "repente";
@@ -144,16 +145,21 @@ function quedaVentoinha(placa, e) {
   return !!(f && f.modo === "fixa" && ref > 0 && rpm != null && rpm < QUEDA * ref);
 }
 
-/* a decisão da vigia para uma placa, a cada minuto */
-function decidir({ placa, e, energia, saiu, agora }) {
+/* a decisão da vigia para uma placa, a cada minuto. inicio: quando o painel abriu desta vez; e.vistoOk: a última vez em que
+   o painel viu a placa com o ajuste guardado. Uma placa de fábrica só é o driver que reiniciou se o painel a viu com o
+   ajuste desde que abriu e o PC não reiniciou nem acordou depois disso: com a inicialização rápida do Windows (o padrão),
+   desligar e ligar com o painel fechado não deixa marca, e a placa pode voltar de fábrica, o que é o normal */
+function decidir({ placa, e, energia, saiu, agora, inicio = 0 }) {
   if (!placa || !e || !e.salvo) return { acao: "nada" };
   if (e.erroAte > agora) return { acao: "esperar" };
   const ok = igual(placa, e.salvo);
+  const viu = (e.vistoOk || 0) >= inicio;
   if (e.teste) {
     const r = reiniciou(energia, e.teste.desde, saiu || 0);
     if (r === "repente") return { acao: "travou", motivo: "o PC desligou de repente durante o teste", volta: "bom" };
     if (r === "normal") return { acao: "aplicar", reiniciarTeste: true };
-    if (placa.deFabrica && !igual(placa, e.teste.ajuste)) return { acao: "travou", motivo: "o driver de vídeo reiniciou durante o teste", volta: "bom" };
+    if (placa.deFabrica && !igual(placa, e.teste.ajuste))
+      return viu ? { acao: "travou", motivo: "o driver de vídeo reiniciou durante o teste", volta: "bom" } : { acao: "aplicar", reiniciarTeste: true };
     if (!ok) return { acao: "aplicar", aviso: "outro" };
     if (quedaVentoinha(placa, e)) return { acao: "aplicar", aviso: "ventoinha" };
     const uso = placa.agora ? placa.agora.usoPct : null;
@@ -162,7 +168,8 @@ function decidir({ placa, e, energia, saiu, agora }) {
   }
   if (ok) return quedaVentoinha(placa, e) ? { acao: "aplicar", aviso: "ventoinha" } : { acao: "nada" };
   if (placa.deFabrica) {
-    if (reiniciou(energia, e.ultimaVigia || 0, saiu || 0)) return { acao: "aplicar" };   /* o PC reiniciou: o normal */
+    /* não viu o ajuste desde que abriu, ou o PC reiniciou ou acordou depois de ver: o normal */
+    if (!viu || reiniciou(energia, e.vistoOk || 0, saiu || 0)) return { acao: "aplicar" };
     const n = (e.resetes || []).filter((t) => t > agora - DIA).length + 1;
     if (n >= 2 && !mesmoAjuste(e.salvo, ajusteDeFabrica(placa)))
       return { acao: "travou", motivo: "o driver de vídeo reiniciou 2 vezes em 24 horas", volta: "fabrica", contarReset: true };
