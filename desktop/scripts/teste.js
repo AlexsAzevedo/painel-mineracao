@@ -317,7 +317,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         await js(`document.getElementById("atu-btn").click()`);
         r.atualizacao.estadosIgual = await ateEstado("em-dia");
         r.atualizacao.inicio = await js(estadoAtu);
-        await js(`irPara("premissas"); document.getElementById("este-pc").scrollIntoView()`);
+        await js(`irPara("computador"); document.getElementById("este-pc").scrollIntoView()`);
         atu.modo = "defeito";
         await js(`document.getElementById("atu-btn").click()`);
         r.atualizacao.estadosDefeito = await ateEstado("erro");
@@ -346,7 +346,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         /* avisos no celular: liga, nome do tópico, teste, resumo (na hora, automático e pedido pelo celular), sinal de vida e volta */
         r.celular = {};
         const naoSinal = (m) => m.sequence_id !== "pc-sinal";
-        await js(`irPara("premissas"); document.getElementById("celular-p").scrollIntoView()`);
+        await js(`irPara("integracoes"); document.getElementById("celular-p").scrollIntoView()`);
         r.celular.antes = await js(`({visivel:!document.getElementById("celular-p").hidden, botaoLigar:!document.getElementById("cel-desligado").hidden, passos:!document.getElementById("cel-ligado").hidden})`);
         await js(`document.getElementById("cel-ligar").click()`); await esperar(800);
         r.celular.ligado = await js(`({topico:document.getElementById("cel-topico").textContent, passos:!document.getElementById("cel-ligado").hidden, botaoLigar:!document.getElementById("cel-desligado").hidden,
@@ -418,7 +418,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
 
         /* abrir no celular: liga o servidor, entra com a senha numa janela de celular e confere que os dois mexem nos mesmos dados */
         r.acesso = {};
-        await js(`irPara("premissas"); document.getElementById("acesso-p").scrollIntoView()`);
+        await js(`irPara("integracoes"); document.getElementById("acesso-p").scrollIntoView()`);
         r.acesso.antes = await js(`({visivel:!document.getElementById("acesso-p").hidden, botao:!document.getElementById("ac-desligado").hidden})`);
         await js(`document.getElementById("ac-ligar").click()`); await esperar(1000);
         const ac = acessoMain.estado(), urlCel = `http://127.0.0.1:${ac.porta}`;
@@ -595,7 +595,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         });
         await new Promise((ok) => srvApp.listen(0, "127.0.0.1", ok));
         /* no PC: Premissas › App do celular › Vincular um celular */
-        await js(`irPara("premissas"); document.getElementById("appcel-p").scrollIntoView()`);
+        await js(`irPara("integracoes"); document.getElementById("appcel-p").scrollIntoView()`);
         r.app.antes = await js(`({visivel:!document.getElementById("appcel-p").hidden, botao:!document.getElementById("appcel-desligado").hidden, titulo:document.getElementById("t-appcel").textContent})`);
         await js(`document.getElementById("appcel-vincular").click()`); await esperar(1200);
         const ap = appMain.publico();
@@ -881,8 +881,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         for (let i = 0; i < 40 && (await ja(`kxaSnap && kxaSnap.estado`)) !== "minerando"; i++) await esperar(250);
         r.kxApp.noCelular.depois = { put: putsKxApp().slice(kxPut0), estado: await ja(`kxaSnap && kxaSnap.estado`), noPc: await js(`kxa.estado`), diferentes: await ateIguais() };
         await fotoApp("kryptex");
-        await ja(`irPara("premissas")`); await fotoApp("premissas");
-        r.app.esteCelular = await ja(`({tela:!document.getElementById("v-premissas").hidden, cartao:!document.getElementById("estecel-p").hidden, info:document.getElementById("estecel-info").innerText.replace(/\\n/g," | ")})`);
+        await ja(`irPara("computador")`); await fotoApp("computador");
+        r.app.esteCelular = await ja(`({tela:!document.getElementById("v-computador").hidden, cartao:!document.getElementById("estecel-p").hidden, info:document.getElementById("estecel-info").innerText.replace(/\\n/g," | ")})`);
         /* quantas mensagens o teste gastou no ntfy (o ntfy.sh aceita 250 por dia de cada internet) e se tudo foi cifrado */
         const topicosApp = [...ntfy.topicos.keys()].filter((t) => /^pm-/.test(t));
         r.app.mensagens = Object.fromEntries(topicosApp.map((t) => [t.endsWith("-pc") ? "doPc" : "doCelular", ntfy.topicos.get(t).length]));
@@ -895,7 +895,7 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         r.app.recebidas = appMain.registro.recebidas.map((c) => `${c.tipo}${c.versao != null ? " v" + c.versao : ""} [${c.chaves.join(",")}]${c.nome ? " " + c.nome : ""}`);
         r.app.arquivoPc = (() => { try { const c = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "app-celular.json"), "utf8")); return { codigoIgual: c.codigo === ap.codigo, versao: c.versao, aparelhos: Object.keys(c.aparelhos).length, envios: c.envios.length }; } catch (e) { return String(e.message); } })();
         /* desvincular no PC (dois cliques): o celular volta para a tela de vincular, sem os dados */
-        await js(`irPara("premissas"); document.getElementById("appcel-desvincular").click()`); await esperar(300);
+        await js(`irPara("integracoes"); document.getElementById("appcel-desvincular").click()`); await esperar(300);
         r.app.desvincular = { confirmar: await js(`document.getElementById("appcel-desvincular").textContent`) };
         const recarregou = new Promise((ok) => celApp.webContents.once("did-finish-load", ok));
         await js(`document.getElementById("appcel-desvincular").click()`);
@@ -909,8 +909,8 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         celApp.destroy(); srvApp.close();
 
         /* Premissas › App da Kryptex neste PC: desligar a leitura. O painel para de ler e o resto do teste segue como na 1.5.0 */
-        await js(`irPara("premissas"); document.getElementById("kxa-p").scrollIntoView(); true`); await esperar(300);
-        await foto("kxapp_premissas");
+        await js(`irPara("integracoes"); document.getElementById("kxa-p").scrollIntoView(); true`); await esperar(300);
+        await foto("kxapp_integracoes");
         await js(`(()=>{ const c = document.getElementById("kxa-ligado"); c.checked = false; c.dispatchEvent(new Event("change", {bubbles:true})); return true; })()`); await esperar(500);
         const kxLidas = kxApp.pedidos.length;
         await js(`lerKryptexApp().then(()=>true)`);   /* a leitura de cada minuto: desligada, não pede nada */
@@ -1002,10 +1002,10 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
         /* conta da Kryptex: sem login → entrar (janela) → verificação contra robôs → máquinas e saldo; máquina para, volta,
            rende menos; o ganho de um dia pelo saldo vira sugestão no Diário; copiar o que o painel leu (sem e-mail) */
         r.kryptex = {};
-        await js(`irPara("premissas"); document.getElementById("kx-p").scrollIntoView(); true`); await esperar(300);
+        await js(`irPara("perfil"); document.getElementById("kx-p").scrollIntoView(); true`); await esperar(300);
         const kxEstado = `({estado:kx.estado, msg:kx.msg, maquinas:kx.maquinas.map(m=>({nome:m.nome, online:m.online, estado:m.estado, h30:m.h30, base:m.base})), saldo:kx.saldo && {btc:kx.saldo.btc, fiat:kx.saldo.fiat, moeda:kx.saldo.moeda, preco:kx.saldo.preco},
           alertas:kx.alertas.map(a=>a.tipo), card:document.getElementById("kx-corpo").innerText.slice(0,500), visivel:!document.getElementById("kx-p").hidden})`;
-        r.kryptex.antes = await js(`({visivel:!document.getElementById("kx-p").hidden, botao:!!document.querySelector('#kx-acoes [data-kx="ligar"]'), entrarNoPc:!document.querySelector('[data-pc="kryptex"]').hidden})`);
+        r.kryptex.antes = await js(`({visivel:!document.getElementById("kx-p").hidden, botao:!!document.querySelector('#kx-acoes [data-kx="ligar"]'), facebookNoPc:!document.getElementById("fb-p").hidden && !!document.querySelector('#fb-p [data-pc="facebook"]')})`);
         const notifAntes = testeSegundoPlano.notificacoes.length;
         await js(`mudarKxCfg({ligado:true}); lerKryptex(true)`);
         for (let i = 0; i < 80; i++) { await esperar(250); if (!(await js("kxLendo"))) break; }
@@ -1049,13 +1049,13 @@ module.exports = function (principal, { app, pegarLeitor, iniciarAtualizacao, mo
           const e = diario.find(x=>x.data===iso);
           return {iso, dia:kx.dias[iso], sugestao:sug.slice(0,300), anotado:e && {valor:e.valor, moeda:e.moeda, btc:e.btc, obs:e.obs, fonte:e.fonte}, sumiu:document.getElementById("kx-sug").hidden}; })()`);
         await foto("kryptex_diario");
-        await js(`irPara("premissas")`); await esperar(300);
+        await js(`irPara("perfil")`); await esperar(300);
         await js(`document.querySelector('#kx-acoes [data-kx="copiar"]').click()`); await esperar(500);
         const diag = testeArquivos.copiado;
         r.kryptex.diag = { tamanho: diag.length, semEmail: !/alex\.teste@example\.com/.test(diag), semCarteira: !/bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh/.test(diag), semCodigo: !/7f3a9c2e1b4d5f60718293a4b5c6d7e8f9/.test(diag), temDataset: /workerDataset/.test(diag), oculto: /e-mail@oculto/.test(diag) };
         r.kryptex.sincronizada = await js(`({lista:SINCRONIZADAS.includes("min-kryptex"), gravada:!!localStorage.getItem("min-kryptex"), hist:!!localStorage.getItem("min-kx-hist")})`);
 
-        for (const tela of ["resumo", "setup", "premissas"]) {
+        for (const tela of ["resumo", "setup", "mineracao"]) {
           await js(`irPara("${tela}")`); await esperar(500);
           (r.transbordo = r.transbordo || {})[tela] = await js(`(() => { const W = document.documentElement.clientWidth; return {janela: W, largura: document.documentElement.scrollWidth}; })()`);
           await foto(tela);
