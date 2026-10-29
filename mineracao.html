@@ -45,6 +45,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .vivo b{font-family:var(--num);font-weight:600;font-size:1.25rem;letter-spacing:-.02em;color:var(--side-fg)}
 .vivo b.neg{color:var(--side-bad)}
 .vivo small{color:var(--side-muted);font-size:.74rem;line-height:1.35}
+.vivo .vivo-dolar{margin-top:6px;padding-top:7px;border-top:1px solid var(--side-line)}
 .vivo .link-s{all:unset;cursor:pointer;color:var(--side-accent);font-size:.85rem;font-weight:600}
 .vivo .link-s:focus-visible{outline:2px solid var(--side-accent);outline-offset:2px}
 .ganho-chip{display:none}
@@ -5820,6 +5821,8 @@ function estadoKxa(l){
   return (l.placas||[]).some(p=>p.minerando) ? "minerando" : "parada";
 }
 const precoBtcBrl = l => l && l.cotacoes && l.cotacoes.brl>0 && l.cotacoes.btc>0 ? l.cotacoes.brl/l.cotacoes.btc : null;
+/* o dólar do app da Kryptex (reais por dólar): o mesmo que passa o ganho de hoje para reais */
+const dolarKxa = l => l && l.cotacoes && +l.cotacoes.brl > 0 ? +l.cotacoes.brl : null;
 const principalKxa = l => { const ps = (l && l.placas) || []; return ps.filter(p=>p.minerando).sort((a,b)=>(b.rendimentoUsd||0)-(a.rendimentoUsd||0))[0] || ps.find(p=>p.tipo==="gpu") || ps[0] || null; };
 /* potência estimada quando a leitura não traz os watts: o setup na tomada, ou as placas cadastradas */
 function wattsEstimados(){
@@ -6199,7 +6202,7 @@ function retratoKxa(agora = Date.now()){
   /* a correção pelo real do simulador de compra: a desta leitura; parada ou pausada, a do retrato anterior */
   const fatorAntes = kxaSnap ? +kxaSnap.fatorKx : NaN, fatorKx = fatorKxReal(l) ?? (Number.isFinite(fatorAntes) && fatorAntes > 0 ? fatorAntes : null);
   return {v:1, quando: kxa.quando || agora, fatorKx, estado: kxa.estado, pausaAte: l && l.ok && l.pausado ? l.pausaAte : null, computador: l && l.computador || "",
-    placas: placasR, hoje: {ganho:h.ganho, luz:h.luz, lucro:h.lucro, kwh:h.kwh, desde:h.desde}, ritmo: ritmoKxa(l), saldoBtc: l && l.ok ? l.saldoBtc : null, saldoUsd: l && l.ok && l.saldoUsd!=null ? l.saldoUsd : null, precoBtc: pr,
+    placas: placasR, hoje: {ganho:h.ganho, luz:h.luz, lucro:h.lucro, kwh:h.kwh, desde:h.desde}, ritmo: ritmoKxa(l), saldoBtc: l && l.ok ? l.saldoBtc : null, saldoUsd: l && l.ok && l.saldoUsd!=null ? l.saldoUsd : null, precoBtc: pr, dolar: dolarKxa(l),
     linha, protecao: kxa.protecao, minerandoDesde: kxa.estado==="minerando" ? desdeMinerandoKxa() : 0, hash24: hash24Kxa(agora),
     wattsPc: !ms.length ? 0 : medido ? wattsNaTomada(wp, l) : wattsPcEstimado(l), wattsMedido: medido};
 }
@@ -7088,6 +7091,8 @@ else $("bkp").hidden = true;
 
 /* ---------- versões: novidades e atualização automática (app do computador) ---------- */
 const NOVIDADES = [
+  {v:"1.12.1", itens:[
+    "O dólar no cartão do canto esquerdo, logo abaixo do ganho de hoje: com a leitura do app da Kryptex, a cotação do próprio app (a mesma que passa o ganho de hoje para reais); sem ela, o dólar das contas, de Configurações › Mineração."]},
   {v:"1.12.0", itens:[
     "Menu novo: o menu lateral ficou com três itens, Resumo geral, Comprar e Configurações, e as telas de cada um viram botões no alto. O Diário de ganhos, Minhas placas e o Meu setup (o antigo Montar setup) ficam no Resumo geral; Ofertas, Analisar anúncio, Todas as placas e o Simulador, em Comprar.",
     "Premissas virou Configurações, em cinco telas: Mineração (os valores das contas, a placa de vídeo e a proteção de temperatura), Perfil (você, o Facebook e a conta da Kryptex), Integrações (o app da Kryptex, o app do celular, os avisos, o navegador do celular e os dados de fora), Este computador e Sobre.",
@@ -7460,6 +7465,14 @@ function renderGanhos(){
   renderVivo();
   tickGanhos();
 }
+/* o dólar no cartão do menu: com a leitura ao vivo, o do app da Kryptex (o mesmo que passa o ganho de hoje para reais;
+   no celular e no navegador, o que veio no retrato do PC); sem ela, o das contas (Configurações › Mineração) */
+function linhaDolar(r){
+  const k = r && +r.dolar > 0 ? +r.dolar : null;
+  const [v, de, t] = k ? [k, "Kryptex", "A cotação do app da Kryptex, a mesma que passa o ganho de hoje para reais"]
+    : [+cfg.dolar, "das contas", "O dólar das contas (Configurações › Mineração)"];
+  return v > 0 ? `<small class="vivo-dolar" title="${t}">Dólar ${brl(v)} · ${de}</small>` : "";
+}
 /* o estado no rodapé do menu (PC) e no topo (celular) */
 function renderVivo(){
   const el = $("vivo"), chip = $("g-chip"); if(!el || !chip) return;
@@ -7468,7 +7481,7 @@ function renderVivo(){
   if(r){
     const rot = {minerando:["on","Minerando"], pausada:["w","Pausada"], parada:["b","Parada"], fechado:["b","App da Kryptex fechado"]}[r.estado] || ["","—"];
     const ate = `hoje até ${r.estado==="fechado" && r.quando ? horaMin(r.quando) : "agora"}`;
-    el.innerHTML = `<span class="vivo-l"><i class="${rot[0]}"></i>${rot[1]}</span><b>${brl(r.hoje.ganho)}</b><small>${ate} · ${r.hoje.lucro<-0.005 ? "prejuízo de " + brl(-r.hoje.lucro) : "lucro de " + brl(Math.max(0, r.hoje.lucro))}</small>`;
+    el.innerHTML = `<span class="vivo-l"><i class="${rot[0]}"></i>${rot[1]}</span><b>${brl(r.hoje.ganho)}</b><small>${ate} · ${r.hoje.lucro<-0.005 ? "prejuízo de " + brl(-r.hoje.lucro) : "lucro de " + brl(Math.max(0, r.hoje.lucro))}</small>${linhaDolar(r)}`;
     /* no topo do celular: a bolinha mostra o estado (o nome dele fica para o leitor de tela e no "title") */
     chip.innerHTML = `<i class="${rot[0]}"></i><span class="sr">${rot[1]} · ${ate}: </span>${brl(r.hoje.ganho)}`;
     chip.title = `${rot[1]} · ${brl(r.hoje.ganho)} ${ate}`;
@@ -7476,10 +7489,10 @@ function renderVivo(){
   }
   chip.title = "Lucro líquido do setup por dia, com o PC inteiro na tomada";
   if(ganhosEstado==="vazio"){
-    el.innerHTML = `<span class="vivo-l"><i></i>Seu setup</span><button type="button" class="link-s" data-ir="minhas">Cadastre suas placas</button>`;
+    el.innerHTML = `<span class="vivo-l"><i></i>Seu setup</span><button type="button" class="link-s" data-ir="minhas">Cadastre suas placas</button>${linhaDolar(null)}`;
     chip.textContent = ""; return;
   }
-  el.innerHTML = `<span class="vivo-l"><i${ganhosEstado==="ativo" ? ' class="on"' : ""}></i>Seu setup rende</span><b class="${ganhoDia<0 ? "neg" : ""}">${brl(ganhoDia)}</b><small>por dia, pela estimativa</small>`;
+  el.innerHTML = `<span class="vivo-l"><i${ganhosEstado==="ativo" ? ' class="on"' : ""}></i>Seu setup rende</span><b class="${ganhoDia<0 ? "neg" : ""}">${brl(ganhoDia)}</b><small>por dia, pela estimativa</small>${linhaDolar(null)}`;
   chip.textContent = `${brl(ganhoDia)}/dia`;
 }
 function tickGanhos(){

@@ -67,8 +67,10 @@ def resumo(p):
     checa("novidades da 1.10.1 (o programa da 1.10.0 não abria)", pg.evaluate("(n => !!n && /não abria/.test(n.itens[0]))(NOVIDADES.find(n => n.v === '1.10.1'))"))
     checa("novidades da 1.11.0 (ajustes da placa, sem o Afterburner)",
           pg.evaluate("(n => !!n && /Ajustes da placa/.test(n.itens[0]) && /MSI Afterburner/.test(n.itens[0]) && /travamento/.test(n.itens.join(' ')) && /celular/.test(n.itens.join(' ')))(NOVIDADES.find(n => n.v === '1.11.0'))"))
-    checa("novidades da 1.12.0 (menu novo) no começo",
-          pg.evaluate("NOVIDADES[0].v === '1.12.0' && /Resumo geral/.test(NOVIDADES[0].itens[0]) && /Configurações/.test(NOVIDADES[0].itens.join(' ')) && /Windows/.test(NOVIDADES[0].itens.join(' ')) && /celular/.test(NOVIDADES[0].itens.join(' '))"))
+    checa("novidades da 1.12.0 (menu novo)",
+          pg.evaluate("(n => !!n && /Resumo geral/.test(n.itens[0]) && /Configurações/.test(n.itens.join(' ')) && /Windows/.test(n.itens.join(' ')) && /celular/.test(n.itens.join(' ')))(NOVIDADES.find(n => n.v === '1.12.0'))"))
+    checa("novidades da 1.12.1 (o dólar no cartão do canto esquerdo) no começo",
+          pg.evaluate("NOVIDADES[0].v === '1.12.1' && /dólar/.test(NOVIDADES[0].itens[0]) && /Kryptex/.test(NOVIDADES[0].itens[0]) && /das contas/.test(NOVIDADES[0].itens[0])"))
     ids = pg.eval_on_selector_all("#v-resumo [id]", "e=>e.map(x=>x.id)")
     checa("ordem", [i for i in ids if i in ("agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p")] == ["agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p"], ids)
     m = pg.evaluate("resumoMes()")

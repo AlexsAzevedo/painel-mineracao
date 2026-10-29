@@ -1,5 +1,5 @@
 """App da Kryptex no painel do PC: ganho e luz de hoje, avisos (parou, voltou, fechado), proteção de temperatura,
-retrato para o celular e a tela Agora (dados inventados; o app da Kryptex é de mentira).
+retrato para o celular, a tela Agora e o dólar no cartão do menu (dados inventados; o app da Kryptex é de mentira).
 Uso: python3 testes/kryptex_app.py"""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -60,6 +60,9 @@ def kryptex_app(p):
     pg = abrir(p, dados=DADOS, pc=True)
     pg.wait_for_timeout(2000)   # a primeira leitura sozinha (sem app: nada) passa antes dos testes
     pg.evaluate(FIXTURAS)
+    # o dólar no cartão do canto esquerdo (1.12.1): sem a leitura do app da Kryptex, o das contas (Configurações › Mineração)
+    v = pg.inner_text("#vivo")
+    checa("cartão sem a leitura: o dólar das contas", "Dólar R$ 5,04" in v and "das contas" in v, v)
     # ganho de hoje com saque no meio
     h = pg.evaluate("hojeKxa(AMOSTRAS_SAQUE, AGORA, 1.0, 400000)")
     checa("hoje_com_saque", abs(h["ganho"] - 0.00003 * 400000) < 1e-6 and h["ganho"] > 0, h)
@@ -262,6 +265,13 @@ def kryptex_app(p):
     checa("saldo ao lado do hoje no PC", lado["ok"], lado)
     checa("o retrato leva o saldo em dólar", abs((pg.evaluate("retratoKxa().saldoUsd") or 0) - 8.0841) < 0.001)
     checa("estado no menu", "Minerando" in pg.inner_text("#vivo"))
+    # com a leitura, o dólar do app da Kryptex: o mesmo que passa o ganho de hoje para reais (US$ 1 = R$ 4,965204)
+    v = pg.inner_text("#vivo")
+    checa("cartão ao vivo: o dólar da Kryptex", "Dólar R$ 4,97" in v and "Kryptex" in v and "das contas" not in v, v)
+    linhas = pg.evaluate("""(() => { const e = [...document.querySelectorAll('#vivo *')].find(x => !x.children.length && /Dólar/.test(x.textContent)); if (!e) return null;
+      const r = document.createRange(); r.selectNodeContents(e); return new Set([...r.getClientRects()].map(c => Math.round(c.top))).size; })()""")
+    checa("o dólar numa linha só", linhas == 1, linhas)
+    checa("o retrato leva o dólar da Kryptex", abs((pg.evaluate("retratoKxa().dolar") or 0) - 4.965204) < 1e-9, pg.evaluate("retratoKxa().dolar"))
     pg.evaluate("window.__acoes = []")
     pg.click("details.pausar summary"); pg.click('[data-pausa="60"]'); pg.wait_for_timeout(200)
     checa("pausar pelo botão", pg.evaluate("window.__acoes") == [["pausar", 60]])
@@ -275,6 +285,7 @@ def kryptex_app(p):
     checa("recado velho some quando o estado muda", pg.inner_text("#ag-status").strip() == "", pg.inner_text("#ag-status"))
     t = pg.inner_text("#agora")
     checa("app fechado: o menu não diz 'agora'", "App da Kryptex fechado" in pg.inner_text("#vivo") and "hoje até agora" not in pg.inner_text("#vivo"), pg.inner_text("#vivo"))
+    checa("app fechado: o dólar da última leitura", "Dólar R$ 4,97" in pg.inner_text("#vivo"), pg.inner_text("#vivo"))
     checa("app fechado: números da última leitura", pg.evaluate("!!document.querySelector('#agora .ag-nums.velho')") and "última leitura" in t and "Hoje até agora" not in t, t[:300])
     # Configurações › Integrações › App da Kryptex neste PC; a proteção de temperatura fica em Mineração
     pg.evaluate("irPara('integracoes')")
@@ -303,6 +314,8 @@ def kryptex_app(p):
     pg.uncheck("#kxa-ligado")
     checa("desligar a leitura: estimativa, sem recado velho", pg.evaluate("kxaCfg().ligado") is False and pg.inner_text("#ag-status").strip() == "" and "Sem leitura ao vivo" in pg.inner_text("#agora"),
           [pg.inner_text("#ag-status"), pg.inner_text("#agora")[:120]])
+    v = pg.inner_text("#vivo")
+    checa("leitura desligada: o cartão volta ao dólar das contas", "Dólar R$ 5,04" in v and "das contas" in v, v)
     pg.evaluate("irPara('mineracao')")
     aviso = pg.evaluate("(e => e && e.getClientRects().length > 0 ? e.innerText : null)(document.getElementById('protecao-sem-leitura'))")
     checa("proteção sem a leitura", bool(aviso) and "Integrações" in aviso, aviso)
@@ -343,6 +356,7 @@ def celular(p):
     checa("sem saldo no retrato, sem o quadro do saldo", "saldo na kryptex" not in pgc.inner_text("#agora").lower())
     pgc.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
     checa("estado no topo do celular", "Minerando" in pgc.inner_text("#g-chip"))
+    checa("o topo do celular fica sem o dólar", "Dólar" not in pgc.inner_text("#g-chip"), pgc.inner_text("#g-chip"))
     # o botão de atualizar no alto (e puxar a tela para baixo) traz também uma leitura nova do app da Kryptex do PC, mesmo
     # com o retrato de 3 minutos; o Atualizar do quadro Agora faz o mesmo, e os dois esperam 30 s entre um e outro
     leituras = "window.__pedidos.filter(p=>p[0]==='kryptex-agora').length"
@@ -443,7 +457,21 @@ def celular(p):
     checa("sem erros no PC", not erros(pg), erros(pg)[:3])
 
 
+def tela_larga(p):
+    """o painel do PC aberto no navegador de uma tela larga: o cartão do menu aparece, com o dólar que veio no retrato"""
+    pg = abrir(p, dados=DADOS, celular=True)
+    pg.evaluate(RETRATOS)
+    pg.evaluate("localStorage.setItem('min-kx-app', JSON.stringify({...RETRATO, dolar: 4.965204})); recarregarDados(['min-kx-app'])")
+    v = pg.inner_text("#vivo")
+    checa("tela larga: o dólar da Kryptex que veio do PC", "Dólar R$ 4,97" in v and "Kryptex" in v, v)
+    pg.evaluate("localStorage.setItem('min-kx-app', JSON.stringify(RETRATO)); recarregarDados(['min-kx-app'])")
+    v = pg.inner_text("#vivo")
+    checa("tela larga: retrato sem o dólar (PC com versão antiga), o das contas", "Dólar R$ 5,04" in v and "das contas" in v, v)
+    checa("sem erros na tela larga", not erros(pg), erros(pg)[:3])
+
+
 with sync_playwright() as p:
     kryptex_app(p)
     celular(p)
+    tela_larga(p)
 fim()
