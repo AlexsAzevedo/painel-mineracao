@@ -18,9 +18,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .marca strong{display:block;font-family:var(--display);font-weight:700;font-size:1.02rem;letter-spacing:-.01em;line-height:1.15}
 .marca small{display:block;color:var(--side-muted);font-size:.74rem;margin-top:2px}
 .menu{display:flex;flex-direction:column;gap:2px}
-.menu-t{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--side-muted);font-weight:600;padding:0 10px;margin:0 0 4px}
-.menu-t ~ .menu-t{margin-top:14px}
-.item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;min-height:40px;color:var(--side-muted);font-weight:500;font-size:.93rem;cursor:pointer;white-space:nowrap}
+.item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;min-height:44px;color:var(--side-muted);font-weight:600;font-size:.95rem;cursor:pointer;white-space:nowrap}
 .item svg{width:19px;height:19px;flex:0 0 19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .item:hover{background:var(--side-hover);color:var(--side-fg)}
 .item[aria-current="page"]{background:var(--side-active);color:var(--side-accent)}
@@ -52,9 +50,28 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-
 .ganho-chip{display:none}
 .main{flex:1;min-width:0;padding-block:30px 60px;padding-left:28px;padding-right:max(16px,env(safe-area-inset-right,0px))}
 .view{max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-.vh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
-.vh h1{font-size:clamp(1.6rem,2.6vw,2.05rem);font-weight:700;outline:none}
-.vh .sub{max-width:76ch}
+/* o título (h1) e a frase de cada tela ficam só para o leitor de tela: o nome grande, no alto, é o da área (#area-t), e no
+   celular o da tela está na barra de cima; os botões do cabeçalho de uma tela (Editar dados das placas) ficam à direita */
+.vh,.vh > div:first-child{display:contents}
+.vh h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;margin:-1px;padding:0;outline:none}
+.vh .sub{display:none}
+.vh > button{align-self:flex-end;min-height:36px;padding:6px 12px;font-size:.85rem}
+/* o cabeçalho da área (1.12.0): o nome dela e os botões das telas, com a aberta marcada (o texto fica na cor do texto, para
+   ler bem no tema claro; o destaque vai no fundo, na borda e no ícone) */
+.area-h{max-width:1160px;margin:0 auto 20px;display:flex;flex-direction:column;gap:14px}
+.area-t{margin:0;font-family:var(--display);font-size:clamp(1.6rem,2.6vw,2.05rem);font-weight:700;letter-spacing:-.02em;line-height:1.15;color:var(--fg)}
+.area-nav{display:flex;flex-wrap:wrap;gap:8px}
+.tela-bt{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:600;font-size:.9rem;cursor:pointer;white-space:nowrap}
+.tela-bt svg{width:17px;height:17px;flex:0 0 17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tela-bt:hover{border-color:var(--accent)}
+.tela-bt[aria-current="page"]{background:var(--accent-soft);border-color:var(--accent)}
+.tela-bt[aria-current="page"] svg{color:var(--accent)}
+.tela-bt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tela-bt .badge{margin-left:2px;color:var(--muted);background:var(--sunk)}
+/* Configurações › Este celular: a ligação com o PC no alto (no PC, ela já fica no rodapé do menu) e o tema */
+.cfg-sync{margin:0;color:var(--muted);font-size:.85rem}
+@media (min-width:900px){.cfg-sync{display:none}}
+#aparencia-p .tema-sel{max-width:280px}
 .painel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .painel-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .painel-h h2{font-size:1.08rem}
@@ -223,21 +240,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* barra de baixo e folha "Mais": só no celular (menos de 900 px) */
 .abas{display:none}
 .aba{all:unset;box-sizing:border-box;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border-radius:12px;color:var(--side-muted);font-size:.7rem;font-weight:600;cursor:pointer;text-align:center}
-.aba svg,.mais-item svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.aba svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .aba span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aba svg{box-sizing:content-box;padding:4px 16px;border-radius:999px}
-.aba[aria-current="page"],.aba[aria-expanded="true"]{color:var(--side-accent)}
-.aba[aria-current="page"] svg,.aba[aria-expanded="true"] svg{background:var(--side-active)}
-.aba:focus-visible,.mais-item:focus-visible{outline:2px solid var(--side-accent);outline-offset:1px}
-.mais-fundo{position:fixed;inset:0;z-index:44;background:rgba(0,0,0,.4)}
-.mais{position:fixed;z-index:45;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px));
-  background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:18px;padding:8px;display:flex;flex-direction:column;gap:2px;box-shadow:0 18px 50px -12px var(--shadow)}
-.mais-item{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:12px;font-weight:600;cursor:pointer;color:var(--fg)}
-.mais-item:hover{background:var(--sunk)}
-.mais-item[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
-.mais .tema-sel{margin-top:6px}
-.mais-sync{margin:0;padding:8px 12px 0;border-top:1px solid var(--line)}
-@media (min-width:900px){.mais,.mais-fundo{display:none!important}}
+.aba[aria-current="page"]{color:var(--side-accent)}
+.aba[aria-current="page"] svg{background:var(--side-active)}
+.aba:focus-visible{outline:2px solid var(--side-accent);outline-offset:1px}
 /* barra de cima do celular: o título da tela, o estado da mineração e (com o PC) o botão de atualizar */
 .topo-t{display:none}
 .topo-atu{all:unset;box-sizing:border-box;display:none;place-items:center;width:40px;height:40px;flex:none;border-radius:50%;color:var(--side-fg);cursor:pointer}
@@ -272,11 +280,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   .aviso-atu{bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}
   .toast{bottom:calc(80px + env(safe-area-inset-bottom,0px))}
   body:has(.view:not([hidden]) > .fab[aria-expanded="false"]) .toast{bottom:calc(146px + env(safe-area-inset-bottom,0px))}   /* acima do botão redondo */
-  /* o título da tela já está na barra de cima: o h1 fica só para o leitor de tela e o subtítulo some */
-  .vh,.vh > div:first-child{display:contents}
-  .vh h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;margin:-1px;padding:0}
-  .vh .sub{display:none}
-  .vh > button{align-self:flex-end;min-height:36px;padding:6px 12px;font-size:.85rem}
+  /* os botões das telas da área numa linha que rola para o lado, até a borda da tela; o nome da tela está na barra de cima */
+  .area-h{margin-bottom:14px}
+  .area-t{display:none}
+  .area-nav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)));
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .area-nav::-webkit-scrollbar{display:none}
+  .tela-bt{min-height:44px;border-radius:999px;padding:0 14px;flex:none}
+  .tela-bt svg{display:none}
   .view{gap:14px}
   .painel{padding:16px;border-radius:14px;gap:14px}
   .kpis{gap:10px}
@@ -1167,34 +1178,47 @@ details.saiba > :not(summary){margin-bottom:14px}
 
 <div class="app">
   <aside class="side" aria-label="Menu">
-    <div class="marca"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/><path d="M6 17v2.5M9.5 17v2.5M13 17v2.5"/></svg></span><div><strong>Painel de Mineração</strong><small id="marca-sub"></small><span class="topo-t" id="topo-t" aria-hidden="true">Resumo</span></div></div>
+    <div class="marca"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/><path d="M6 17v2.5M9.5 17v2.5M13 17v2.5"/></svg></span><div><strong>Painel de Mineração</strong><small id="marca-sub"></small><span class="topo-t" id="topo-t" aria-hidden="true">Resumo geral</span></div></div>
     <span class="ganho-chip" id="g-chip" title="Lucro líquido do setup por dia, com o PC inteiro na tomada"></span>
     <button type="button" class="topo-atu" id="topo-atu" aria-label="Atualizar os dados do PC" title="Atualizar os dados do PC" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4.5V10h-5.5"/></svg></button>
-    <nav class="menu" aria-label="Seções">
-      <p class="menu-t">Acompanhar</p>
-      <button type="button" class="item" data-view="resumo" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="8" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Resumo</span></button>
-      <button type="button" class="item" data-view="diario" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/></svg><span>Diário de ganhos</span><span class="badge" id="b-diario"></span></button>
-      <button type="button" class="item" data-view="minhas" aria-current="false"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/></svg><span>Minhas placas</span><span class="badge" id="b-minhas"></span></button>
-      <p class="menu-t">Comprar</p>
-      <button type="button" class="item" data-view="ofertas" aria-current="false" id="nav-ofertas" hidden><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Ofertas</span><span class="badge" id="b-ofertas"></span></button>
-      <button type="button" class="item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span><span class="badge" id="b-anuncio"></span></button>
-      <button type="button" class="item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span><span class="badge" id="b-placas"></span></button>
-      <button type="button" class="item" data-view="sim" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 6-7"/><path d="M15 7h3v3"/></svg><span>Simulador</span></button>
-      <p class="menu-t">Ajustes</p>
-      <button type="button" class="item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span><span class="badge" id="b-setup"></span></button>
-      <button type="button" class="item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
+    <nav class="menu" aria-label="Áreas">
+      <button type="button" class="item" data-area="resumo" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="8" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Resumo geral</span></button>
+      <button type="button" class="item" data-area="comprar" aria-current="false"><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Comprar</span></button>
+      <button type="button" class="item" data-area="config" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Configurações</span></button>
     </nav>
     <div class="side-pe">
       <div class="vivo" id="vivo" aria-live="off"></div>
       <div class="tema-sel" role="group" aria-label="Tema"><button type="button" data-tema-op="escuro" aria-pressed="true">Escuro</button><button type="button" data-tema-op="claro" aria-pressed="false">Claro</button></div>
       <div class="sync" id="sync"><i></i>Carregando…</div>
-      <p class="credito">Criado por <button type="button" data-ir="premissas" data-rolar="sobre-p">Alexsander Azevedo</button>, com a ajuda do Claude</p>
+      <p class="credito">Criado por <button type="button" data-ir="sobre" data-rolar="sobre-p">Alexsander Azevedo</button>, com a ajuda do Claude</p>
     </div>
   </aside>
 
   <main class="main">
+    <header class="area-h" id="area-h">
+      <p class="area-t" id="area-t" aria-hidden="true">Resumo geral</p>
+      <nav class="area-nav" data-area="resumo" aria-label="Resumo geral">
+        <button type="button" class="tela-bt" data-view="resumo" aria-current="false"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Visão geral</span></button>
+        <button type="button" class="tela-bt" data-view="diario" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/></svg><span>Diário de ganhos</span><span class="badge" id="b-diario"></span></button>
+        <button type="button" class="tela-bt" data-view="minhas" aria-current="false"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/></svg><span>Minhas placas</span><span class="badge" id="b-minhas"></span></button>
+        <button type="button" class="tela-bt" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Meu setup</span><span class="badge" id="b-setup"></span></button>
+      </nav>
+      <nav class="area-nav" data-area="comprar" aria-label="Comprar" hidden>
+        <button type="button" class="tela-bt" data-view="ofertas" aria-current="false" id="nav-ofertas" hidden><svg viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg><span>Ofertas</span><span class="badge" id="b-ofertas"></span></button>
+        <button type="button" class="tela-bt" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span><span class="badge" id="b-anuncio"></span></button>
+        <button type="button" class="tela-bt" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span><span class="badge" id="b-placas"></span></button>
+        <button type="button" class="tela-bt" data-view="sim" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 6-7"/><path d="M15 7h3v3"/></svg><span>Simulador</span></button>
+      </nav>
+      <nav class="area-nav" data-area="config" aria-label="Configurações" hidden>
+        <button type="button" class="tela-bt" data-view="mineracao" aria-current="false"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg><span>Mineração</span></button>
+        <button type="button" class="tela-bt" data-view="perfil" aria-current="false"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></button>
+        <button type="button" class="tela-bt" data-view="integracoes" aria-current="false"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span>Integrações</span></button>
+        <button type="button" class="tela-bt" data-view="computador" aria-current="false"><svg viewBox="0 0 24 24"><path d="M22 12H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/><path d="M6 16h.01M10 16h.01"/></svg><span>Este computador</span></button>
+        <button type="button" class="tela-bt" data-view="sobre" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>Sobre</span></button>
+      </nav>
+    </header>
     <section class="view" id="v-resumo" aria-labelledby="t-resumo">
-      <header class="vh"><div><h1 id="t-resumo" tabindex="-1">Resumo</h1><p class="sub" id="resumo-sub">Como está o seu rig e o que vale comprar hoje, com os preços do Brasil e a sua tarifa de luz.</p></div></header>
+      <header class="vh"><div><h1 id="t-resumo" tabindex="-1">Resumo geral</h1><p class="sub" id="resumo-sub">Como está o seu rig e o que vale comprar hoje, com os preços do Brasil e a sua tarifa de luz.</p></div></header>
       <article class="painel novid" id="novid" aria-labelledby="t-novid" hidden>
         <div class="painel-h"><h2 id="t-novid">O painel foi atualizado</h2><button type="button" class="link" id="novid-ok">Entendi</button></div>
         <ul id="novid-lista"></ul>
@@ -1440,37 +1464,26 @@ details.saiba > :not(summary){margin-bottom:14px}
       <p class="nota-mini" id="sim-pe">Conta com estimativas: o rendimento da mineração e o preço das placas mudam. Não é recomendação de compra nem de empréstimo.</p>
     </section>
 
-    <section class="view" id="v-premissas" aria-labelledby="t-premissas" hidden>
-      <header class="vh"><div><h1 id="t-premissas" tabindex="-1">Premissas</h1><p class="sub">Os valores usados em todas as contas do painel. Mudou o dólar, a bandeira tarifária ou a Selic? Atualize aqui e tudo é recalculado na hora.</p></div></header>
-      <article class="painel" id="estecel-p" aria-labelledby="t-estecel" hidden>
-        <div class="painel-h"><h2 id="t-estecel">Este celular</h2><small class="hint" id="estecel-versao"></small></div>
-        <p class="sub" style="margin:0">Os dados ficam no PC e chegam aqui criptografados pelo ntfy.sh. O que você muda aqui vai para o PC; a busca de ofertas, a leitura de anúncios e a atualização dos dados de fora rodam no PC.</p>
-        <dl class="cen" id="estecel-info"></dl>
-        <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><button type="button" id="estecel-procurar" hidden>Procurar versão nova</button><button type="button" class="pri" id="estecel-instalar" hidden>Atualizar o app</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar o app pelo navegador</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
-        <p class="status erro" id="estecel-falha" hidden></p>
-        <p class="status" id="estecel-status" role="status" aria-live="polite"></p>
-      </article>
+    <section class="view cfg" id="v-mineracao" aria-labelledby="t-mineracao" hidden>
+      <header class="vh"><div><h1 id="t-mineracao" tabindex="-1">Mineração</h1><p class="sub">Os valores usados em todas as contas do painel, a placa de vídeo e a proteção de temperatura.</p></div></header>
       <article class="painel" id="cen-p" aria-labelledby="t-cen"><div class="painel-h"><h2 id="t-cen">Cenário das contas</h2></div><dl class="cen" id="r-cenario"></dl></article>
-      <div class="grid2 kryptex-g" id="kryptex-g">
-        <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
-          <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
-          <div id="kx-corpo"></div>
-          <div class="acoes" id="kx-acoes"></div>
-          <p class="status" id="kx-status" role="status" aria-live="polite"></p>
-        </article>
-        <article class="painel" id="kxa-p" aria-labelledby="t-kxa" hidden>
-          <div class="painel-h"><h2 id="t-kxa">App da Kryptex neste PC</h2><small class="hint" id="kxa-quando"></small></div>
-          <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Nas placas AMD, a temperatura da memória e a do ponto mais quente e o consumo da placa vêm do driver da AMD. Ele só pausa quando você pede ou pela proteção de temperatura. Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
-          <label class="check"><input type="checkbox" id="kxa-ligado"> Ler o app da Kryptex deste PC</label>
-          <label class="check"><input type="checkbox" id="kxa-protecao"> Pausar sozinho se a placa esquentar demais (volta em 15 minutos; se esquentar de novo, fica pausada até você voltar)</label>
-          <div class="kxa-lims">
-            <label><span class="lbl">Placa (°C)</span><input id="kxa-limtemp" type="number" min="60" max="110" step="1" inputmode="numeric"></label>
-            <label><span class="lbl">Memória (°C)</span><input id="kxa-limmem" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
-            <label><span class="lbl">Ponto quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
-          </div>
-          <div class="acoes"><button type="button" id="kxa-ler">Ler agora</button><button type="button" class="link" id="kxa-copiar">Copiar o que o painel leu</button></div>
-          <p class="status" id="kxa-status" role="status" aria-live="polite"></p>
-        </article>
+      <div class="grupos">
+        <fieldset class="grupo"><legend>Receita</legend>
+          <label><span class="lbl">Dólar (R$)</span><input id="dolar" type="number" step="0.01" inputmode="decimal"><span class="hint" id="dolar-hint">Comercial, 21/10: R$ 5,03</span></label>
+          <label><span class="lbl">Margem de segurança (%)</span><input id="margem" type="number" step="5" min="0" max="90"><span class="hint">Desconto na receita da Kryptex</span></label>
+        </fieldset>
+        <fieldset class="grupo"><legend>Energia</legend>
+          <label><span class="lbl">Tarifa luz (R$/kWh)</span><input id="tarifa" type="number" step="0.01" inputmode="decimal"><span class="hint">Por kWh, com impostos, da sua conta de luz</span></label>
+          <label><span class="lbl">Bandeira tarifária</span><select id="bandeira"><option value="0">Verde (out/2026)</option><option value="0.024">Amarela · +R$ 0,024</option><option value="0.056">Vermelha 1 · +R$ 0,056</option><option value="0.099">Vermelha 2 · +R$ 0,099</option></select><span class="hint">Muda todo mês</span></label>
+          <label><span class="lbl">Horas por dia</span><input id="horas" type="number" step="0.1" min="1" max="24" inputmode="decimal"><span class="hint">24 = ligada direto</span></label>
+        </fieldset>
+        <fieldset class="grupo"><legend>Investimento</legend>
+          <label><span class="lbl">Recuperar em (meses)</span><input id="meses" type="number" step="1" min="1"><span class="hint">Define o preço limite</span></label>
+          <label><span class="lbl">CDI (% ao ano)</span><input id="cdi" type="number" step="0.05" min="0" inputmode="decimal"><span class="hint">Selic 13,75% desde 16/09/2026</span></label>
+          <label><span class="lbl">Seu rendimento (% do CDI)</span><input id="pctCdi" type="number" step="1" min="0" inputmode="decimal"><span class="hint">Dinheiro guardado para as parcelas</span></label>
+          <label><span class="lbl">Placa usada perde por ano (%)</span><input id="deprec" type="number" step="5" min="0" max="80" inputmode="decimal"><span class="hint">Para estimar quanto ela vale no fim do prazo</span></label>
+          <label class="check"><input id="revenda" type="checkbox"> Contar a revenda no preço limite e no retorno</label>
+        </fieldset>
       </div>
       <article class="painel" id="placa-p" aria-labelledby="t-placa" hidden>
         <div class="painel-h"><h2 id="t-placa">Placa de vídeo deste PC</h2><small class="hint" id="placa-quando"></small></div>
@@ -1485,6 +1498,32 @@ details.saiba > :not(summary){margin-bottom:14px}
         <div class="painel-h"><h2 id="t-placa-cel">Placa de vídeo do PC</h2><small class="hint" id="placa-cel-quando"></small></div>
         <div class="placa-lista" id="placa-cel-lista"></div>
       </article>
+      <article class="painel" id="branca-p" aria-labelledby="t-branca">
+        <div class="painel-h"><h2 id="t-branca">Tarifa branca: compensa desligar na ponta?</h2></div>
+        <p class="sub" style="margin:0">Na tarifa branca o kWh fica mais barato na maior parte do tempo e bem mais caro no fim da tarde dos dias úteis (sábado, domingo e feriado são o dia todo fora de ponta). Coloque os valores da sua distribuidora, com impostos, e veja quanto o seu rig lucra em cada jeito.</p>
+        <div class="branca-campos">
+          <label><span class="lbl">Convencional (R$/kWh)</span><input id="br-conv" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label><span class="lbl">Fora de ponta</span><input id="br-fora" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label><span class="lbl">Intermediária</span><input id="br-inter" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label><span class="lbl">Ponta</span><input id="br-ponta" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label><span class="lbl">Ponta começa às</span><select id="br-inicio"><option value="17">17h</option><option value="17.5">17h30</option><option value="18">18h</option><option value="18.5">18h30</option><option value="19">19h</option></select></label>
+        </div>
+        <p class="hint" id="br-hint" style="margin:0"></p>
+        <div id="br-res"></div>
+      </article>
+      <div class="painel note" id="notas-prem">
+        <div class="painel-h so-cel"><h2 id="t-notas-prem">Como esses valores entram nas contas</h2></div>
+        <span><b>Tarifa:</b> o valor do kWh com ICMS e PIS/Cofins, que aparece na conta de luz como “tarifa com tributos”. Sem esse campo, divida o total da conta pelos kWh consumidos: dá um número um pouco acima do real, porque inclui a iluminação pública. Os kWh do rig entram na faixa mais cara da sua casa. Exemplo: Celesc (SC), residencial, R$ 0,76/kWh sem impostos, que dá cerca de R$ 0,96 com impostos.</span>
+        <span><b>Bandeira:</b> verde em outubro/2026; a ANEEL anuncia a de cada mês no fim do mês anterior.</span>
+        <span><b>Margem de segurança:</b> desconto aplicado na receita da Kryptex, porque ela muda todo dia com o preço da moeda e a dificuldade da rede. Com 0% você vê o número cru do site.</span>
+        <span><b>Recuperar em:</b> prazo usado para o preço limite e para o “Compensa?”.</span>
+        <span><b>CDI e rendimento:</b> usados para estimar quanto o dinheiro guardado rende enquanto você paga parcelas sem juros (IR regressivo já descontado).</span>
+        <span><b>Revenda:</b> no fim do prazo a placa ainda vale alguma coisa. O painel parte de 10% abaixo do preço típico de usada de hoje (para vender rápido) e tira a desvalorização de cada ano; quando um modelo tem 60 dias ou mais de histórico de preço (Todas as placas › Preço de usada ao longo do tempo), vale a desvalorização dele. Com “Contar a revenda” ligado, o preço limite passa a ser lucro × prazo + revenda, e o “Compensa?” segue esse limite. O retorno continua sendo só o da mineração.</span>
+      </div>
+    </section>
+
+    <section class="view cfg" id="v-perfil" aria-labelledby="t-perfil" hidden>
+      <header class="vh"><div><h1 id="t-perfil" tabindex="-1">Perfil</h1><p class="sub">Você, a sua cidade e as contas do Facebook e da Kryptex que o painel usa.</p></div></header>
       <article class="painel" id="perfil-p" aria-labelledby="t-perfil">
         <div class="painel-h"><h2 id="t-perfil">Seu perfil</h2><button type="button" class="link" id="pf-refazer">Refazer a configuração inicial</button></div>
         <div class="pf-g">
@@ -1498,49 +1537,28 @@ details.saiba > :not(summary){margin-bottom:14px}
         </div>
         <p class="hint" style="margin:0" id="pf-hint">A cidade serve para medir a distância dos anúncios e saber onde procurar placas usadas.</p>
       </article>
-      <article class="painel" id="dados-fora" aria-labelledby="t-dados">
-        <div class="painel-h"><h2 id="t-dados">Dados de fora</h2><button type="button" class="pri" id="x-tudo" data-x="tudo">Atualizar tudo</button></div>
-        <p class="sub" style="margin:0">O painel abre as páginas no navegador do app Claude, uma por vez, e lê os números. Funciona com o painel aberto no app do computador; no celular, digite o dólar abaixo e cole a lista da Kryptex.</p>
-        <div class="dados-l">
-          <div class="dado"><span class="nm">Dólar<small id="x-dolar-i"></small></span><button type="button" data-x="dolar">Atualizar</button></div>
-          <div class="dado"><span class="nm">Receitas da Kryptex<small id="x-kryptex-i"></small></span><button type="button" data-x="kryptex">Atualizar</button></div>
-          <div class="dado"><span class="nm">Preço das placas novas<small id="x-novas-i"></small></span><button type="button" data-x="novas">Atualizar</button></div>
-          <div class="dado"><span class="nm">Preço das placas usadas<small id="x-usadas-i"></small></span><button type="button" data-x="usadas">Atualizar</button></div>
-        </div>
-        <p class="status" id="x-status" role="status" aria-live="polite"></p>
-        <details class="x-colar"><summary>Sem o app: colar a lista da Kryptex</summary>
-          <label class="hint" for="x-texto" style="display:block;margin:10px 0 6px">Na lista da Kryptex (pool.kryptex.com › GPU ou CPU), aperte Ctrl+A e Ctrl+C e cole aqui. Dá para colar uma página da lista de cada vez.</label>
-          <textarea id="x-texto" rows="4" spellcheck="false" placeholder="Cole aqui o texto da página da Kryptex"></textarea>
-          <button type="button" data-x="colar" style="margin-top:8px">Atualizar com o texto colado</button>
-        </details>
+      <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
+        <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
+        <div id="kx-corpo"></div>
+        <div class="acoes" id="kx-acoes"></div>
+        <p class="status" id="kx-status" role="status" aria-live="polite"></p>
       </article>
-      <article class="painel" id="este-pc" aria-labelledby="t-este-pc" hidden>
-        <div class="painel-h"><h2 id="t-este-pc">Este computador</h2><small class="hint" id="pc-versao"></small></div>
-        <p class="sub" style="margin:0">Os dados deste aplicativo ficam salvos neste computador, separados do painel online no Claude. O backup leva os dados de um lugar para outro ou guarda uma cópia.</p>
-        <div class="atu" id="atu">
-          <div><span class="lbl">Atualização automática</span><p class="status atu-msg" id="atu-msg" role="status" aria-live="polite"></p></div>
-          <button type="button" id="atu-btn" hidden></button>
+    </section>
+
+    <section class="view cfg" id="v-integracoes" aria-labelledby="t-integracoes" hidden>
+      <header class="vh"><div><h1 id="t-integracoes" tabindex="-1">Integrações</h1><p class="sub">O que o painel lê ou manda para outros apps: o app da Kryptex, o celular e os dados de fora.</p></div></header>
+      <article class="painel" id="kxa-p" aria-labelledby="t-kxa" hidden>
+        <div class="painel-h"><h2 id="t-kxa">App da Kryptex neste PC</h2><small class="hint" id="kxa-quando"></small></div>
+        <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Nas placas AMD, a temperatura da memória e a do ponto mais quente e o consumo da placa vêm do driver da AMD. Ele só pausa quando você pede ou pela proteção de temperatura. Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
+        <label class="check"><input type="checkbox" id="kxa-ligado"> Ler o app da Kryptex deste PC</label>
+        <label class="check"><input type="checkbox" id="kxa-protecao"> Pausar sozinho se a placa esquentar demais (volta em 15 minutos; se esquentar de novo, fica pausada até você voltar)</label>
+        <div class="kxa-lims">
+          <label><span class="lbl">Placa (°C)</span><input id="kxa-limtemp" type="number" min="60" max="110" step="1" inputmode="numeric"></label>
+          <label><span class="lbl">Memória (°C)</span><input id="kxa-limmem" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
+          <label><span class="lbl">Ponto quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
         </div>
-        <div class="atu" id="bkp">
-          <div><span class="lbl">Backup automático</span><p class="status atu-msg" id="bkp-msg" role="status" aria-live="polite"></p></div>
-          <div class="acoes"><button type="button" id="bkp-agora">Fazer agora</button><button type="button" class="link" id="bkp-abrir">Abrir a pasta</button><button type="button" class="link" id="bkp-mudar">Mudar a pasta</button></div>
-        </div>
-        <div class="atu" id="inicio" hidden>
-          <div class="inicio-opcoes">
-            <span class="lbl" id="inicio-t">Ao ligar o computador</span>
-            <label class="check"><input type="checkbox" id="pc-iniciar"> Abrir o painel junto com o Windows</label>
-            <label class="check"><input type="checkbox" id="pc-minimizado"><span>Abrir minimizado <small class="hint" id="pc-minimizado-h"></small></span></label>
-            <p class="hint" id="pc-iniciar-dica" hidden></p>
-          </div>
-        </div>
-        <div class="acoes">
-          <button type="button" data-pc="facebook">Entrar no Facebook</button>
-          <button type="button" data-pc="kryptex">Entrar na Kryptex</button>
-          <button type="button" data-pc="navegador">Mostrar o navegador escondido</button>
-          <button type="button" data-pc="exportar">Exportar backup</button>
-          <button type="button" data-pc="importar">Importar backup</button>
-        </div>
-        <p class="status" id="pc-status" role="status" aria-live="polite"></p>
+        <div class="acoes"><button type="button" id="kxa-ler">Ler agora</button><button type="button" class="link" id="kxa-copiar">Copiar o que o painel leu</button></div>
+        <p class="status" id="kxa-status" role="status" aria-live="polite"></p>
       </article>
       <article class="painel" id="appcel-p" aria-labelledby="t-appcel" hidden>
         <div class="painel-h"><h2 id="t-appcel">App do celular</h2></div>
@@ -1602,47 +1620,72 @@ details.saiba > :not(summary){margin-bottom:14px}
         </div>
         <p class="status" id="ac-status" role="status" aria-live="polite"></p>
       </article>
-      <div class="grupos">
-        <fieldset class="grupo"><legend>Receita</legend>
-          <label><span class="lbl">Dólar (R$)</span><input id="dolar" type="number" step="0.01" inputmode="decimal"><span class="hint" id="dolar-hint">Comercial, 21/10: R$ 5,03</span></label>
-          <label><span class="lbl">Margem de segurança (%)</span><input id="margem" type="number" step="5" min="0" max="90"><span class="hint">Desconto na receita da Kryptex</span></label>
-        </fieldset>
-        <fieldset class="grupo"><legend>Energia</legend>
-          <label><span class="lbl">Tarifa luz (R$/kWh)</span><input id="tarifa" type="number" step="0.01" inputmode="decimal"><span class="hint">Por kWh, com impostos, da sua conta de luz</span></label>
-          <label><span class="lbl">Bandeira tarifária</span><select id="bandeira"><option value="0">Verde (out/2026)</option><option value="0.024">Amarela · +R$ 0,024</option><option value="0.056">Vermelha 1 · +R$ 0,056</option><option value="0.099">Vermelha 2 · +R$ 0,099</option></select><span class="hint">Muda todo mês</span></label>
-          <label><span class="lbl">Horas por dia</span><input id="horas" type="number" step="0.1" min="1" max="24" inputmode="decimal"><span class="hint">24 = ligada direto</span></label>
-        </fieldset>
-        <fieldset class="grupo"><legend>Investimento</legend>
-          <label><span class="lbl">Recuperar em (meses)</span><input id="meses" type="number" step="1" min="1"><span class="hint">Define o preço limite</span></label>
-          <label><span class="lbl">CDI (% ao ano)</span><input id="cdi" type="number" step="0.05" min="0" inputmode="decimal"><span class="hint">Selic 13,75% desde 16/09/2026</span></label>
-          <label><span class="lbl">Seu rendimento (% do CDI)</span><input id="pctCdi" type="number" step="1" min="0" inputmode="decimal"><span class="hint">Dinheiro guardado para as parcelas</span></label>
-          <label><span class="lbl">Placa usada perde por ano (%)</span><input id="deprec" type="number" step="5" min="0" max="80" inputmode="decimal"><span class="hint">Para estimar quanto ela vale no fim do prazo</span></label>
-          <label class="check"><input id="revenda" type="checkbox"> Contar a revenda no preço limite e no retorno</label>
-        </fieldset>
-      </div>
-      <article class="painel" id="branca-p" aria-labelledby="t-branca">
-        <div class="painel-h"><h2 id="t-branca">Tarifa branca: compensa desligar na ponta?</h2></div>
-        <p class="sub" style="margin:0">Na tarifa branca o kWh fica mais barato na maior parte do tempo e bem mais caro no fim da tarde dos dias úteis (sábado, domingo e feriado são o dia todo fora de ponta). Coloque os valores da sua distribuidora, com impostos, e veja quanto o seu rig lucra em cada jeito.</p>
-        <div class="branca-campos">
-          <label><span class="lbl">Convencional (R$/kWh)</span><input id="br-conv" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label><span class="lbl">Fora de ponta</span><input id="br-fora" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label><span class="lbl">Intermediária</span><input id="br-inter" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label><span class="lbl">Ponta</span><input id="br-ponta" type="number" step="0.01" min="0" inputmode="decimal"></label>
-          <label><span class="lbl">Ponta começa às</span><select id="br-inicio"><option value="17">17h</option><option value="17.5">17h30</option><option value="18">18h</option><option value="18.5">18h30</option><option value="19">19h</option></select></label>
+      <article class="painel" id="dados-fora" aria-labelledby="t-dados">
+        <div class="painel-h"><h2 id="t-dados">Dados de fora</h2><button type="button" class="pri" id="x-tudo" data-x="tudo">Atualizar tudo</button></div>
+        <p class="sub" style="margin:0">O painel abre as páginas no navegador do app Claude, uma por vez, e lê os números. Funciona com o painel aberto no app do computador; no celular, digite o dólar abaixo e cole a lista da Kryptex.</p>
+        <div class="dados-l">
+          <div class="dado"><span class="nm">Dólar<small id="x-dolar-i"></small></span><button type="button" data-x="dolar">Atualizar</button></div>
+          <div class="dado"><span class="nm">Receitas da Kryptex<small id="x-kryptex-i"></small></span><button type="button" data-x="kryptex">Atualizar</button></div>
+          <div class="dado"><span class="nm">Preço das placas novas<small id="x-novas-i"></small></span><button type="button" data-x="novas">Atualizar</button></div>
+          <div class="dado"><span class="nm">Preço das placas usadas<small id="x-usadas-i"></small></span><button type="button" data-x="usadas">Atualizar</button></div>
         </div>
-        <p class="hint" id="br-hint" style="margin:0"></p>
-        <div id="br-res"></div>
+        <p class="status" id="x-status" role="status" aria-live="polite"></p>
+        <details class="x-colar"><summary>Sem o app: colar a lista da Kryptex</summary>
+          <label class="hint" for="x-texto" style="display:block;margin:10px 0 6px">Na lista da Kryptex (pool.kryptex.com › GPU ou CPU), aperte Ctrl+A e Ctrl+C e cole aqui. Dá para colar uma página da lista de cada vez.</label>
+          <textarea id="x-texto" rows="4" spellcheck="false" placeholder="Cole aqui o texto da página da Kryptex"></textarea>
+          <button type="button" data-x="colar" style="margin-top:8px">Atualizar com o texto colado</button>
+        </details>
       </article>
-      <div class="painel note" id="notas-prem">
-        <div class="painel-h so-cel"><h2 id="t-notas-prem">Como esses valores entram nas contas</h2></div>
-        <span><b>Tarifa:</b> o valor do kWh com ICMS e PIS/Cofins, que aparece na conta de luz como “tarifa com tributos”. Sem esse campo, divida o total da conta pelos kWh consumidos: dá um número um pouco acima do real, porque inclui a iluminação pública. Os kWh do rig entram na faixa mais cara da sua casa. Exemplo: Celesc (SC), residencial, R$ 0,76/kWh sem impostos, que dá cerca de R$ 0,96 com impostos.</span>
-        <span><b>Bandeira:</b> verde em outubro/2026; a ANEEL anuncia a de cada mês no fim do mês anterior.</span>
-        <span><b>Margem de segurança:</b> desconto aplicado na receita da Kryptex, porque ela muda todo dia com o preço da moeda e a dificuldade da rede. Com 0% você vê o número cru do site.</span>
-        <span><b>Recuperar em:</b> prazo usado para o preço limite e para o “Compensa?”.</span>
-        <span><b>CDI e rendimento:</b> usados para estimar quanto o dinheiro guardado rende enquanto você paga parcelas sem juros (IR regressivo já descontado).</span>
-        <span><b>Revenda:</b> no fim do prazo a placa ainda vale alguma coisa. O painel parte de 10% abaixo do preço típico de usada de hoje (para vender rápido) e tira a desvalorização de cada ano; quando um modelo tem 60 dias ou mais de histórico de preço (Todas as placas › Preço de usada ao longo do tempo), vale a desvalorização dele. Com “Contar a revenda” ligado, o preço limite passa a ser lucro × prazo + revenda, e o “Compensa?” segue esse limite. O retorno continua sendo só o da mineração.</span>
-      </div>
-      <article class="painel sobre" id="sobre-p" aria-labelledby="t-sobre">
+    </section>
+
+    <section class="view cfg" id="v-computador" aria-labelledby="t-computador" hidden>
+      <header class="vh"><div><h1 id="t-computador" tabindex="-1">Este computador</h1><p class="sub">A versão, a atualização, o backup, como o painel abre e o tema.</p></div></header>
+      <p class="sync cfg-sync" id="mais-sync"><i></i>Carregando…</p>
+      <article class="painel" id="estecel-p" aria-labelledby="t-estecel" hidden>
+        <div class="painel-h"><h2 id="t-estecel">Este celular</h2><small class="hint" id="estecel-versao"></small></div>
+        <p class="sub" style="margin:0">Os dados ficam no PC e chegam aqui criptografados pelo ntfy.sh. O que você muda aqui vai para o PC; a busca de ofertas, a leitura de anúncios e a atualização dos dados de fora rodam no PC.</p>
+        <dl class="cen" id="estecel-info"></dl>
+        <div class="acoes"><button type="button" id="estecel-atualizar">Atualizar agora</button><button type="button" id="estecel-procurar" hidden>Procurar versão nova</button><button type="button" class="pri" id="estecel-instalar" hidden>Atualizar o app</button><a class="botao-link" id="estecel-baixar" target="_blank" rel="noopener noreferrer" hidden>Baixar o app pelo navegador</a><button type="button" class="link" id="estecel-desvincular">Desvincular este celular</button></div>
+        <p class="status erro" id="estecel-falha" hidden></p>
+        <p class="status" id="estecel-status" role="status" aria-live="polite"></p>
+      </article>
+      <article class="painel" id="este-pc" aria-labelledby="t-este-pc" hidden>
+        <div class="painel-h"><h2 id="t-este-pc">Este computador</h2><small class="hint" id="pc-versao"></small></div>
+        <p class="sub" style="margin:0">Os dados deste aplicativo ficam salvos neste computador, separados do painel online no Claude. O backup leva os dados de um lugar para outro ou guarda uma cópia.</p>
+        <div class="atu" id="atu">
+          <div><span class="lbl">Atualização automática</span><p class="status atu-msg" id="atu-msg" role="status" aria-live="polite"></p></div>
+          <button type="button" id="atu-btn" hidden></button>
+        </div>
+        <div class="atu" id="bkp">
+          <div><span class="lbl">Backup automático</span><p class="status atu-msg" id="bkp-msg" role="status" aria-live="polite"></p></div>
+          <div class="acoes"><button type="button" id="bkp-agora">Fazer agora</button><button type="button" class="link" id="bkp-abrir">Abrir a pasta</button><button type="button" class="link" id="bkp-mudar">Mudar a pasta</button></div>
+        </div>
+        <div class="atu" id="inicio" hidden>
+          <div class="inicio-opcoes">
+            <span class="lbl" id="inicio-t">Ao ligar o computador</span>
+            <label class="check"><input type="checkbox" id="pc-iniciar"> Abrir o painel junto com o Windows</label>
+            <label class="check"><input type="checkbox" id="pc-minimizado"><span>Abrir minimizado <small class="hint" id="pc-minimizado-h"></small></span></label>
+            <p class="hint" id="pc-iniciar-dica" hidden></p>
+          </div>
+        </div>
+        <div class="acoes">
+          <button type="button" data-pc="facebook">Entrar no Facebook</button>
+          <button type="button" data-pc="kryptex">Entrar na Kryptex</button>
+          <button type="button" data-pc="navegador">Mostrar o navegador escondido</button>
+          <button type="button" data-pc="exportar">Exportar backup</button>
+          <button type="button" data-pc="importar">Importar backup</button>
+        </div>
+        <p class="status" id="pc-status" role="status" aria-live="polite"></p>
+      </article>
+      <article class="painel" id="aparencia-p" aria-labelledby="t-aparencia" data-aberto>
+        <div class="painel-h"><h2 id="t-aparencia">Aparência</h2></div>
+        <div class="tema-sel" role="group" aria-label="Tema"><button type="button" data-tema-op="escuro" aria-pressed="true">Escuro</button><button type="button" data-tema-op="claro" aria-pressed="false">Claro</button></div>
+      </article>
+    </section>
+
+    <section class="view cfg" id="v-sobre" aria-labelledby="t-sobre" hidden>
+      <header class="vh"><div><h1 id="t-sobre" tabindex="-1">Sobre</h1><p class="sub">Quem fez o painel e como falar com ele.</p></div></header>
+      <article class="painel sobre" id="sobre-p" aria-labelledby="t-sobre" data-aberto>
         <div class="painel-h"><h2 id="t-sobre">Sobre o painel</h2><small class="hint" id="sobre-versao"></small></div>
         <p>Criado por <b>Alexsander Azevedo</b>. Dúvidas, ideias ou problemas: fale comigo.</p>
         <ul class="sobre-contato" id="sobre-contato">
@@ -1654,7 +1697,7 @@ details.saiba > :not(summary){margin-bottom:14px}
     </section>
 
     <section class="view" id="v-setup" aria-labelledby="t-setup" hidden>
-      <header class="vh"><div><h1 id="t-setup" tabindex="-1">Montar setup</h1><p class="sub">A conta do PC inteiro na tomada: placas, processador, fonte e o que falta comprar em cada máquina.</p></div></header>
+      <header class="vh"><div><h1 id="t-setup" tabindex="-1">Meu setup</h1><p class="sub">A conta do PC inteiro na tomada: placas, processador, fonte e o que falta comprar em cada máquina.</p></div></header>
       <div class="kpis" id="s-kpis"></div>
       <div class="barra s-barra" role="group" aria-label="Opções do setup">
         <label><span class="lbl">Tomada</span><select id="s-tensao"><option value="220">220 V</option><option value="127">127 V</option></select></label>
@@ -1730,24 +1773,12 @@ details.saiba > :not(summary){margin-bottom:14px}
       </details>
     </section>
   </main>
-  <nav class="abas" aria-label="Telas">
-    <button type="button" class="aba" data-view="resumo" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="8" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Resumo</span></button>
-    <button type="button" class="aba" data-view="diario" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8 14h3M8 17h6"/></svg><span>Diário</span></button>
-    <button type="button" class="aba" data-view="minhas" aria-current="false"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="9" cy="12" r="2.3"/><circle cx="15.5" cy="12" r="2.3"/></svg><span>Placas</span></button>
-    <button type="button" class="aba" data-view="ofertas" aria-current="false" id="aba-ofertas" hidden><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Ofertas</span></button>
-    <button type="button" class="aba" id="aba-mais" aria-expanded="false" aria-controls="mais" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>Mais</span></button>
+  <nav class="abas" aria-label="Áreas">
+    <button type="button" class="aba" data-area="resumo" aria-current="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="8" rx="1.5"/><rect x="13" y="4" width="7" height="5" rx="1.5"/><rect x="13" y="11" width="7" height="9" rx="1.5"/><rect x="4" y="14" width="7" height="6" rx="1.5"/></svg><span>Resumo</span></button>
+    <button type="button" class="aba" data-area="comprar" aria-current="false"><svg viewBox="0 0 24 24"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8a1.4 1.4 0 0 1 0 2l-7 7a1.4 1.4 0 0 1-2 0z"/><circle cx="8.5" cy="8.5" r="1.6"/></svg><span>Comprar</span></button>
+    <button type="button" class="aba" data-area="config" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Configurações</span></button>
   </nav>
-  <div class="mais-fundo" id="mais-fundo" hidden></div>
   <div class="folha-fundo" id="folha-fundo" hidden></div>
-  <div class="mais" id="mais" role="dialog" aria-modal="true" aria-label="Mais telas" hidden>
-    <button type="button" class="mais-item" data-view="anuncio" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Analisar anúncio</span></button>
-    <button type="button" class="mais-item" data-view="placas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Todas as placas</span></button>
-    <button type="button" class="mais-item" data-view="sim" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 6-7"/><path d="M15 7h3v3"/></svg><span>Simulador</span></button>
-    <button type="button" class="mais-item" data-view="setup" aria-current="false"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 7h6M9 10.5h6"/><circle cx="12" cy="16" r="1.7"/></svg><span>Montar setup</span></button>
-    <button type="button" class="mais-item" data-view="premissas" aria-current="false"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Premissas</span></button>
-    <p class="sync mais-sync" id="mais-sync"><i></i>Carregando…</p>
-    <div class="tema-sel" role="group" aria-label="Tema"><button type="button" data-tema-op="escuro" aria-pressed="true">Escuro</button><button type="button" data-tema-op="claro" aria-pressed="false">Claro</button></div>
-  </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -4571,7 +4602,7 @@ function decidirBoasVindas(configNoBanco){
 
 /* ---------- ofertas: Marketplace e OLX perto de você (aplicativo do computador) ---------- */
 const OF_PODE = () => (DESKTOP && !!window.desktop.buscarAnuncios) || (REMOTO && !!window.desktop.pedirAoPc);
-$("nav-ofertas").hidden = $("aba-ofertas").hidden = !OF_PODE();
+$("nav-ofertas").hidden = !OF_PODE();
 /* foto do anúncio: só https do Facebook (fbcdn.net) e da OLX; outra coisa vira o desenho da placa */
 function fotoValida(u){
   u = String(u || "");
@@ -5066,7 +5097,7 @@ function salvarOfUi(){ lsSet("min-ofertas-ui", {teto:$("of-teto").value, fb:$("o
   $("of-teto").value = u.teto || ""; $("of-fb").checked = u.fb!==false; $("of-olx").checked = u.olx!==false; $("of-so-compensa").checked = u.so!==false; $("of-sem-troca").checked = !!u.semTroca;
   if([...$("of-ordem").options].some(op=>op.value===u.ordem)) $("of-ordem").value = u.ordem; })();
 $("of-buscar").addEventListener("click", buscarOfertas);
-$("of-mudar").addEventListener("click", ()=>{ irPara("premissas", false); abrirSecao($("perfil-p")); $("pf-cidade").focus(); $("perfil-p").scrollIntoView({behavior:suave(), block:"start"}); });
+$("of-mudar").addEventListener("click", ()=>{ irPara("perfil", false); abrirSecao($("perfil-p")); $("pf-cidade").focus(); $("perfil-p").scrollIntoView({behavior:suave(), block:"start"}); });
 $("of-raio").addEventListener("change", e=>definirPerfil({raio:+e.target.value}));
 $("of-teto").addEventListener("change", ()=>{ salvarOfUi(); renderOfModelos(); renderOfResumo(); });
 for(const id of ["of-fb","of-olx"]) $(id).addEventListener("change", ()=>{ salvarOfUi(); renderOfResumo(); });
@@ -5302,6 +5333,7 @@ if(OF_PODE() && !REMOTO){
   setInterval(()=>{ verificarAlerta().catch(()=>{}); renderAlerta(); }, 60e3);
 }
 if(DESKTOP && window.desktop.aoAbrir) window.desktop.aoAbrir(({tela, chave})=>{
+  tela = apelido(tela);   /* um aviso de antes da 1.12.0 pode pedir "premissas" */
   if(!VIEWS.includes(tela)) return;
   irPara(tela, !chave);
   if(tela==="ofertas" && chave) destacarOferta(chave);
@@ -7436,24 +7468,29 @@ function tickGanhos(){
 }
 setInterval(()=>{ if(ganhosEstado==="ativo") tickGanhos(); }, 1000);
 function renderCenario(){
-  $("chips-cen").innerHTML = `Contas com <span>dólar ${brl(cfg.dolar)}</span><span>luz ${brl(cfg.tarifa+(+cfg.bandeira||0))}/kWh</span><span>margem ${cfg.margem}%</span><span>retorno em ${cfg.meses} meses</span><button type="button" class="link" data-ir="premissas">Mudar premissas</button>`;
+  $("chips-cen").innerHTML = `Contas com <span>dólar ${brl(cfg.dolar)}</span><span>luz ${brl(cfg.tarifa+(+cfg.bandeira||0))}/kWh</span><span>margem ${cfg.margem}%</span><span>retorno em ${cfg.meses} meses</span><button type="button" class="link" data-ir="mineracao">Mudar em Configurações</button>`;
 }
-const VIEWS = ["resumo","diario","minhas","ofertas","anuncio","placas","sim","setup","premissas"];
-/* no celular, as telas que ficam na folha "Mais" (as outras estão na barra de baixo) */
-const NA_FOLHA = ["anuncio","placas","sim","setup","premissas"];
-let maisVoltar = null;
-function abrirMais(){
-  $("mais").hidden = false; $("mais-fundo").hidden = false; $("aba-mais").setAttribute("aria-expanded", "true");
-  maisVoltar = document.activeElement;
-  ($("mais").querySelector('[aria-current="page"]') || $("mais").querySelector("button")).focus({preventScroll:true});
+/* as telas de cada área, na ordem dos botões no alto da área; o menu lateral (PC) e a barra de baixo (celular) têm as áreas */
+const AREAS = {resumo:["resumo","diario","minhas","setup"], comprar:["ofertas","anuncio","placas","sim"], config:["mineracao","perfil","integracoes","computador","sobre"]};
+const VIEWS = Object.values(AREAS).flat();
+const NOMES_AREA = {resumo:"Resumo geral", comprar:"Comprar", config:"Configurações"};
+/* nomes de antes (endereço, tela guardada, avisos do Windows): as Premissas viraram Configurações › Mineração (1.12.0) */
+const APELIDOS = {premissas:"mineracao"};
+const apelido = v => Object.prototype.hasOwnProperty.call(APELIDOS, v) ? APELIDOS[v] : v;
+function areaDe(v){ return Object.keys(AREAS).find(a=>AREAS[a].includes(v)) || "resumo"; }
+const ultimaDaArea = {};
+/* a tela que uma área abre: a última vista dela desde que o painel abriu; na primeira vez, a primeira que aparece */
+function telaDaArea(a){
+  const pode = v => v!=="ofertas" || OF_PODE();
+  const u = ultimaDaArea[a];
+  return u && pode(u) ? u : (AREAS[a] || AREAS.resumo).find(pode);
 }
-function fecharMais(){
-  if($("mais").hidden) return false;
-  $("mais").hidden = true; $("mais-fundo").hidden = true; $("aba-mais").setAttribute("aria-expanded", "false");
-  if(maisVoltar && document.contains(maisVoltar)) try{ maisVoltar.focus({preventScroll:true}); }catch(e){}
-  maisVoltar = null;
-  return true;
-}
+/* a tela "computador" tem o nome do aparelho */
+const NOME_APARELHO = DESKTOP ? "Este computador" : REMOTO ? "Este celular" : "Este aparelho";
+$("t-computador").textContent = NOME_APARELHO;
+document.querySelector('.tela-bt[data-view="computador"] > span').textContent = NOME_APARELHO;
+/* a folha "Mais" do celular saiu na 1.12.0: a função fica, sem nada para fechar, para quem ainda chama */
+function fecharMais(){ return false; }
 window.fecharMais = fecharMais;
 /* ---------- folhas do celular: um painel da tela sobe de baixo (o formulário do Diário…) ---------- */
 let folhaAberta = null, folhaVoltar = null;
@@ -7470,9 +7507,8 @@ function abrirFolha(id, foco){
   if(alvo) try{ alvo.focus({preventScroll:true}); }catch(e){}
   return true;
 }
-/* fecha a folha aberta (ou a "Mais"); devolve true se havia uma */
+/* fecha a folha aberta; devolve true se havia uma */
 function fecharFolha(){
-  if(fecharMais()) return true;
   if(!folhaAberta) return false;
   const f = folhaAberta; folhaAberta = null;
   f.classList.remove("aberta"); f.removeAttribute("role"); f.removeAttribute("aria-modal"); f.removeAttribute("aria-labelledby");
@@ -7500,10 +7536,11 @@ document.addEventListener("keydown", e=>{
   else if(!e.shiftKey && (i<0 || i===fs.length-1)){ e.preventDefault(); fs[0].focus(); }
 });
 matchMedia("(max-width:899px)").addEventListener("change", e=>{ if(!e.matches) fecharFolha(); });   /* a janela ficou larga: o painel volta ao lugar */
-/* ---------- Premissas no celular: cada quadro abre e fecha pelo título (no PC fica tudo aberto) ----------
-   O botão (.sec-bt, com o nome do quadro e aria-expanded) cobre o cabeçalho inteiro; os outros botões do cabeçalho ficam por cima. */
+/* ---------- Configurações no celular: cada quadro abre e fecha pelo título (no PC fica tudo aberto) ----------
+   O botão (.sec-bt, com o nome do quadro e aria-expanded) cobre o cabeçalho inteiro; os outros botões do cabeçalho ficam por cima.
+   Os quadros com data-aberto (Aparência, Sobre o painel) ficam sempre abertos. */
 function prepararSecoes(){
-  const quadros = document.querySelectorAll("#v-premissas article.painel, #v-premissas .painel.note, #v-premissas fieldset.grupo");
+  const quadros = document.querySelectorAll(".view.cfg article.painel:not([data-aberto]), .view.cfg .painel.note:not([data-aberto]), .view.cfg fieldset.grupo");
   quadros.forEach((q, i)=>{
     const grupo = q.matches("fieldset"), cab = grupo ? q.querySelector(":scope > legend") : q.querySelector(":scope > .painel-h");
     const tit = grupo ? cab : cab && cab.querySelector("h2");
@@ -7516,7 +7553,7 @@ function prepararSecoes(){
     cab.append(b); q.classList.add("sec");
   });
 }
-/* abre (ou fecha) o quadro de Premissas que contém el */
+/* abre (ou fecha) o quadro de Configurações que contém el */
 function abrirSecao(el, abrir = true){
   const q = el && el.closest(".sec"); if(!q) return;
   q.classList.toggle("aberta", abrir);
@@ -7534,7 +7571,7 @@ if(APP){
   const parar = () => { y0 = null; puxou = 0; ind.classList.remove("vis", "pronto"); ind.style.removeProperty("--puxou"); ind.style.removeProperty("--giro"); };
   addEventListener("touchstart", e=>{
     parar();
-    if(e.touches.length===1 && scrollY<=0 && !folhaAberta && $("mais").hidden){ y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; }
+    if(e.touches.length===1 && scrollY<=0 && !folhaAberta){ y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; }
   }, {passive:true});
   addEventListener("touchmove", e=>{
     if(y0==null) return;
@@ -7547,19 +7584,21 @@ if(APP){
   addEventListener("touchend", ()=>{ const ok = y0!=null && puxou>=90; parar(); if(ok) atualizarDoPc(); }, {passive:true});
   addEventListener("touchcancel", parar, {passive:true});
 }
-$("aba-mais").addEventListener("click", ()=>{ if($("mais").hidden) abrirMais(); else fecharMais(); });
-$("mais-fundo").addEventListener("click", fecharMais);
-document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("mais").hidden){ e.preventDefault(); fecharMais(); } });
 function irPara(v, foco){
+  v = apelido(v);
   if(!VIEWS.includes(v) || (v==="ofertas" && !OF_PODE())) v = "resumo";
   gravarSimJa();   /* o simulador grava ao sair da tela (até lá, espera: cada gravação vira mensagem entre o PC e o celular) */
   fecharFolha();
   for(const id of VIEWS) $("v-"+id).hidden = id!==v;
   if(v==="sim") renderSim();
   if(v==="diario") renderParadas();   /* uma parada que não acabou cresce com o tempo */
-  if(v==="premissas") carregarPlaca();   /* a leitura da placa de vídeo deste PC (só no PC) */
-  document.querySelectorAll(".item[data-view], .aba[data-view], .mais-item[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
-  $("aba-mais").setAttribute("aria-current", NA_FOLHA.includes(v) ? "page" : "false");
+  if(v==="mineracao") carregarPlaca();   /* a leitura da placa de vídeo deste PC (só no PC) */
+  /* a área marcada no menu lateral e na barra de baixo; no alto, só os botões dela, com a tela aberta marcada */
+  const a = areaDe(v); ultimaDaArea[a] = v;
+  document.querySelectorAll("button[data-area]").forEach(b=>b.setAttribute("aria-current", b.dataset.area===a ? "page" : "false"));
+  document.querySelectorAll(".area-nav").forEach(n=>{ n.hidden = n.dataset.area!==a; });
+  document.querySelectorAll(".tela-bt[data-view]").forEach(b=>b.setAttribute("aria-current", b.dataset.view===v ? "page" : "false"));
+  $("area-t").textContent = NOMES_AREA[a];
   $("topo-t").textContent = $("t-"+v).textContent;
   try{ localStorage.setItem("min-view", v); }catch(e){}
   try{ history.replaceState(null, "", "#"+v); }catch(e){}
@@ -7573,6 +7612,8 @@ document.addEventListener("click", e=>{
   const b = e.target.closest("[data-ir],[data-view]");
   if(b){ irPara(b.dataset.ir || b.dataset.view, !b.dataset.rolar); const alvo = b.dataset.rolar && $(b.dataset.rolar); if(alvo){ abrirSecao(alvo); alvo.scrollIntoView({block:"start", behavior:suave()}); const h = alvo.querySelector("h2"); if(h){ h.tabIndex = -1; h.focus({preventScroll:true}); } } }
 });
+/* uma área (menu lateral ou barra de baixo) abre a última tela vista dela; o nav dos botões também tem data-area, mas não é botão */
+document.addEventListener("click", e=>{ const b = e.target.closest("button[data-area]"); if(b) irPara(telaDaArea(b.dataset.area), true); });
 
 /* ---------- simulador de compra ----------
    Até 3 opções de compra de placas (cfg.sim), à vista, no cartão ou com empréstimo, em 3 cenários de mercado: quando cada

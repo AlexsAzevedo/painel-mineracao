@@ -370,16 +370,16 @@ def pc(p):
 
 
 @parte
-def abrir_premissas(p):
-    """ao abrir Premissas, a página pede o estado da placa"""
+def abrir_configuracoes(p):
+    """ao abrir Configurações (Mineração), a página pede o estado da placa"""
     pg = abrir(p, dados=DADOS, pc=True, hash="resumo", extra=ponte(cuidar=True))
     pg.wait_for_timeout(300)
     n = len(chamadas(pg, "estado"))
-    pg.locator('.item[data-view="premissas"]').click()
+    pg.locator('.item[data-area="config"]').click()
     pg.wait_for_timeout(200)
-    checa("abrir Premissas pede o estado", len(chamadas(pg, "estado")) > n, [n, len(chamadas(pg, "estado"))])
+    checa("abrir Configurações pede o estado", len(chamadas(pg, "estado")) > n, [n, len(chamadas(pg, "estado"))])
     checa("com o painel cuidando: a situação", cartao(pg).locator(".placa-sit").text_content() == "Ajuste bom desde 25/10 13:00.", cartao(pg).locator(".placa-sit").text_content())
-    checa("sem erros (abrir Premissas)", not erros(pg), erros(pg)[:3])
+    checa("sem erros (abrir Configurações)", not erros(pg), erros(pg)[:3])
     pg.context.close()
 
 
@@ -533,7 +533,7 @@ with sync_playwright() as p:
     sem_ponte(p)
     textos(p)
     pc(p)
-    abrir_premissas(p)
+    abrir_configuracoes(p)
     duas(p)
     contagem(p)
     celular(p)

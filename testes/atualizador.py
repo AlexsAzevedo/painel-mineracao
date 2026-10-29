@@ -215,7 +215,7 @@ def clica(pg, sel):
 
 def painel(p):
     pg = abrir_app(p)
-    pg.evaluate("irPara('premissas'); abrirSecao(document.getElementById('estecel-p'))")   # no celular, os quadros de Premissas abrem pelo título
+    pg.evaluate("irPara('computador'); abrirSecao(document.getElementById('estecel-p'))")   # no celular, os quadros de Configurações abrem pelo título
     pg.wait_for_timeout(200)
     checa("versões no Este celular", texto(pg, "#estecel-versao") == f"painel {VERSAO_PAGINA} · app {VERSAO_APP}", texto(pg, "#estecel-versao"))
     checa("em dia", "em dia, conferido há 30 min" in texto(pg, "#estecel-info"), texto(pg, "#estecel-info"))
@@ -262,7 +262,7 @@ def painel(p):
                  {"id": "a2", "nome": "Celular B", "app": "1.7.1", "visto": AGORA_MS - 3600_000, "ativo": False}]
     cfg = {"ligado": True, "aparelhos": aparelhos, "codigo": "PM1-x", "qr": "", "qrApk": "", "urlApk": "", "apk": True, "conectado": True}
     pc = abrir(p, pc=True, dados=DADOS, extra="window.desktop.appCelular.config = async () => (%s);" % json.dumps(cfg))
-    pc.evaluate("irPara('premissas')")
+    pc.evaluate("irPara('integracoes')")
     pc.wait_for_timeout(300)
     lista = texto(pc, "#appcel-lista")
     checa("lista do PC", "painel 1.8.0 · app 1.8.0" in lista and "app 1.7.1" in lista and "painel 1.7.1" not in lista, lista)

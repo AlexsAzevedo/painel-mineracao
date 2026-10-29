@@ -1,12 +1,13 @@
 """O painel no celular (menos de 900 px) com cara de app: barra de cima com o título da tela, listas no lugar de
-tabelas, folhas que sobem de baixo, Premissas em seções e os toques de app (dados inventados).
+tabelas, folhas que sobem de baixo, Configurações em quadros que abrem pelo título e os toques de app (dados inventados).
 Uso: python3 testes/celular.py"""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from apoio import *  # noqa: F401,F403
 
-TITULOS = {"resumo": "Resumo", "diario": "Diário de ganhos", "minhas": "Minhas placas", "ofertas": "Ofertas", "anuncio": "Analisar anúncio",
-           "placas": "Todas as placas", "sim": "Simulador", "setup": "Montar setup", "premissas": "Premissas"}
+TITULOS = {"resumo": "Resumo geral", "diario": "Diário de ganhos", "minhas": "Minhas placas", "setup": "Meu setup", "ofertas": "Ofertas",
+           "anuncio": "Analisar anúncio", "placas": "Todas as placas", "sim": "Simulador", "mineracao": "Mineração", "perfil": "Perfil",
+           "integracoes": "Integrações", "computador": "Este celular", "sobre": "Sobre"}
 # números grandes que quebram em duas linhas (a altura passa de 1,6 vez o tamanho da letra)
 QUEBRADOS = """[...document.querySelectorAll('.view:not([hidden]) .kpi b, .view:not([hidden]) .tile b')]
   .filter(b => b.getClientRects().length && b.getBoundingClientRect().height > parseFloat(getComputedStyle(b).fontSize) * 1.6).map(b => b.textContent.trim())"""
@@ -44,7 +45,7 @@ def casca(p):
         checa(f"sem o subtítulo longo: {v}", pg.evaluate(f"[...document.querySelectorAll('#v-{v} .vh .sub')].every(e => getComputedStyle(e).display === 'none')"))
         quebrados = pg.evaluate(QUEBRADOS)
         checa(f"números grandes numa linha: {v}", not quebrados, quebrados)
-    pg.evaluate("irPara('premissas'); scrollTo(0, 1500)"); pg.wait_for_timeout(100)
+    pg.evaluate("irPara('placas'); scrollTo(0, 1500)"); pg.wait_for_timeout(100)
     checa("a barra de cima fica no topo ao rolar", abs(pg.evaluate("document.querySelector('.side').getBoundingClientRect().top")) < 1)
     pg.evaluate("irPara('resumo')")
     checa("cartões com 16 px por dentro", pg.evaluate("getComputedStyle(document.querySelector('#v-resumo #r-graf-p')).paddingLeft") == "16px")
@@ -65,9 +66,9 @@ def casca(p):
     checa("a faixa acompanha a rolagem", 0 <= faixa <= 12, faixa)
     pg.evaluate("remotoEstado({ok:true, texto:'Ligado ao PC'})")
     checa("a faixa some quando o PC volta", not visivel(pg, "#remoto-aviso"))
-    clica(pg, "#aba-mais"); pg.wait_for_timeout(100)
-    checa("a folha Mais mostra a ligação com o PC", "Ligado ao PC" in texto(pg, "#mais-sync") and pg.evaluate("document.getElementById('mais-sync').classList.contains('ok')"), texto(pg, "#mais-sync"))
-    pg.evaluate("fecharFolha()")
+    pg.evaluate("irPara('computador')"); pg.wait_for_timeout(100)
+    checa("Este celular mostra a ligação com o PC", "Ligado ao PC" in texto(pg, "#mais-sync") and pg.evaluate("document.getElementById('mais-sync').classList.contains('ok')"), texto(pg, "#mais-sync"))
+    pg.evaluate("irPara('resumo')")
     # Atualizar pelo topo: pede ao PC e diz como foi, sem deixar apertar de novo em seguida
     pg.evaluate("window.__atu = 0; window.desktop.sync.atualizar = async () => { window.__atu++; }; 0")   # "; 0": o Playwright chamaria a função
     checa("botão de atualizar no topo", visivel(pg, "#topo-atu"))
@@ -86,11 +87,11 @@ def casca(p):
     checa("sem erros no celular", not erros(pg), erros(pg)[:3])
     # o painel online no celular (sem PC): sem botão de atualizar
     on = abrir(p, largura=390, altura=844, dados=DADOS)
-    checa("painel online: sem atualizar no topo", not visivel(on, "#topo-atu") and texto(on, "#topo-t") == "Resumo")
+    checa("painel online: sem atualizar no topo", not visivel(on, "#topo-atu") and texto(on, "#topo-t") == "Resumo geral")
     # no PC nada disso aparece
     pc = abrir(p, largura=1366, dados=DADOS, pc=True)
-    checa("PC: sem título de app e com o h1", not visivel(pc, "#topo-t") and pc.evaluate("document.getElementById('t-resumo').getBoundingClientRect().height") > 20)
-    checa("PC: com o subtítulo", pc.is_visible("#resumo-sub"))
+    checa("PC: sem título de app e com o nome da área", not visivel(pc, "#topo-t") and pc.evaluate("document.getElementById('area-t').getBoundingClientRect().height") > 20)
+    checa("PC: a frase da tela some (o nome grande é o da área)", not pc.is_visible("#resumo-sub"))
     checa("PC: sem atualizar no topo", not visivel(pc, "#topo-atu"))
     checa("sem erros no PC", not erros(pc), erros(pc)[:3])
 
@@ -223,38 +224,48 @@ def ofertas(p):
     checa("sem erros (ofertas no PC)", not erros(pc), erros(pc)[:3])
 
 
-SECOES = """[...document.querySelectorAll('#v-premissas .sec')].filter(s => s.getClientRects().length)
+SECOES = """(v) => [...document.querySelectorAll('#v-' + v + ' .sec')].filter(s => s.getClientRects().length)
   .map(s => ({id: s.id, aberta: s.classList.contains('aberta'), exp: (s.querySelector('.sec-bt') || {getAttribute: () => null}).getAttribute('aria-expanded')}))"""
 
 
-def premissas(p):
-    pg = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, hash="premissas")
-    secs = pg.evaluate(SECOES)
-    checa("premissas: quadros fechados, cada um com o botão de abrir", len(secs) >= 8 and all(not x["aberta"] and x["exp"] == "false" for x in secs), secs)
-    alt = pg.evaluate("Math.round(document.getElementById('v-premissas').getBoundingClientRect().height)")
-    checa("premissas: tela curta com tudo fechado", alt < 1500, alt)
+def configuracoes(p):
+    pg = abrir(p, largura=390, altura=844, dados=DADOS, celular=True, hash="mineracao")
+    secs = pg.evaluate(SECOES, "mineracao")
+    checa("configurações: quadros fechados, cada um com o botão de abrir", len(secs) >= 5 and all(not x["aberta"] and x["exp"] == "false" for x in secs), secs)
+    alt = pg.evaluate("Math.round(document.getElementById('v-mineracao').getBoundingClientRect().height)")
+    checa("configurações: tela curta com tudo fechado", alt < 1500, alt)
+    pg.evaluate("irPara('integracoes')")
+    secs = pg.evaluate(SECOES, "integracoes")
+    checa("integrações: quadros fechados", len(secs) >= 1 and all(not x["aberta"] for x in secs), secs)
     clica(pg, "#dados-fora .sec-bt"); pg.wait_for_timeout(100)
-    checa("premissas: abrir um quadro", visivel(pg, "#dados-fora [data-x=dolar]") and pg.evaluate("(document.querySelector('#dados-fora .sec-bt') || {getAttribute: () => null}).getAttribute('aria-expanded')") == "true")
+    checa("configurações: abrir um quadro", visivel(pg, "#dados-fora [data-x=dolar]") and pg.evaluate("(document.querySelector('#dados-fora .sec-bt') || {getAttribute: () => null}).getAttribute('aria-expanded')") == "true")
     clica(pg, "#dados-fora .sec-bt"); pg.wait_for_timeout(100)
-    checa("premissas: fechar de novo", not visivel(pg, "#dados-fora [data-x=dolar]"))
+    checa("configurações: fechar de novo", not visivel(pg, "#dados-fora [data-x=dolar]"))
+    pg.evaluate("irPara('perfil')")
     pg.evaluate("document.querySelector('#perfil-p h2').scrollIntoView({block: 'center'})"); pg.wait_for_timeout(100)
     xy = pg.evaluate("(() => { const r = document.querySelector('#perfil-p h2').getBoundingClientRect(); return [r.left + 12, r.top + r.height / 2]; })()")
     pg.mouse.click(xy[0], xy[1]); pg.wait_for_timeout(100)
-    checa("premissas: tocar no título também abre", visivel(pg, "#pf-cidade"))
-    clica(pg, "#v-premissas fieldset.grupo .sec-bt"); pg.wait_for_timeout(100)
-    checa("premissas: os grupos (receita, energia, investimento) também abrem", visivel(pg, "#dolar"))
+    checa("configurações: tocar no título também abre", visivel(pg, "#pf-cidade"))
+    pg.evaluate("irPara('mineracao')")
+    clica(pg, "#v-mineracao fieldset.grupo .sec-bt"); pg.wait_for_timeout(100)
+    checa("configurações: os grupos (receita, energia, investimento) também abrem", visivel(pg, "#dolar"))
     clica(pg, "#perfil-p .sec-bt"); pg.evaluate("irPara('ofertas')"); clica(pg, "#of-mudar"); pg.wait_for_timeout(300)
     checa("Mudar cidade (Ofertas) abre o perfil na cidade", pg.evaluate("document.getElementById('perfil-p').classList.contains('aberta') && document.activeElement.id === 'pf-cidade'"))
+    pg.evaluate("irPara('mineracao')")
     for k, v in (("br-conv", "0.96"), ("br-fora", "0.5"), ("br-inter", "0.9"), ("br-ponta", "1.6")):
         preenche(pg, f"#{k}", v)
     pg.evaluate("abrirSecao(document.getElementById('branca-p'))"); pg.wait_for_timeout(150)
     tinha = clica(pg, "#br-usar"); pg.wait_for_timeout(250)
     foco = pg.evaluate("(() => { const a = document.activeElement; return {id: a.id, cls: a.className, corpo: a === document.body, energia: document.getElementById('tarifa').closest('.sec').classList.contains('aberta'), tarifa: document.getElementById('tarifa').getClientRects().length > 0}; })()")
     checa("tarifa branca: Usar na conta mostra a tarifa nova (quadro Energia aberto, foco não se perde)", tinha and not foco["corpo"] and foco["energia"] and foco["tarifa"], [tinha, foco])
-    checa("sem rolagem para o lado (premissas)", pg.evaluate(SEM_LADO))
-    checa("sem erros (premissas)", not erros(pg), erros(pg)[:3])
-    pc = abrir(p, largura=1366, dados=DADOS, pc=True, hash="premissas")
-    checa("PC: premissas abertas, sem os botões de abrir", visivel(pc, "#dados-fora [data-x=dolar]") and visivel(pc, "#dolar") and visivel(pc, "#pf-cidade") and not visivel(pc, "#dados-fora .sec-bt"))
+    checa("sem rolagem para o lado (configurações)", pg.evaluate(SEM_LADO))
+    checa("sem erros (configurações)", not erros(pg), erros(pg)[:3])
+    pc = abrir(p, largura=1366, dados=DADOS, pc=True, hash="mineracao")
+    abertos = visivel(pc, "#dolar") and not visivel(pc, "#cen-p .sec-bt")
+    pc.evaluate("irPara('integracoes')")
+    abertos = abertos and visivel(pc, "#dados-fora [data-x=dolar]") and not visivel(pc, "#dados-fora .sec-bt")
+    pc.evaluate("irPara('perfil')")
+    checa("PC: quadros de Configurações abertos, sem os botões de abrir", abertos and visivel(pc, "#pf-cidade"))
 
 
 def minhas(p):
@@ -319,7 +330,7 @@ with sync_playwright() as p:
     diario(p)
     placas(p)
     ofertas(p)
-    premissas(p)
+    configuracoes(p)
     minhas(p)
     toques(p)
 fim()

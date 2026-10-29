@@ -287,7 +287,7 @@ def celular(p):
     pg.evaluate("irPara('sim')")
     pg.wait_for_timeout(300)
     checa("celular: título no topo", texto(pg, "#topo-t") == "Simulador", texto(pg, "#topo-t"))
-    checa("celular: na folha Mais", existe(pg, "#mais .mais-item[data-view='sim']"))
+    checa("celular: em Comprar", existe(pg, ".area-nav[data-area=comprar] .tela-bt[data-view='sim']"))
     caixas = pg.evaluate("[...document.querySelectorAll('#sim-ops .sim-op')].map(e => { const r = e.getBoundingClientRect(); return [r.left, r.right, r.top, r.bottom]; })")
     checa("celular: as 3 opções uma embaixo da outra", len(caixas) == 3 and all(c[0] >= 0 and c[1] <= 390 for c in caixas)
           and all(caixas[i + 1][2] >= caixas[i][3] for i in range(2)), caixas)

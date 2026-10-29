@@ -276,9 +276,9 @@ def kryptex_app(p):
     t = pg.inner_text("#agora")
     checa("app fechado: o menu não diz 'agora'", "App da Kryptex fechado" in pg.inner_text("#vivo") and "hoje até agora" not in pg.inner_text("#vivo"), pg.inner_text("#vivo"))
     checa("app fechado: números da última leitura", pg.evaluate("!!document.querySelector('#agora .ag-nums.velho')") and "última leitura" in t and "Hoje até agora" not in t, t[:300])
-    # Premissas › App da Kryptex
-    pg.evaluate("irPara('premissas')")
-    checa("painel em Premissas", pg.is_visible("#kxa-p") and pg.is_checked("#kxa-ligado") and pg.is_checked("#kxa-protecao") and pg.input_value("#kxa-limtemp") == "85")
+    # Configurações › Integrações › App da Kryptex neste PC
+    pg.evaluate("irPara('integracoes')")
+    checa("painel em Integrações", pg.is_visible("#kxa-p") and pg.is_checked("#kxa-ligado") and pg.is_checked("#kxa-protecao") and pg.input_value("#kxa-limtemp") == "85")
     pg.fill("#kxa-limtemp", "80"); pg.dispatch_event("#kxa-limtemp", "change")
     checa("limite da placa", pg.evaluate("kxaCfg().limTemp") == 80)
     checa("limite vale na proteção", pg.evaluate("simularLeituras([{...MIN, placas:[{...MIN.placas[0], temp:81}, MIN.placas[1]]}, {...MIN, placas:[{...MIN.placas[0], temp:81}, MIN.placas[1]]}])")["acoes"] == [["pausar", 15]])

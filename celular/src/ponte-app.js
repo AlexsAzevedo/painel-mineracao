@@ -419,8 +419,8 @@
   function podeTrocar() {
     if (document.visibilityState !== "visible" || vincEl) return false;
     if (document.querySelector(".folha-m.aberta")) return false;
-    const mais = document.getElementById("mais"), bv = document.getElementById("bv");
-    if ((mais && !mais.hidden) || (bv && !bv.hidden)) return false;
+    const bv = document.getElementById("bv");
+    if (bv && !bv.hidden) return false;
     const a = document.activeElement;
     if (a && a !== document.body) {
       if (a.isContentEditable || a.tagName === "TEXTAREA" || a.tagName === "SELECT") return false;
@@ -693,7 +693,7 @@ html.pm-vinculando .app{visibility:hidden}
     try {
       AppP.addListener("pause", () => pausar());
       AppP.addListener("resume", () => voltou());
-      /* voltar do Android: fecha a câmera, a folha aberta (Mais, Anotar, Ajustar…), a configuração inicial ou volta para o
+      /* voltar do Android: fecha a câmera, a folha aberta (Anotar, Ajustar…), a configuração inicial ou volta para o
          Resumo; no Resumo, sai do app */
       AppP.addListener("backButton", () => {
         if (lendo) { pararCamera(); mostrar("inicio"); status(""); return; }
