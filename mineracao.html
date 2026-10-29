@@ -155,6 +155,8 @@ details.pausar summary:focus-visible{outline:2px solid var(--accent);outline-off
 .placa-aj{margin:0;font-size:.9rem}
 .lbl .un{text-transform:none;letter-spacing:0}
 .placa-aviso{margin:0;padding:10px 14px;border-radius:12px;background:var(--warn-soft);font-size:.86rem;line-height:1.45}
+/* as mesmas escolhas de Este computador › Ao ligar o computador, para o ajuste valer quando o PC liga */
+.placa-inicio-op{display:flex;flex-direction:column;gap:6px}
 @media (max-width:899px){#placa-p button:not(.sec-bt),#placa-p input:not([type=checkbox]),#placa-p select{min-height:44px}}
 @media (max-width:899px){.ag-meio,.ag-meio.com-saldo{grid-template-columns:1fr}.ag-nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .of-minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -1490,13 +1492,27 @@ details.saiba > :not(summary){margin-bottom:14px}
         <p class="sub" style="margin:0">O painel ajusta a placa de vídeo AMD pelo driver, no lugar do MSI Afterburner: limite de potência, tensão, clock máximo, memória e ventoinha. Um ajuste novo fica em teste por 15 minutos com a placa minerando; se ele travar a placa, o painel volta para o ajuste anterior. Enquanto o painel cuida da placa, fechar a janela deixa o painel no ícone perto do relógio.</p>
         <label class="check"><input type="checkbox" id="placa-cuidar"> O painel cuida dos ajustes da placa</label>
         <p class="placa-aviso" id="placa-ab" hidden>O MSI Afterburner também está aberto. Para os dois não brigarem, desligue nele o 'Aplicar overclock ao iniciar o sistema' (ou desinstale).</p>
-        <p class="placa-aviso" id="placa-inicio" hidden>O painel só aplica o ajuste quando está aberto. Para aplicar assim que o Windows ligar: Este computador › Abrir o painel junto com o Windows.</p>
+        <div class="placa-inicio-op" id="placa-inicio-op" hidden>
+          <span class="lbl">Para o ajuste valer quando o PC ligar</span>
+          <label class="check"><input type="checkbox" id="placa-iniciar"> Abrir o painel junto com o Windows</label>
+          <label class="check"><input type="checkbox" id="placa-minimizado"> Abrir minimizado</label>
+        </div>
         <div class="placa-lista" id="placa-lista"></div>
         <p class="status" id="placa-status" role="status" aria-live="polite"></p>
       </article>
       <article class="painel" id="placa-cel" aria-labelledby="t-placa-cel" hidden>
         <div class="painel-h"><h2 id="t-placa-cel">Placa de vídeo do PC</h2><small class="hint" id="placa-cel-quando"></small></div>
         <div class="placa-lista" id="placa-cel-lista"></div>
+      </article>
+      <article class="painel" id="protecao-p" aria-labelledby="t-protecao" hidden>
+        <div class="painel-h"><h2 id="t-protecao">Proteção de temperatura</h2></div>
+        <label class="check"><input type="checkbox" id="kxa-protecao"> Pausar sozinho se a placa esquentar demais (volta em 15 minutos; se esquentar de novo, fica pausada até você voltar)</label>
+        <div class="kxa-lims">
+          <label><span class="lbl">Placa (°C)</span><input id="kxa-limtemp" type="number" min="60" max="110" step="1" inputmode="numeric"></label>
+          <label><span class="lbl">Memória (°C)</span><input id="kxa-limmem" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
+          <label><span class="lbl">Ponto quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
+        </div>
+        <p class="hint" id="protecao-sem-leitura" style="margin:0" hidden>A proteção precisa da leitura do app da Kryptex ligada (Configurações › Integrações › App da Kryptex neste PC).</p>
       </article>
       <article class="painel" id="branca-p" aria-labelledby="t-branca">
         <div class="painel-h"><h2 id="t-branca">Tarifa branca: compensa desligar na ponta?</h2></div>
@@ -1537,6 +1553,12 @@ details.saiba > :not(summary){margin-bottom:14px}
         </div>
         <p class="hint" style="margin:0" id="pf-hint">A cidade serve para medir a distância dos anúncios e saber onde procurar placas usadas.</p>
       </article>
+      <article class="painel" id="fb-p" aria-labelledby="t-fb" hidden>
+        <div class="painel-h"><h2 id="t-fb">Facebook</h2></div>
+        <p class="sub" style="margin:0">O painel usa a sua conta do Facebook para procurar placas no Marketplace e ler anúncios, num navegador escondido. A senha fica só no site do Facebook.</p>
+        <div class="acoes"><button type="button" data-pc="facebook">Entrar no Facebook</button></div>
+        <p class="status" id="fb-status" role="status" aria-live="polite"></p>
+      </article>
       <article class="painel" id="kx-p" aria-labelledby="t-kx" hidden>
         <div class="painel-h"><h2 id="t-kx">Sua conta da Kryptex</h2><small class="hint" id="kx-quando"></small></div>
         <div id="kx-corpo"></div>
@@ -1549,14 +1571,8 @@ details.saiba > :not(summary){margin-bottom:14px}
       <header class="vh"><div><h1 id="t-integracoes" tabindex="-1">Integrações</h1><p class="sub">O que o painel lê ou manda para outros apps: o app da Kryptex, o celular e os dados de fora.</p></div></header>
       <article class="painel" id="kxa-p" aria-labelledby="t-kxa" hidden>
         <div class="painel-h"><h2 id="t-kxa">App da Kryptex neste PC</h2><small class="hint" id="kxa-quando"></small></div>
-        <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Nas placas AMD, a temperatura da memória e a do ponto mais quente e o consumo da placa vêm do driver da AMD. Ele só pausa quando você pede ou pela proteção de temperatura. Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
+        <p class="sub" style="margin:0">O painel lê o app da Kryptex deste computador a cada minuto: se está minerando, a temperatura, o consumo, o saldo e o ganho de hoje. Nas placas AMD, a temperatura da memória e a do ponto mais quente e o consumo da placa vêm do driver da AMD. Ele só pausa quando você pede ou pela proteção de temperatura (Configurações › Mineração). Enquanto lê, fechar a janela deixa o painel no ícone perto do relógio.</p>
         <label class="check"><input type="checkbox" id="kxa-ligado"> Ler o app da Kryptex deste PC</label>
-        <label class="check"><input type="checkbox" id="kxa-protecao"> Pausar sozinho se a placa esquentar demais (volta em 15 minutos; se esquentar de novo, fica pausada até você voltar)</label>
-        <div class="kxa-lims">
-          <label><span class="lbl">Placa (°C)</span><input id="kxa-limtemp" type="number" min="60" max="110" step="1" inputmode="numeric"></label>
-          <label><span class="lbl">Memória (°C)</span><input id="kxa-limmem" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
-          <label><span class="lbl">Ponto quente (°C)</span><input id="kxa-limhot" type="number" min="60" max="120" step="1" inputmode="numeric"></label>
-        </div>
         <div class="acoes"><button type="button" id="kxa-ler">Ler agora</button><button type="button" class="link" id="kxa-copiar">Copiar o que o painel leu</button></div>
         <p class="status" id="kxa-status" role="status" aria-live="polite"></p>
       </article>
@@ -1669,8 +1685,6 @@ details.saiba > :not(summary){margin-bottom:14px}
           </div>
         </div>
         <div class="acoes">
-          <button type="button" data-pc="facebook">Entrar no Facebook</button>
-          <button type="button" data-pc="kryptex">Entrar na Kryptex</button>
           <button type="button" data-pc="navegador">Mostrar o navegador escondido</button>
           <button type="button" data-pc="exportar">Exportar backup</button>
           <button type="button" data-pc="importar">Importar backup</button>
@@ -4303,28 +4317,29 @@ function restaurarBackup(txt){
   location.reload();
 }
 if(DESKTOP){
-  $("este-pc").hidden = false;
+  $("este-pc").hidden = $("fb-p").hidden = false;
   $("pc-versao").textContent = "versão " + window.desktop.versao;
   $("sobre-versao").textContent = "versão " + window.desktop.versao;
   document.querySelector("#dados-fora > .sub").textContent = "O painel abre as páginas num navegador escondido, uma por vez, e lê os números. Se o Facebook pedir login, use Entrar no Facebook (em Este computador, logo abaixo).";
   document.querySelector(".x-colar > summary").textContent = "Colar a lista da Kryptex (se a leitura automática não der certo)";
   const dica = document.querySelector("#a-dica li"); if(dica) dica.innerHTML = "<b>Pelo link:</b> o painel abre o anúncio num navegador escondido e lê título, preço e descrição. Se o Facebook pedir login, use Premissas › Este computador › Entrar no Facebook.";
-  if(!window.desktop.kryptex) document.querySelector('[data-pc="kryptex"]').hidden = true;
-  $("este-pc").addEventListener("click", async e=>{
+  /* os botões de Este computador e o Entrar no Facebook (Configurações › Perfil): o recado sai no quadro do botão */
+  const botaoPc = async e=>{
     const b = e.target.closest("[data-pc]"); if(!b) return;
-    const st = (t, tipo) => status2("pc-status", t, tipo);
+    const st = (t, tipo) => status2(b.closest("#fb-p") ? "fb-status" : "pc-status", t, tipo);
     try{
       if(b.dataset.pc==="facebook"){ st("Entre na sua conta na janela do Facebook e feche a janela quando terminar."); await window.desktop.entrarFacebook(); st("Pronto: os links de anúncio e as buscas do Marketplace usam essa conta.", "ok"); }
-      else if(b.dataset.pc==="kryptex"){ st("Entre na sua conta na janela da Kryptex e feche a janela quando terminar."); await entrarKryptex(); st(kx.estado==="ok" ? "Pronto: o painel está lendo a sua conta da Kryptex (Premissas › Sua conta da Kryptex)." : "Janela fechada. Veja como ficou em Premissas › Sua conta da Kryptex.", kx.estado==="ok" ? "ok" : ""); }
       else if(b.dataset.pc==="navegador"){ await window.desktop.mostrarNavegador(); st("O navegador escondido está aberto. Se algum site pedir verificação, resolva por lá e feche a janela."); }
       else if(b.dataset.pc==="exportar"){ const onde = await window.desktop.salvarArquivo(`painel-mineracao-${hojeISO()}.json`, JSON.stringify(backupDados(), null, 1)); st(onde ? `Backup salvo em ${onde}` : "Backup cancelado.", onde ? "ok" : ""); }
       else if(b.dataset.pc==="importar"){ const txt = await window.desktop.abrirArquivo(); if(!txt){ st("Importação cancelada."); return; } restaurarBackup(txt); }
     }catch(err){ st("Não deu certo: " + (err && err.message || err), "erro"); }
-  });
-  /* abrir junto com o Windows e abrir minimizado (renderInicio, mais abaixo) */
+  };
+  $("este-pc").addEventListener("click", botaoPc);
+  $("fb-p").addEventListener("click", botaoPc);
+  /* abrir junto com o Windows e abrir minimizado, em Este computador e no quadro da placa (renderInicio, mais abaixo) */
   if(window.desktop.inicioWindows){
-    $("pc-iniciar").addEventListener("change", e=>carregarInicio({comWindows: e.target.checked}));
-    $("pc-minimizado").addEventListener("change", e=>carregarInicio({minimizado: e.target.checked}));
+    for(const id of ["pc-iniciar", "placa-iniciar"]) $(id).addEventListener("change", e=>carregarInicio({comWindows: e.target.checked}));
+    for(const id of ["pc-minimizado", "placa-minimizado"]) $(id).addEventListener("change", e=>carregarInicio({minimizado: e.target.checked}));
     carregarInicio();
   }
 }
@@ -5247,15 +5262,18 @@ function sincronizarSegundoPlano(){
   /* kxa: com o painel lendo o app da Kryptex, o aviso de que o PC voltou é dele (com a queda e quanto deixou de ganhar) */
   window.desktop.segundoPlano({bandeja, iniciar, kxa: kxv}).then(()=>carregarInicio()).catch(()=>{});
 }
-/* Premissas › Este computador: abrir junto com o Windows e abrir minimizado (a escolha fica no aplicativo, deste PC).
+/* Configurações › Este computador (e o quadro da placa, em Mineração): abrir junto com o Windows e abrir minimizado (a escolha fica
+   no aplicativo, deste PC).
    Sem escolha, vale o que as funções ligadas pedem (app do celular, avisos, acesso pelo navegador, alerta de ofertas) */
 var inicioCfg = null;
 function renderInicio(){
   const box = $("inicio"); if(!box || !inicioCfg) return;
-  box.hidden = false;
+  box.hidden = $("placa-inicio-op").hidden = false;
   const c = inicioCfg;
-  $("pc-iniciar").checked = !!c.comWindows;
-  $("pc-minimizado").checked = !!c.minimizado; $("pc-minimizado").disabled = !c.comWindows;
+  for(const [ini, min] of [["pc-iniciar", "pc-minimizado"], ["placa-iniciar", "placa-minimizado"]]){
+    $(ini).checked = !!c.comWindows;
+    $(min).checked = !!c.minimizado; $(min).disabled = !c.comWindows;
+  }
   $("pc-minimizado-h").textContent = c.bandeja ? "(a janela não aparece: o painel fica no ícone perto do relógio)" : "(a janela fica minimizada na barra de tarefas)";
   const dica = $("pc-iniciar-dica");
   dica.hidden = !!c.comWindows || !c.precisa;
@@ -5265,7 +5283,6 @@ async function carregarInicio(op){
   if(!DESKTOP || !window.desktop.inicioWindows) return;
   try{ inicioCfg = await window.desktop.inicioWindows(op||null); }catch(e){}
   renderInicio();
-  renderPlaca();   /* o aviso de que o painel não abre junto com o Windows */
 }
 $("al-horas").addEventListener("change", e=>{ alerta.horas = +e.target.value || 0; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
 $("al-bandeja").addEventListener("change", e=>{ alerta.bandeja = e.target.checked; salvarAlerta(); sincronizarSegundoPlano(); renderAlerta(); });
@@ -6242,7 +6259,7 @@ async function lerKryptexApp(motivo){
   salvarKx(antesKx);
   if(avisou || kxa.estado!==estadoAntes) gravarKxa(true); else gravarKxa(false);
   if(kxa.estado!==estadoAntes) status2("ag-status", "");   /* "Pausada por 1 hora", "voltou a minerar"...: o quadro já diz o estado novo */
-  renderAgora(); renderVivo(); renderKxaPremissas();
+  renderAgora(); renderVivo(); renderKxaCfg();
   if(avisou){ renderAvisos(); renderSugestoesKx(); renderAvisoSug(); }
 }
 async function pausarKryptex(minutos){
@@ -6296,11 +6313,13 @@ document.addEventListener("click", e=>{
   const d = e.target.closest("details"); if(d) d.open = false;
   if(p) pausarKryptex(+p.dataset.pausa); else voltarKryptex();
 });
-/* Premissas › App da Kryptex neste PC */
-function renderKxaPremissas(){
+/* Configurações › Integrações › App da Kryptex neste PC, e a proteção de temperatura (Configurações › Mineração), que precisa
+   da leitura do app ligada */
+function renderKxaCfg(){
   const box = $("kxa-p"); if(!box) return;
-  box.hidden = !PODE_KXA(); if(box.hidden) return;
+  box.hidden = $("protecao-p").hidden = !PODE_KXA(); if(box.hidden) return;
   const c = kxaCfg();
+  $("protecao-sem-leitura").hidden = !!c.ligado;
   $("kxa-ligado").checked = c.ligado; $("kxa-protecao").checked = c.protecao;
   if(document.activeElement!==$("kxa-limtemp")) $("kxa-limtemp").value = c.limTemp;
   if(document.activeElement!==$("kxa-limmem")) $("kxa-limmem").value = c.limMem;
@@ -6315,13 +6334,13 @@ function textoDiagKxa(){
     + ocultar(JSON.stringify({estado:kxa.estado, falha:kxa.falha, cfg:kxaCfg(), leitura:l, amostras:kxaHist.amostras.slice(-10)}, null, 1));
 }
 if(PODE_KXA()){
-  $("kxa-ligado").addEventListener("change", e=>{ mudarKxaCfg({ligado:e.target.checked}); sincronizarSegundoPlano(); renderKxaPremissas(); if(e.target.checked) lerKryptexApp("manual"); else { fecharParadasAbertas(); status2("ag-status", ""); renderAgora(); renderVivo(); } });
-  $("kxa-protecao").addEventListener("change", e=>{ mudarKxaCfg({protecao:e.target.checked}); renderKxaPremissas(); renderAgora(); });
+  $("kxa-ligado").addEventListener("change", e=>{ mudarKxaCfg({ligado:e.target.checked}); sincronizarSegundoPlano(); renderKxaCfg(); if(e.target.checked) lerKryptexApp("manual"); else { fecharParadasAbertas(); status2("ag-status", ""); renderAgora(); renderVivo(); } });
+  $("kxa-protecao").addEventListener("change", e=>{ mudarKxaCfg({protecao:e.target.checked}); renderKxaCfg(); renderAgora(); });
   for(const [id, k, min, max] of [["kxa-limtemp","limTemp",60,110], ["kxa-limmem","limMem",60,120], ["kxa-limhot","limHot",60,120]])
     $(id).addEventListener("change", e=>{ const v = Math.round(+e.target.value); if(v>=min && v<=max){ mudarKxaCfg({[k]:v}); renderAgora(); } else e.target.value = kxaCfg()[k]; });
   $("kxa-ler").addEventListener("click", async ()=>{ status2("kxa-status", "Lendo o app da Kryptex…"); await lerKryptexApp("manual"); status2("kxa-status", kxa.leitura && kxa.estado!=="fechado" && kxa.quando===kxa.ultimaOk && !kxa.falha ? "Lido agora." : `Não deu certo: ${kxa.falha || "o app da Kryptex não respondeu"}.`, kxa.falha ? "erro" : "ok"); });
   $("kxa-copiar").addEventListener("click", async ()=>{ await copiarTexto(textoDiagKxa()); status2("kxa-status", "Copiado (sem e-mail nem o nome do PC). Cole na conversa com o Claude para conferir a leitura.", "ok"); });
-  renderKxaPremissas();
+  renderKxaCfg();
   setTimeout(()=>{ lerKryptexApp().catch(()=>{}); }, 1500);
   setInterval(()=>{ lerKryptexApp().catch(()=>{}); }, KXA_CADA);
 }
@@ -6506,7 +6525,6 @@ function renderPlaca(){
   if(!cx.dataset.ocupado) cx.checked = cuida;
   $("placa-quando").textContent = s.leitura && s.leitura.quando ? `lido ${quando(s.leitura.quando)}` : "";
   $("placa-ab").hidden = !(s.leitura && s.leitura.afterburner);
-  $("placa-inicio").hidden = !(cuida && inicioCfg && !inicioCfg.comWindows);
   const lista = $("placa-lista");
   if(!lidas.length){ lista.innerHTML = s.erro ? `<p class="status erro">Não deu para ler a placa: ${esc(s.erro.msg || s.erro.erro || "o leitor não respondeu")}.</p>` : ""; return; }
   const nomes = {}, ficam = new Set();

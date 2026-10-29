@@ -21,8 +21,6 @@ DICA = 'Marque "O painel cuida dos ajustes da placa" para mudar.'
 AGORA_TXT = "Agora: 2.201 MHz · 273 W · 43 °C · uso 100%"
 AB = ("O MSI Afterburner também está aberto. Para os dois não brigarem, desligue nele o 'Aplicar overclock ao iniciar o "
       "sistema' (ou desinstale).")
-INICIO = ("O painel só aplica o ajuste quando está aberto. Para aplicar assim que o Windows ligar: Este computador › Abrir o "
-          "painel junto com o Windows.")
 APLICADO = "Aplicado. A placa leu: Potência −21% · Tensão −75 mV · Clock máximo +0 MHz · Memória 2518 MHz · Ventoinha fixa em 74%."
 CORRIJA = "Corrija os campos marcados."
 CONFIRMA = ("Esse ajuste travou a placa em 25/10 13:00 (o driver de vídeo reiniciou durante o teste). Clique de novo em até 6 "
@@ -219,7 +217,6 @@ def pc(p):
           [bts[a].text_content() for a in bts])
     checa("sem cuidar: a dica", c.locator(".placa-dica").is_visible() and c.locator(".placa-dica").text_content() == DICA)
     checa("o aviso do Afterburner escondido", pg.locator("#placa-ab").is_hidden())
-    checa("sem cuidar: o aviso do Windows escondido", pg.locator("#placa-inicio").is_hidden())
     checa("sem cuidar: nada gravado na min-placa", pg.evaluate("window.__minPlaca") == 0 and pg.evaluate("localStorage.getItem('min-placa')") is None)
     # cada aviso do programa (aoMudar) faz a página pedir o estado de novo
     n = len(chamadas(pg, "estado"))
@@ -238,8 +235,6 @@ def pc(p):
     checa("cuidar: os campos ligados", not any(pg.evaluate("[...document.querySelectorAll('#placa-lista [data-campo]')].map(x => x.disabled)")))
     checa("cuidar: a dica some", c.locator(".placa-dica").is_hidden())
     checa("cuidar: a situação", c.locator(".placa-sit").text_content() == "Ajuste bom desde 25/10 14:00.", c.locator(".placa-sit").text_content())
-    checa("cuidar: o aviso do Windows (o painel não abre com ele)", pg.locator("#placa-inicio").is_visible() and pg.locator("#placa-inicio").text_content() == INICIO,
-          pg.locator("#placa-inicio").text_content())
     checa("cuidar: a min-placa gravada uma vez", pg.evaluate("window.__minPlaca") == 1, pg.evaluate("window.__minPlaca"))
     checa("cuidar: o celular fica sabendo da min-placa uma vez", mudancas(pg) == 1, mudancas(pg))
     # com o painel cuidando e a leitura nova, só o estado; com a leitura de mais de 2 minutos, lê antes
@@ -380,6 +375,27 @@ def abrir_configuracoes(p):
     checa("abrir Configurações pede o estado", len(chamadas(pg, "estado")) > n, [n, len(chamadas(pg, "estado"))])
     checa("com o painel cuidando: a situação", cartao(pg).locator(".placa-sit").text_content() == "Ajuste bom desde 25/10 13:00.", cartao(pg).locator(".placa-sit").text_content())
     checa("sem erros (abrir Configurações)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
+# abrir junto com o Windows, com o estado guardado como o programa guarda (cada escolha volta na resposta seguinte)
+INICIO_JS = """(() => { let c = {comWindows:false, escolheu:false, minimizado:true, bandeja:false, precisa:false}; window.__inicio = [];
+  window.desktop.inicioWindows = async (op) => { if (op) { window.__inicio.push(op); c = {...c, ...op, escolheu:true}; } return {...c}; }; })();"""
+
+
+@parte
+def inicio_na_placa(p):
+    """o quadro da placa tem as mesmas escolhas de abrir com o Windows que Este computador"""
+    pg = abrir(p, dados=DADOS, pc=True, hash="mineracao", extra=ponte(cuidar=True) + "\n" + INICIO_JS)
+    pg.wait_for_timeout(300)
+    checa("caixas na placa", pg.locator("#placa-iniciar").is_visible() and not pg.locator("#placa-iniciar").is_checked() and pg.locator("#placa-minimizado").is_disabled())
+    pg.click("#placa-iniciar"); pg.wait_for_timeout(250)
+    checa("marcar na placa", pg.evaluate("window.__inicio") == [{"comWindows": True}] and pg.locator("#placa-iniciar").is_checked() and pg.locator("#pc-iniciar").is_checked()
+          and pg.locator("#placa-minimizado").is_enabled() and pg.locator("#placa-minimizado").is_checked(), pg.evaluate("window.__inicio"))
+    pg.evaluate("document.getElementById('pc-minimizado').click()"); pg.wait_for_timeout(250)
+    checa("mudar em Este computador muda na placa", not pg.locator("#placa-minimizado").is_checked() and len(pg.evaluate("window.__inicio")) == 2, pg.evaluate("window.__inicio"))
+    checa("sem o aviso antigo", pg.evaluate("!document.getElementById('placa-inicio')"))
+    checa("sem erros (abrir com o Windows na placa)", not erros(pg), erros(pg)[:3])
     pg.context.close()
 
 
@@ -534,6 +550,7 @@ with sync_playwright() as p:
     textos(p)
     pc(p)
     abrir_configuracoes(p)
+    inicio_na_placa(p)
     duas(p)
     contagem(p)
     celular(p)

@@ -276,9 +276,12 @@ def kryptex_app(p):
     t = pg.inner_text("#agora")
     checa("app fechado: o menu não diz 'agora'", "App da Kryptex fechado" in pg.inner_text("#vivo") and "hoje até agora" not in pg.inner_text("#vivo"), pg.inner_text("#vivo"))
     checa("app fechado: números da última leitura", pg.evaluate("!!document.querySelector('#agora .ag-nums.velho')") and "última leitura" in t and "Hoje até agora" not in t, t[:300])
-    # Configurações › Integrações › App da Kryptex neste PC
+    # Configurações › Integrações › App da Kryptex neste PC; a proteção de temperatura fica em Mineração
     pg.evaluate("irPara('integracoes')")
-    checa("painel em Integrações", pg.is_visible("#kxa-p") and pg.is_checked("#kxa-ligado") and pg.is_checked("#kxa-protecao") and pg.input_value("#kxa-limtemp") == "85")
+    checa("painel em Integrações", pg.is_visible("#kxa-p") and pg.is_checked("#kxa-ligado"))
+    pg.evaluate("irPara('mineracao')")
+    checa("proteção em Mineração", pg.is_visible("#protecao-p") and pg.is_checked("#kxa-protecao") and pg.input_value("#kxa-limtemp") == "85"
+          and not pg.evaluate("(e => !!e && e.getClientRects().length > 0)(document.getElementById('protecao-sem-leitura'))"))
     pg.fill("#kxa-limtemp", "80"); pg.dispatch_event("#kxa-limtemp", "change")
     checa("limite da placa", pg.evaluate("kxaCfg().limTemp") == 80)
     checa("limite vale na proteção", pg.evaluate("simularLeituras([{...MIN, placas:[{...MIN.placas[0], temp:81}, MIN.placas[1]]}, {...MIN, placas:[{...MIN.placas[0], temp:81}, MIN.placas[1]]}])")["acoes"] == [["pausar", 15]])
@@ -291,6 +294,7 @@ def kryptex_app(p):
     pg.uncheck("#kxa-protecao")
     checa("desligar a proteção", pg.evaluate("kxaCfg().protecao") is False and pg.is_disabled("#kxa-limtemp") and pg.is_disabled("#kxa-limhot"))
     checa("protecao_desligada", pg.evaluate("simularLeituras([QUENTE, QUENTE])")["acoes"] == [])
+    pg.evaluate("irPara('integracoes')")
     pg.evaluate("window.__copiado = null; window.desktop.copiar = async (t) => { window.__copiado = t; return true; }")
     pg.click("#kxa-copiar"); pg.wait_for_timeout(200)
     c = pg.evaluate("window.__copiado") or ""
@@ -299,6 +303,9 @@ def kryptex_app(p):
     pg.uncheck("#kxa-ligado")
     checa("desligar a leitura: estimativa, sem recado velho", pg.evaluate("kxaCfg().ligado") is False and pg.inner_text("#ag-status").strip() == "" and "Sem leitura ao vivo" in pg.inner_text("#agora"),
           [pg.inner_text("#ag-status"), pg.inner_text("#agora")[:120]])
+    pg.evaluate("irPara('mineracao')")
+    aviso = pg.evaluate("(e => e && e.getClientRects().length > 0 ? e.innerText : null)(document.getElementById('protecao-sem-leitura'))")
+    checa("proteção sem a leitura", bool(aviso) and "Integrações" in aviso, aviso)
     checa("sem erros no console", not erros(pg), erros(pg)[:3])
 
 

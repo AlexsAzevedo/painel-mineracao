@@ -10,7 +10,7 @@ AREAS = {"resumo": ["resumo", "diario", "minhas", "setup"], "comprar": ["ofertas
 BOTOES = {"resumo": ["Visão geral", "Diário de ganhos", "Minhas placas", "Meu setup"],
           "comprar": ["Ofertas", "Analisar anúncio", "Todas as placas", "Simulador"],
           "config": ["Mineração", "Perfil", "Integrações", "Este computador", "Sobre"]}
-QUADROS = {"mineracao": ["cen-p", "placa-p", "placa-cel", "branca-p", "notas-prem"], "perfil": ["perfil-p", "kx-p"],
+QUADROS = {"mineracao": ["cen-p", "placa-p", "placa-cel", "protecao-p", "branca-p", "notas-prem"], "perfil": ["perfil-p", "fb-p", "kx-p"],
            "integracoes": ["kxa-p", "appcel-p", "celular-p", "acesso-p", "dados-fora"],
            "computador": ["mais-sync", "estecel-p", "este-pc", "aparencia-p"], "sobre": ["sobre-p"]}
 TODAS = [v for a in AREAS.values() for v in a]
@@ -85,6 +85,8 @@ def online(p):
     clica(pg, ".item[data-area=comprar]"); pg.wait_for_timeout(150)
     checa("sem Ofertas, Comprar abre Analisar anúncio", visivel(pg, "#v-anuncio") and not visivel(pg, "#nav-ofertas"))
     checa("Este aparelho", titulo(pg, "computador") == "Este aparelho" and nomes(pg, ".tela-bt[data-view=computador]") == ["Este aparelho"], titulo(pg, "computador"))
+    pg.evaluate("irPara('perfil')"); pg.wait_for_timeout(100)
+    checa("sem Facebook no painel online", pg.evaluate("!!document.getElementById('fb-p')") and not visivel(pg, "#fb-p"))
     checa("sem erros (online)", not erros(pg), erros(pg)[:3])
     pg.context.close()
 
@@ -151,6 +153,16 @@ def largura(p):
     pg.context.close()
 
 
+def facebook(p):
+    pg = abrir(p, dados=DADOS, pc=True, hash="perfil")
+    checa("quadro do Facebook", visivel(pg, "#fb-p") and visivel(pg, "#fb-p [data-pc=facebook]"))
+    checa("sem o Entrar na Kryptex repetido", pg.evaluate("!document.querySelector('[data-pc=kryptex]')"))
+    clica(pg, "#fb-p [data-pc=facebook]"); pg.wait_for_timeout(300)
+    checa("entrar no Facebook", texto(pg, "#fb-status") == "Pronto: os links de anúncio e as buscas do Marketplace usam essa conta.", texto(pg, "#fb-status"))
+    checa("sem erros (Facebook)", not erros(pg), erros(pg)[:3])
+    pg.context.close()
+
+
 def links(p):
     pg = abrir(p, dados=DADOS, pc=True)
     clica(pg, ".credito button"); pg.wait_for_timeout(250)
@@ -173,5 +185,6 @@ with sync_playwright() as p:
     quadros(p)
     celular(p)
     largura(p)
+    facebook(p)
     links(p)
 fim()
