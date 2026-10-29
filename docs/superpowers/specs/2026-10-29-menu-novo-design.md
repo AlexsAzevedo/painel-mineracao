@@ -160,10 +160,10 @@ Prévia aprovada: quadro "Novo menu do Painel de Mineração" (https://claude.ai
 
 No celular, a tela chama Este celular; no painel online, Este aparelho.
 
-1. Este celular (`estecel-p`, só no celular).
-   - **O que muda:** o estado da ligação com o PC (`#mais-sync`) fica no alto do quadro.
-2. Este computador (`este-pc`, só no programa do PC): a atualização, o backup, o "Ao ligar o computador" e os botões Mostrar o navegador escondido, Exportar backup e Importar backup.
-3. Aparência (quadro novo `aparencia-p`, em todos os aparelhos): o seletor de tema.
+1. No alto da tela, antes dos quadros, o estado da ligação com o PC (`#mais-sync`), à vista mesmo com os quadros fechados. Só aparece com menos de 900 px: no PC, o estado já fica no rodapé do menu (`#sync`).
+2. Este celular (`estecel-p`, só no celular).
+3. Este computador (`este-pc`, só no programa do PC): a atualização, o backup, o "Ao ligar o computador" e os botões Mostrar o navegador escondido, Exportar backup e Importar backup.
+4. Aparência (quadro novo `aparencia-p`, em todos os aparelhos): o seletor de tema.
    - No PC, o seletor também fica no rodapé do menu.
    - Com este quadro, a tela nunca fica vazia, nem no painel online.
 
