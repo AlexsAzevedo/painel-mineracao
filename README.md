@@ -8,7 +8,7 @@ Baixe o instalador do Windows na [versão mais nova](https://github.com/AlexsAze
 
 Na primeira vez, o painel pergunta o seu nome, a cidade, a conta de luz e os seus computadores. Os dados ficam só no seu computador.
 
-O app do celular (Android) também está na [versão mais nova](https://github.com/AlexsAzevedo/painel-mineracao/releases/latest) (arquivo `Painel-de-Mineracao.apk`). O jeito mais fácil é pelo próprio painel do PC, em Premissas › App do celular: um QR code baixa o app e outro vincula o celular ao PC. Os dados vão criptografados pelo ntfy.sh, sem porta aberta no computador.
+O app do celular (Android) também está na [versão mais nova](https://github.com/AlexsAzevedo/painel-mineracao/releases/latest) (arquivo `Painel-de-Mineracao.apk`). O jeito mais fácil é pelo próprio painel do PC, em Configurações › Integrações › App do celular: um QR code baixa o app e outro vincula o celular ao PC. Os dados vão criptografados pelo ntfy.sh, sem porta aberta no computador.
 
 ## O que tem aqui
 

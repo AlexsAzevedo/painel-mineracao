@@ -65,8 +65,10 @@ def resumo(p):
     checa("novidades da 1.9.0 (simulador)", pg.evaluate("(n => !!n && /Simulador de compra/.test(n.itens[0]))(NOVIDADES.find(n => n.v === '1.9.0'))"))
     checa("novidades da 1.10.0 (paradas e quedas de energia)", pg.evaluate("(n => !!n && /quedas de energia/.test(n.itens[0]) && /Celesc/.test(n.itens.join(' ')))(NOVIDADES.find(n => n.v === '1.10.0'))"))
     checa("novidades da 1.10.1 (o programa da 1.10.0 não abria)", pg.evaluate("(n => !!n && /não abria/.test(n.itens[0]))(NOVIDADES.find(n => n.v === '1.10.1'))"))
-    checa("novidades da 1.11.0 (ajustes da placa, sem o Afterburner) no começo",
-          pg.evaluate("NOVIDADES[0].v === '1.11.0' && /Ajustes da placa/.test(NOVIDADES[0].itens[0]) && /MSI Afterburner/.test(NOVIDADES[0].itens[0]) && /travamento/.test(NOVIDADES[0].itens.join(' ')) && /celular/.test(NOVIDADES[0].itens.join(' '))"))
+    checa("novidades da 1.11.0 (ajustes da placa, sem o Afterburner)",
+          pg.evaluate("(n => !!n && /Ajustes da placa/.test(n.itens[0]) && /MSI Afterburner/.test(n.itens[0]) && /travamento/.test(n.itens.join(' ')) && /celular/.test(n.itens.join(' ')))(NOVIDADES.find(n => n.v === '1.11.0'))"))
+    checa("novidades da 1.12.0 (menu novo) no começo",
+          pg.evaluate("NOVIDADES[0].v === '1.12.0' && /Resumo geral/.test(NOVIDADES[0].itens[0]) && /Configurações/.test(NOVIDADES[0].itens.join(' ')) && /Windows/.test(NOVIDADES[0].itens.join(' ')) && /celular/.test(NOVIDADES[0].itens.join(' '))"))
     ids = pg.eval_on_selector_all("#v-resumo [id]", "e=>e.map(x=>x.id)")
     checa("ordem", [i for i in ids if i in ("agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p")] == ["agora", "r-mes", "r-graf-p", "r-ret-p", "r-avisos-p"], ids)
     m = pg.evaluate("resumoMes()")
